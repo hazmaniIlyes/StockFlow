@@ -86,19 +86,34 @@ export function AnalyticsWidgetSummary({
   return (
     <Card
       sx={[
-        () => ({
+        (theme) => ({
           p: 3,
-          boxShadow: 'none',
+          boxShadow: theme.vars.customShadows.z4,
           position: 'relative',
           color: `${color}.darker`,
           backgroundColor: 'common.white',
-          backgroundImage: `linear-gradient(135deg, ${varAlpha(theme.vars.palette[color].lighterChannel, 0.48)}, ${varAlpha(theme.vars.palette[color].lightChannel, 0.48)})`,
+          backgroundImage: `linear-gradient(135deg, ${varAlpha(theme.vars.palette[color].lighterChannel, 0.28)}, ${varAlpha(theme.vars.palette[color].lightChannel, 0.28)})`,
         }),
         ...(Array.isArray(sx) ? sx : [sx]),
       ]}
       {...other}
     >
-      <Box sx={{ width: 48, height: 48, mb: 3 }}>{icon}</Box>
+      <Box
+        sx={{
+          width: 48,
+          height: 48,
+          mb: 3,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: '12px',
+          color: `${color}.main`,
+          backgroundColor: varAlpha(theme.vars.palette[color].mainChannel, 0.12),
+          boxShadow: `0 4px 12px 0 ${varAlpha(theme.vars.palette[color].mainChannel, 0.12)}`,
+        }}
+      >
+        {icon}
+      </Box>
 
       {renderTrending()}
 
@@ -111,7 +126,7 @@ export function AnalyticsWidgetSummary({
         }}
       >
         <Box sx={{ flexGrow: 1, minWidth: 112 }}>
-          <Box sx={{ mb: 1, typography: 'subtitle2' }}>{title}</Box>
+          <Box sx={{ mb: 1, typography: 'h6' }}>{title}</Box>
 
           <Box sx={{ typography: 'h4' }}>{fShortenNumber(total)}</Box>
         </Box>

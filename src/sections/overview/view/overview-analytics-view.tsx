@@ -1,22 +1,56 @@
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
+import {
+  DollarSign,
+  LineChart,
+  AlertCircle,
+  TrendingUp,
+  Truck,
+  CheckCircle,
+  PieChart,
+  ShoppingCart,
+} from 'lucide-react';
+
+import {
+  _dashboardMetrics,
+  _productsSold,
+  _recentSales,
+  _revenueBreakdown,
+  _secondaryMetrics,
+  _statsComparison,
+  _todoList,
+} from 'src/_mock';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { _posts, _tasks, _traffic, _timeline } from 'src/_mock';
 
-import { AnalyticsNews } from '../analytics-news';
-import { AnalyticsTasks } from '../analytics-tasks';
-import { AnalyticsCurrentVisits } from '../analytics-current-visits';
-import { AnalyticsOrderTimeline } from '../analytics-order-timeline';
-import { AnalyticsWebsiteVisits } from '../analytics-website-visits';
+import { AnalyticsProductsSold } from '../analytics-products-sold';
+import { AnalyticsQuickActions } from '../analytics-quick-actions';
+import { AnalyticsRecentSales } from '../analytics-recent-sales';
+import { AnalyticsRevenueBreakdown } from '../analytics-revenue-breakdown';
+import { AnalyticsStatsComparison } from '../analytics-stats-comparison';
+import { AnalyticsTodoList } from '../analytics-todo-list';
+import { AnalyticsWidgetSecondary } from '../analytics-widget-secondary';
 import { AnalyticsWidgetSummary } from '../analytics-widget-summary';
-import { AnalyticsTrafficBySite } from '../analytics-traffic-by-site';
-import { AnalyticsCurrentSubject } from '../analytics-current-subject';
-import { AnalyticsConversionRates } from '../analytics-conversion-rates';
 
-// ----------------------------------------------------------------------
+// ======================================================================
 
 export function OverviewAnalyticsView() {
+  const handleAddProduct = () => {
+    console.log('Add Product clicked');
+  };
+
+  const handleAddSale = () => {
+    console.log('Add Sale/Invoice clicked');
+  };
+
+  const handleAddSupplier = () => {
+    console.log('Add Supplier clicked');
+  };
+
+  const handleViewReports = () => {
+    console.log('View Reports clicked');
+  };
+
   return (
     <DashboardContent maxWidth="xl">
       <Typography variant="h4" sx={{ mb: { xs: 3, md: 5 } }}>
@@ -24,131 +58,163 @@ export function OverviewAnalyticsView() {
       </Typography>
 
       <Grid container spacing={3}>
+        {/* ============ MAIN CARDS ROW ============ */}
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <AnalyticsWidgetSummary
-            title="Weekly sales"
-            percent={2.6}
-            total={714000}
-            icon={<img alt="Weekly sales" src="/assets/icons/glass/ic-glass-bag.svg" />}
+            title="Today Revenue"
+            percent={_dashboardMetrics.todayRevenue.percent}
+            total={_dashboardMetrics.todayRevenue.total}
+            icon={<DollarSign style={{ width: 40, height: 40 }} />}
             chart={{
-              categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
-              series: [22, 8, 35, 50, 82, 84, 77, 12],
+              categories: _dashboardMetrics.todayRevenue.chart.categories,
+              series: _dashboardMetrics.todayRevenue.chart.series,
             }}
           />
         </Grid>
 
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <AnalyticsWidgetSummary
-            title="New users"
-            percent={-0.1}
-            total={1352831}
-            color="secondary"
-            icon={<img alt="New users" src="/assets/icons/glass/ic-glass-users.svg" />}
+            title="This Month Revenue"
+            percent={_dashboardMetrics.thisMonthRevenue.percent}
+            total={_dashboardMetrics.thisMonthRevenue.total}
+            icon={<LineChart style={{ width: 40, height: 40 }} />}
             chart={{
-              categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
-              series: [56, 47, 40, 62, 73, 30, 23, 54],
+              categories: _dashboardMetrics.thisMonthRevenue.chart.categories,
+              series: _dashboardMetrics.thisMonthRevenue.chart.series,
             }}
           />
         </Grid>
 
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <AnalyticsWidgetSummary
-            title="Purchase orders"
-            percent={2.8}
-            total={1723315}
+            title="Pending Payments"
+            percent={_dashboardMetrics.pendingPayments.percent}
+            total={_dashboardMetrics.pendingPayments.total}
+            icon={<AlertCircle style={{ width: 40, height: 40 }} />}
+            chart={{
+              categories: _dashboardMetrics.pendingPayments.chart.categories,
+              series: _dashboardMetrics.pendingPayments.chart.series,
+            }}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <AnalyticsWidgetSummary
+            title="Today Profit"
+            percent={_dashboardMetrics.todayProfit.percent}
+            total={_dashboardMetrics.todayProfit.total}
+            icon={<TrendingUp style={{ width: 40, height: 40 }} />}
+            chart={{
+              categories: _dashboardMetrics.todayProfit.chart.categories,
+              series: _dashboardMetrics.todayProfit.chart.series,
+            }}
+          />
+        </Grid>
+
+        {/* ============ SECONDARY CARDS ROW ============ */}
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <AnalyticsWidgetSecondary
+            title="Suppliers Owed"
+            percent={_secondaryMetrics.suppliersOwed.percent}
+            total={_secondaryMetrics.suppliersOwed.total}
+            icon={<Truck style={{ width: 22, height: 22 }} />}
+            chart={{
+              categories: _secondaryMetrics.suppliersOwed.chart.categories,
+              series: _secondaryMetrics.suppliersOwed.chart.series,
+            }}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <AnalyticsWidgetSecondary
+            title="TVA Collected"
+            percent={_secondaryMetrics.tvaCollected.percent}
+            total={_secondaryMetrics.tvaCollected.total}
+            color="success"
+            icon={<CheckCircle style={{ width: 22, height: 22 }} />}
+            chart={{
+              categories: _secondaryMetrics.tvaCollected.chart.categories,
+              series: _secondaryMetrics.tvaCollected.chart.series,
+            }}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <AnalyticsWidgetSecondary
+            title="Last Month Revenue"
+            percent={_secondaryMetrics.lastMonthRevenue.percent}
+            total={_secondaryMetrics.lastMonthRevenue.total}
+            color="info"
+            icon={<PieChart style={{ width: 22, height: 22 }} />}
+            chart={{
+              categories: _secondaryMetrics.lastMonthRevenue.chart.categories,
+              series: _secondaryMetrics.lastMonthRevenue.chart.series,
+            }}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <AnalyticsWidgetSecondary
+            title="Orders This Month"
+            percent={_secondaryMetrics.ordersThisMonth.percent}
+            total={_secondaryMetrics.ordersThisMonth.total}
             color="warning"
-            icon={<img alt="Purchase orders" src="/assets/icons/glass/ic-glass-buy.svg" />}
+            icon={<ShoppingCart style={{ width: 22, height: 22 }} />}
             chart={{
-              categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
-              series: [40, 70, 50, 28, 70, 75, 7, 64],
+              categories: _secondaryMetrics.ordersThisMonth.chart.categories,
+              series: _secondaryMetrics.ordersThisMonth.chart.series,
             }}
           />
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <AnalyticsWidgetSummary
-            title="Messages"
-            percent={3.6}
-            total={234}
-            color="error"
-            icon={<img alt="Messages" src="/assets/icons/glass/ic-glass-message.svg" />}
+        {/* ============ STATS & QUICK ACTIONS ROW ============ */}
+        <Grid size={{ xs: 12, md: 8 }}>
+          <AnalyticsStatsComparison
+            title="This Month vs This Year"
             chart={{
-              categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
-              series: [56, 30, 23, 54, 47, 40, 62, 73],
+              categories: _statsComparison.categories,
+              series: _statsComparison.series,
             }}
           />
         </Grid>
 
-        <Grid size={{ xs: 12, md: 6, lg: 4 }}>
-          <AnalyticsCurrentVisits
-            title="Current visits"
+        <Grid size={{ xs: 12, md: 4 }}>
+          <AnalyticsQuickActions
+            onAddProduct={handleAddProduct}
+            onAddSale={handleAddSale}
+            onAddSupplier={handleAddSupplier}
+            onViewReports={handleViewReports}
+          />
+        </Grid>
+
+        {/* ============ REVENUE BREAKDOWN & PRODUCTS ROW (UNDER STATS) ============ */}
+        <Grid size={{ xs: 12, md: 4 }}>
+          <AnalyticsRevenueBreakdown
+            title="Revenue by Category"
             chart={{
-              series: [
-                { label: 'America', value: 3500 },
-                { label: 'Asia', value: 2500 },
-                { label: 'Europe', value: 1500 },
-                { label: 'Africa', value: 500 },
-              ],
+              series: _revenueBreakdown.series,
             }}
           />
         </Grid>
 
-        <Grid size={{ xs: 12, md: 6, lg: 8 }}>
-          <AnalyticsWebsiteVisits
-            title="Website visits"
-            subheader="(+43%) than last year"
-            chart={{
-              categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
-              series: [
-                { name: 'Team A', data: [43, 33, 22, 37, 67, 68, 37, 24, 55] },
-                { name: 'Team B', data: [51, 70, 47, 67, 40, 37, 24, 70, 24] },
-              ],
-            }}
+        <Grid size={{ xs: 12, md: 4 }}>
+          <AnalyticsProductsSold
+            title="Recent Products"
+            list={_productsSold.slice(4, 8)}
           />
         </Grid>
 
-        <Grid size={{ xs: 12, md: 6, lg: 8 }}>
-          <AnalyticsConversionRates
-            title="Conversion rates"
-            subheader="(+43%) than last year"
-            chart={{
-              categories: ['Italy', 'Japan', 'China', 'Canada', 'France'],
-              series: [
-                { name: '2022', data: [44, 55, 41, 64, 22] },
-                { name: '2023', data: [53, 32, 33, 52, 13] },
-              ],
-            }}
+        {/* ============ TODO LIST (UNDER QUICK ACTIONS) ============ */}
+        <Grid size={{ xs: 12, md: 4 }}>
+          <AnalyticsTodoList title="Todo List" list={_todoList} />
+        </Grid>
+
+        {/* ============ RECENT SALES ROW ============ */}
+        <Grid size={{ xs: 12 }}>
+          <AnalyticsRecentSales 
+            title="Recent Sales" 
+            list={_recentSales as Array<{ id: string; orderNumber: string; customer: string; amount: number; date: string; status: 'completed' | 'pending' | 'shipped' }>}
           />
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 6, lg: 4 }}>
-          <AnalyticsCurrentSubject
-            title="Current subject"
-            chart={{
-              categories: ['English', 'History', 'Physics', 'Geography', 'Chinese', 'Math'],
-              series: [
-                { name: 'Series 1', data: [80, 50, 30, 40, 100, 20] },
-                { name: 'Series 2', data: [20, 30, 40, 80, 20, 80] },
-                { name: 'Series 3', data: [44, 76, 78, 13, 43, 10] },
-              ],
-            }}
-          />
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 6, lg: 8 }}>
-          <AnalyticsNews title="News" list={_posts.slice(0, 5)} />
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 6, lg: 4 }}>
-          <AnalyticsOrderTimeline title="Order timeline" list={_timeline} />
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 6, lg: 4 }}>
-          <AnalyticsTrafficBySite title="Traffic by site" list={_traffic} />
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 6, lg: 8 }}>
-          <AnalyticsTasks title="Tasks" list={_tasks} />
         </Grid>
       </Grid>
     </DashboardContent>
