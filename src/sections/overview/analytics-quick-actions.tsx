@@ -1,7 +1,5 @@
 import type { CardProps } from '@mui/material/Card';
 
-import { Receipt, Package, Truck, BarChart3 } from 'lucide-react';
-
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Card from '@mui/material/Card';
@@ -10,6 +8,8 @@ import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
+
+import { Iconify } from 'src/components/iconify';
 
 // ======================================================================
 
@@ -39,10 +39,10 @@ export function AnalyticsQuickActions({
   const theme = useTheme();
 
   const actions: ActionItem[] = [
-    { id: 'sale', label: 'Create Invoice', icon: <Receipt style={{ width: 28, height: 28 }} />, color: 'primary', onClick: onAddSale },
-    { id: 'product', label: 'Add Product', icon: <Package style={{ width: 28, height: 28 }} />, color: 'info', onClick: onAddProduct },
-    { id: 'supplier', label: 'Add Supplier', icon: <Truck style={{ width: 28, height: 28 }} />, color: 'warning', onClick: onAddSupplier },
-    { id: 'reports', label: 'View Reports', icon: <BarChart3 style={{ width: 28, height: 28 }} />, color: 'secondary', onClick: onViewReports },
+    { id: 'sale', label: 'Create Invoice', icon: <Iconify icon="solar:bill-list-bold-duotone" width={28} />, color: 'primary', onClick: onAddSale },
+    { id: 'product', label: 'Add Product', icon: <Iconify icon="solar:box-bold-duotone" width={28} />, color: 'info', onClick: onAddProduct },
+    { id: 'supplier', label: 'Add Supplier', icon: <Iconify icon="solar:delivery-bold-duotone" width={28} />, color: 'warning', onClick: onAddSupplier },
+    { id: 'reports', label: 'View Reports', icon: <Iconify icon="solar:chart-bold-duotone" width={28} />, color: 'secondary', onClick: onViewReports },
   ];
 
   const getColorValue = (colorName: string) => {

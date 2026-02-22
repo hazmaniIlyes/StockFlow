@@ -8,6 +8,7 @@ import Popover from '@mui/material/Popover';
 import MenuList from '@mui/material/MenuList';
 import IconButton from '@mui/material/IconButton';
 import MenuItem, { menuItemClasses } from '@mui/material/MenuItem';
+import Typography from '@mui/material/Typography';
 
 // ----------------------------------------------------------------------
 
@@ -15,14 +16,15 @@ export type LanguagePopoverProps = IconButtonProps & {
   data?: {
     value: string;
     label: string;
-    icon: string;
+    code: string;
+    color: string;
   }[];
 };
 
 export function LanguagePopover({ data = [], sx, ...other }: LanguagePopoverProps) {
   const { open, anchorEl, onClose, onOpen } = usePopover();
 
-  const [locale, setLocale] = useState(data[0].value);
+  const [locale, setLocale] = useState(data[0]?.value);
 
   const handleChangeLang = useCallback(
     (newLang: string) => {
@@ -34,13 +36,25 @@ export function LanguagePopover({ data = [], sx, ...other }: LanguagePopoverProp
 
   const currentLang = data.find((lang) => lang.value === locale);
 
-  const renderFlag = (label?: string, icon?: string) => (
+  const renderBadge = (code?: string, color?: string, size: number = 26) => (
     <Box
-      component="img"
-      alt={label}
-      src={icon}
-      sx={{ width: 26, height: 20, borderRadius: 0.5, objectFit: 'cover' }}
-    />
+      sx={{
+        width: size,
+        height: size,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: '50%',
+        backgroundColor: color ?? '#1976D2',
+        color: '#fff',
+        fontSize: size * 0.42,
+        fontWeight: 700,
+        lineHeight: 1,
+        flexShrink: 0,
+      }}
+    >
+      {code}
+    </Box>
   );
 
   const renderMenuList = () => (
@@ -76,8 +90,8 @@ export function LanguagePopover({ data = [], sx, ...other }: LanguagePopoverProp
             selected={option.value === currentLang?.value}
             onClick={() => handleChangeLang(option.value)}
           >
-            {renderFlag(option.label, option.icon)}
-            {option.label}
+            {renderBadge(option.code, option.color, 24)}
+            <Typography variant="body2">{option.label}</Typography>
           </MenuItem>
         ))}
       </MenuList>
@@ -100,7 +114,7 @@ export function LanguagePopover({ data = [], sx, ...other }: LanguagePopoverProp
         ]}
         {...other}
       >
-        {renderFlag(currentLang?.label, currentLang?.icon)}
+        {renderBadge(currentLang?.code, currentLang?.color, 28)}
       </IconButton>
 
       {renderMenuList()}

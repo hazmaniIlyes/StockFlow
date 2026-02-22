@@ -1,9 +1,10 @@
-import { Label } from 'src/components/label';
-import { SvgColor } from 'src/components/svg-color';
+import { Iconify } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
-const icon = (name: string) => <SvgColor src={`/assets/icons/navbar/${name}.svg`} />;
+const icon = (name: Parameters<typeof Iconify>[0]['icon']) => (
+  <Iconify icon={name} width={24} />
+);
 
 export type NavItem = {
   title: string;
@@ -16,36 +17,41 @@ export const navData = [
   {
     title: 'Dashboard',
     path: '/',
-    icon: icon('ic-analytics'),
+    icon: icon('solar:home-angle-bold-duotone'),
   },
   {
-    title: 'User',
-    path: '/user',
-    icon: icon('ic-user'),
+    title: 'Sales / Invoicing',
+    path: '/sales',
+    icon: icon('solar:bill-list-bold-duotone'),
   },
   {
-    title: 'Product',
-    path: '/products',
-    icon: icon('ic-cart'),
-    info: (
-      <Label color="error" variant="inverted">
-        +3
-      </Label>
-    ),
+    title: 'Clients',
+    path: '/clients',
+    icon: icon('solar:users-group-rounded-bold-duotone'),
   },
   {
-    title: 'Blog',
-    path: '/blog',
-    icon: icon('ic-blog'),
+    title: 'Inventory',
+    path: '/inventory',
+    icon: icon('solar:box-bold-duotone'),
   },
   {
-    title: 'Sign in',
-    path: '/sign-in',
-    icon: icon('ic-lock'),
+    title: 'Suppliers',
+    path: '/suppliers',
+    icon: icon('solar:delivery-bold-duotone'),
   },
   {
-    title: 'Not found',
-    path: '/404',
-    icon: icon('ic-disabled'),
+    title: 'Expenses',
+    path: '/expenses',
+    icon: icon('solar:wallet-money-bold-duotone'),
+  },
+  {
+    title: 'Reports',
+    path: '/reports',
+    icon: icon('solar:chart-2-bold-duotone'),
+  },
+  {
+    title: 'Settings',
+    path: '/settings',
+    icon: icon('solar:settings-bold-duotone'),
   },
 ];

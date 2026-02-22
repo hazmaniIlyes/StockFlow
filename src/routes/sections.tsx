@@ -12,6 +12,16 @@ import { DashboardLayout } from 'src/layouts/dashboard';
 // ----------------------------------------------------------------------
 
 export const DashboardPage = lazy(() => import('src/pages/dashboard'));
+const SalesPage = lazy(() => import('src/pages/sales'));
+const SalesDetailPage = lazy(() => import('src/pages/sales-detail'));
+const ClientsPage = lazy(() => import('src/pages/clients'));
+const ClientsDetailPage = lazy(() => import('src/pages/clients-detail'));
+const InventoryPage = lazy(() => import('src/pages/inventory'));
+const SuppliersPage = lazy(() => import('src/pages/suppliers'));
+const SuppliersDetailPage = lazy(() => import('src/pages/suppliers-detail'));
+const ExpensesPage = lazy(() => import('src/pages/expenses'));
+const ReportsPage = lazy(() => import('src/pages/reports'));
+const SettingsPage = lazy(() => import('src/pages/settings'));
 
 const renderFallback = () => (
   <Box
@@ -44,6 +54,16 @@ export const routesSection: RouteObject[] = [
     ),
     children: [
       { index: true, element: <DashboardPage /> },
+      { path: 'sales', element: <SalesPage /> },
+      { path: 'sales/:id', element: <SalesDetailPage /> },
+      { path: 'clients', element: <ClientsPage /> },
+      { path: 'clients/:id', element: <ClientsDetailPage /> },
+      { path: 'inventory', element: <InventoryPage /> },
+      { path: 'suppliers', element: <SuppliersPage /> },
+      { path: 'suppliers/:id', element: <SuppliersDetailPage /> },
+      { path: 'expenses', element: <ExpensesPage /> },
+      { path: 'reports', element: <ReportsPage /> },
+      { path: 'settings', element: <SettingsPage /> },
     ],
   },
 ];
