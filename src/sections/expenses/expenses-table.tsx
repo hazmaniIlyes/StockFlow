@@ -20,12 +20,14 @@ import TextField from '@mui/material/TextField';
 import { fCurrency } from 'src/utils/format-number';
 import { fDate } from 'src/utils/format-time';
 
+import { useSettings, useTranslation } from 'src/contexts';
+
 import { Iconify } from 'src/components/iconify';
 import { Label } from 'src/components/label';
 import { Scrollbar } from 'src/components/scrollbar';
+import { ExportButtons } from 'src/components/export-buttons';
 
-import { EXPENSE_CATEGORIES } from 'src/_mock/_data';
-import type { Expense, ExpenseCategory } from 'src/_mock/_data';
+import type { Expense } from 'src/_mock/_data';
 
 // ======================================================================
 
@@ -35,32 +37,34 @@ type Props = {
   onDelete: (expenseId: string) => void;
 };
 
-const CATEGORY_OPTIONS: { value: string; label: string }[] = [
-  { value: 'all', label: 'All Categories' },
-  ...EXPENSE_CATEGORIES.map((c) => ({ value: c.value, label: c.label })),
-];
-
-const DATE_FILTER_OPTIONS = [
-  { value: 'all', label: 'All Time' },
-  { value: 'this-month', label: 'This Month' },
-  { value: 'last-month', label: 'Last Month' },
-  { value: 'this-year', label: 'This Year' },
-];
-
-function getCategoryColor(category: ExpenseCategory): string {
-  return EXPENSE_CATEGORIES.find((c) => c.value === category)?.color ?? '#A29BFE';
-}
-
-function getCategoryLabel(category: ExpenseCategory): string {
-  return EXPENSE_CATEGORIES.find((c) => c.value === category)?.label ?? category;
-}
-
 export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
+  const { expenseCategories } = useSettings();
+  const { t } = useTranslation();
+
+  const DATE_FILTER_OPTIONS = [
+    { value: 'all', label: t('expenses.allTime') },
+    { value: 'this-month', label: t('expenses.thisMonth') },
+    { value: 'last-month', label: t('expenses.lastMonth') },
+    { value: 'this-year', label: t('expenses.thisYear') },
+  ];
+  
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuExpense, setMenuExpense] = useState<Expense | null>(null);
+
+  // Helper functions to get category info from settings
+  const getCategoryColor = (category: string): string => 
+    expenseCategories.find((c) => c.label === category)?.color ?? '#A29BFE';
+
+  const getCategoryLabel = (category: string): string => 
+    expenseCategories.find((c) => c.label === category)?.label ?? category;
+
+  const categoryOptions = useMemo(() => [
+    { value: 'all', label: t('expenses.allCategories') },
+    ...expenseCategories.map((c) => ({ value: c.label, label: c.label })),
+  ], [expenseCategories, t]);
 
   const filtered = useMemo(() => {
     let result = expenses;
@@ -116,7 +120,7 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
       <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <TextField
           size="small"
-          placeholder="Search expenses..."
+          placeholder={t('expenses.searchExpenses')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ flexGrow: 1, minWidth: 200 }}
@@ -138,7 +142,7 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
           onChange={(e) => setCategoryFilter(e.target.value)}
           sx={{ minWidth: 160 }}
         >
-          {CATEGORY_OPTIONS.map((option) => (
+          {categoryOptions.map((option) => (
             <MenuItem key={option.value} value={option.value}>
               {option.label}
             </MenuItem>
@@ -158,6 +162,17 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
             </MenuItem>
           ))}
         </TextField>
+
+        <ExportButtons
+          data={filtered}
+          columns={[
+            { label: t('expenses.date'), key: 'date' },
+            { label: t('expenses.description'), key: 'description' },
+            { label: t('expenses.category'), key: 'category' },
+            { label: t('expenses.amount'), key: 'amount' },
+          ]}
+          fileName="expenses"
+        />
       </Box>
 
       {/* Table */}
@@ -166,11 +181,11 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Date</TableCell>
-                <TableCell>Description</TableCell>
-                <TableCell align="center">Category</TableCell>
-                <TableCell align="right">Amount</TableCell>
-                <TableCell align="center">Recurring</TableCell>
+                <TableCell>{t('common.date')}</TableCell>
+                <TableCell>{t('expenses.description')}</TableCell>
+                <TableCell align="center">{t('expenses.category')}</TableCell>
+                <TableCell align="right">{t('expenses.amount')}</TableCell>
+                <TableCell align="center">{t('expenses.recurring')}</TableCell>
                 <TableCell align="center" sx={{ width: 60 }} />
               </TableRow>
             </TableHead>
@@ -178,7 +193,7 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                    No expenses found
+                    {t('expenses.noExpensesFound')}
                   </TableCell>
                 </TableRow>
               )}
@@ -218,10 +233,10 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
                       }
                     >
                       {expense.recurring === 'one-time'
-                        ? 'One-time'
+                        ? t('expenses.oneTime')
                         : expense.recurring === 'monthly'
-                          ? 'Monthly'
-                          : 'Yearly'}
+                          ? t('expenses.monthly')
+                          : t('expenses.yearly')}
                     </Label>
                   </TableCell>
                   <TableCell align="center">
@@ -252,7 +267,7 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
           }}
         >
           <ListItemIcon><Iconify icon="solar:pen-bold-duotone" width={20} /></ListItemIcon>
-          <ListItemText>Edit</ListItemText>
+          <ListItemText>{t('common.edit')}</ListItemText>
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -264,7 +279,7 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
           <ListItemIcon>
             <Iconify icon="solar:trash-bin-trash-bold" width={20} sx={{ color: 'error.main' }} />
           </ListItemIcon>
-          <ListItemText>Delete</ListItemText>
+          <ListItemText>{t('common.delete')}</ListItemText>
         </MenuItem>
       </Menu>
     </Card>

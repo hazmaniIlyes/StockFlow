@@ -8,8 +8,9 @@ import DialogTitle from '@mui/material/DialogTitle';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 
-import { EXPENSE_CATEGORIES } from 'src/_mock/_data';
-import type { Expense, ExpenseCategory, ExpenseRecurring } from 'src/_mock/_data';
+import { useSettings, useTranslation } from 'src/contexts';
+
+import type { Expense } from 'src/_mock/_data';
 
 // ======================================================================
 
@@ -21,11 +22,13 @@ type Props = {
 };
 
 export function ExpensesFormDialog({ open, expense, onClose, onSubmit }: Props) {
+  const { expenseCategories } = useSettings();
+  const { t } = useTranslation();
+
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<ExpenseCategory>('other');
+  const [category, setCategory] = useState('Other');
   const [amount, setAmount] = useState(0);
   const [date, setDate] = useState('');
-  const [recurring, setRecurring] = useState<ExpenseRecurring>('one-time');
   const [note, setNote] = useState('');
 
   useEffect(() => {
@@ -34,20 +37,18 @@ export function ExpensesFormDialog({ open, expense, onClose, onSubmit }: Props) 
       setCategory(expense.category);
       setAmount(expense.amount);
       setDate(expense.date);
-      setRecurring(expense.recurring);
       setNote(expense.note);
     } else {
       setDescription('');
-      setCategory('other');
+      setCategory(expenseCategories[0]?.label ?? 'Other');
       setAmount(0);
       setDate(new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }));
-      setRecurring('one-time');
       setNote('');
     }
-  }, [expense, open]);
+  }, [expense, open, expenseCategories]);
 
   const handleSubmit = () => {
-    onSubmit({ description, category, amount, date, recurring, note });
+    onSubmit({ description, category, amount, date, recurring: 'one-time', note });
     onClose();
   };
 
@@ -55,34 +56,40 @@ export function ExpensesFormDialog({ open, expense, onClose, onSubmit }: Props) 
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{expense ? 'Edit Expense' : 'Add Expense'}</DialogTitle>
+      <DialogTitle>{expense ? t('expenses.editExpense') : t('expenses.addExpense')}</DialogTitle>
 
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 3 }}>
         <TextField
           fullWidth
-          label="Description"
+          label={t('expenses.description')}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="e.g. Shop rent — February"
+          placeholder={t('expenses.descriptionPlaceholder')}
         />
 
         <TextField
           select
           fullWidth
-          label="Category"
+          label={t('expenses.category')}
           value={category}
-          onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
+          onChange={(e) => setCategory(e.target.value)}
         >
-          {EXPENSE_CATEGORIES.map((cat) => (
-            <MenuItem key={cat.value} value={cat.value}>
-              {cat.label}
+          {expenseCategories.length === 0 ? (
+            <MenuItem disabled value="">
+              <em>{t('settings.noCategoriesDropdown')}</em>
             </MenuItem>
-          ))}
+          ) : (
+            expenseCategories.map((cat) => (
+              <MenuItem key={cat.id} value={cat.label}>
+                {cat.label}
+              </MenuItem>
+            ))
+          )}
         </TextField>
 
         <TextField
           fullWidth
-          label="Amount (DA)"
+          label={t('expenses.amountDA')}
           type="number"
           value={amount}
           onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))}
@@ -91,27 +98,15 @@ export function ExpensesFormDialog({ open, expense, onClose, onSubmit }: Props) 
 
         <TextField
           fullWidth
-          label="Date"
+          label={t('common.date')}
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          placeholder="MM/DD/YYYY"
+          placeholder={t('expenses.datePlaceholder')}
         />
 
         <TextField
-          select
           fullWidth
-          label="Recurring"
-          value={recurring}
-          onChange={(e) => setRecurring(e.target.value as ExpenseRecurring)}
-        >
-          <MenuItem value="one-time">One-time</MenuItem>
-          <MenuItem value="monthly">Monthly</MenuItem>
-          <MenuItem value="yearly">Yearly</MenuItem>
-        </TextField>
-
-        <TextField
-          fullWidth
-          label="Note (optional)"
+          label={t('expenses.noteOptional')}
           value={note}
           onChange={(e) => setNote(e.target.value)}
           multiline
@@ -121,10 +116,10 @@ export function ExpensesFormDialog({ open, expense, onClose, onSubmit }: Props) 
 
       <DialogActions sx={{ px: 3, py: 2 }}>
         <Button variant="outlined" color="inherit" onClick={onClose}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button variant="contained" onClick={handleSubmit} disabled={!isValid}>
-          {expense ? 'Update' : 'Add Expense'}
+          {expense ? t('common.update') : t('expenses.addExpense')}
         </Button>
       </DialogActions>
     </Dialog>

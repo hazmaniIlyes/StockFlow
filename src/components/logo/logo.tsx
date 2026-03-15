@@ -34,6 +34,14 @@ export function Logo({
   const PRIMARY_MAIN = theme.vars.palette.primary.main;
   const PRIMARY_DARKER = theme.vars.palette.primary.dark;
 
+  const logoImg = (
+    <img
+      src={isSingle ? '/assets/stockflow-icon.PNG' : '/assets/stockflow-logoF.png'}
+      alt="StockFlow"
+      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+    />
+  );
+
   const singleLogo = (
     <svg
       width="100%"
@@ -173,16 +181,15 @@ export function Logo({
       className={mergeClasses([logoClasses.root, className])}
       sx={[
         {
-          width: 40,
-          height: 40,
-          ...(!isSingle && { width: 102, height: 36 }),
+          width: isSingle ? 48 : 160,
+          height: isSingle ? 48 : 48,
           ...(disabled && { pointerEvents: 'none' }),
         },
         ...(Array.isArray(sx) ? sx : [sx]),
       ]}
       {...other}
     >
-      {isSingle ? singleLogo : fullLogo}
+      {logoImg}
     </LogoRoot>
   );
 }

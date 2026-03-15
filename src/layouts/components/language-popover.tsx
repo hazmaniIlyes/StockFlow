@@ -1,14 +1,19 @@
 import type { IconButtonProps } from '@mui/material/IconButton';
 
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { usePopover } from 'minimal-shared/hooks';
 
 import Box from '@mui/material/Box';
 import Popover from '@mui/material/Popover';
 import MenuList from '@mui/material/MenuList';
-import IconButton from '@mui/material/IconButton';
+import ButtonBase from '@mui/material/ButtonBase';
 import MenuItem, { menuItemClasses } from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
+import { alpha, useTheme } from '@mui/material/styles';
+
+import { useI18n } from 'src/contexts';
+import { Iconify } from 'src/components/iconify';
+import type { Language } from 'src/contexts';
 
 // ----------------------------------------------------------------------
 
@@ -23,39 +28,18 @@ export type LanguagePopoverProps = IconButtonProps & {
 
 export function LanguagePopover({ data = [], sx, ...other }: LanguagePopoverProps) {
   const { open, anchorEl, onClose, onOpen } = usePopover();
-
-  const [locale, setLocale] = useState(data[0]?.value);
+  const { language, setLanguage } = useI18n();
+  const theme = useTheme();
 
   const handleChangeLang = useCallback(
     (newLang: string) => {
-      setLocale(newLang);
+      setLanguage(newLang as Language);
       onClose();
     },
-    [onClose]
+    [onClose, setLanguage]
   );
 
-  const currentLang = data.find((lang) => lang.value === locale);
-
-  const renderBadge = (code?: string, color?: string, size: number = 26) => (
-    <Box
-      sx={{
-        width: size,
-        height: size,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: '50%',
-        backgroundColor: color ?? '#1976D2',
-        color: '#fff',
-        fontSize: size * 0.42,
-        fontWeight: 700,
-        lineHeight: 1,
-        flexShrink: 0,
-      }}
-    >
-      {code}
-    </Box>
-  );
+  const currentLang = data.find((lang) => lang.value === language);
 
   const renderMenuList = () => (
     <Popover
@@ -64,21 +48,32 @@ export function LanguagePopover({ data = [], sx, ...other }: LanguagePopoverProp
       onClose={onClose}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      slotProps={{
+        paper: {
+          sx: {
+            mt: 0.75,
+            overflow: 'hidden',
+            borderRadius: 2,
+            border: `1px solid ${theme.vars.palette.divider}`,
+            boxShadow: theme.vars.customShadows.z20,
+          },
+        },
+      }}
     >
       <MenuList
         sx={{
-          p: 0.5,
-          gap: 0.5,
-          width: 160,
-          minHeight: 72,
+          p: 0.75,
+          gap: 0.25,
+          width: 168,
           display: 'flex',
           flexDirection: 'column',
           [`& .${menuItemClasses.root}`]: {
-            px: 1,
-            gap: 2,
-            borderRadius: 0.75,
+            px: 1.5,
+            py: 1,
+            gap: 1.5,
+            borderRadius: 1.5,
             [`&.${menuItemClasses.selected}`]: {
-              bgcolor: 'action.selected',
+              bgcolor: alpha(theme.palette.primary.main, 0.08),
               fontWeight: 'fontWeightSemiBold',
             },
           },
@@ -90,8 +85,21 @@ export function LanguagePopover({ data = [], sx, ...other }: LanguagePopoverProp
             selected={option.value === currentLang?.value}
             onClick={() => handleChangeLang(option.value)}
           >
-            {renderBadge(option.code, option.color, 24)}
-            <Typography variant="body2">{option.label}</Typography>
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                bgcolor: option.color,
+                flexShrink: 0,
+              }}
+            />
+            <Typography variant="body2" fontWeight={option.value === currentLang?.value ? 600 : 400} sx={{ flex: 1 }}>
+              {option.label}
+            </Typography>
+            {option.value === currentLang?.value && (
+              <Iconify icon="eva:checkmark-fill" width={16} sx={{ color: 'primary.main' }} />
+            )}
           </MenuItem>
         ))}
       </MenuList>
@@ -100,24 +108,45 @@ export function LanguagePopover({ data = [], sx, ...other }: LanguagePopoverProp
 
   return (
     <>
-      <IconButton
+      <ButtonBase
         aria-label="Languages button"
         onClick={onOpen}
-        sx={[
-          (theme) => ({
-            p: 0,
-            width: 40,
-            height: 40,
-            ...(open && { bgcolor: theme.vars.palette.action.selected }),
-          }),
-          ...(Array.isArray(sx) ? sx : [sx]),
-        ]}
-        {...other}
+        sx={{
+          height: 36,
+          px: 1.5,
+          gap: 1,
+          borderRadius: 1.5,
+          border: `1px solid ${open ? theme.vars.palette.primary.main : theme.vars.palette.divider}`,
+          bgcolor: open ? alpha(theme.palette.primary.main, 0.06) : 'transparent',
+          color: open ? 'primary.main' : 'text.secondary',
+          transition: 'all 150ms ease',
+          '&:hover': {
+            bgcolor: alpha(theme.palette.primary.main, 0.06),
+            borderColor: theme.vars.palette.primary.main,
+            color: 'primary.main',
+          },
+        }}
       >
-        {renderBadge(currentLang?.code, currentLang?.color, 28)}
-      </IconButton>
+        <Box
+          sx={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            bgcolor: currentLang?.color ?? 'text.disabled',
+            flexShrink: 0,
+          }}
+        />
+        <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1 }}>
+          {currentLang?.label ?? ''}
+        </Typography>
+        <Iconify
+          icon={open ? 'eva:chevron-up-fill' : 'eva:chevron-down-fill'}
+          width={14}
+        />
+      </ButtonBase>
 
       {renderMenuList()}
     </>
   );
 }
+

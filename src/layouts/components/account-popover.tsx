@@ -1,19 +1,33 @@
 import type { IconButtonProps } from '@mui/material/IconButton';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import InputAdornment from '@mui/material/InputAdornment';
 import Popover from '@mui/material/Popover';
 import Divider from '@mui/material/Divider';
 import MenuList from '@mui/material/MenuList';
+import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import MenuItem, { menuItemClasses } from '@mui/material/MenuItem';
 
 import { useRouter, usePathname } from 'src/routes/hooks';
 
+import { useSettings } from 'src/contexts/settings-context';
+import { useTranslation } from 'src/contexts';
+import { getAdminPassword } from 'src/sections/settings/settings-account';
+
+import { Iconify } from 'src/components/iconify';
 import { _myAccount } from 'src/_mock';
 
 // ----------------------------------------------------------------------
@@ -21,6 +35,7 @@ import { _myAccount } from 'src/_mock';
 export type AccountPopoverProps = IconButtonProps & {
   data?: {
     label: string;
+    titleKey?: string;
     href: string;
     icon?: React.ReactNode;
     info?: React.ReactNode;
@@ -32,7 +47,33 @@ export function AccountPopover({ data = [], sx, ...other }: AccountPopoverProps)
 
   const pathname = usePathname();
 
+  const { t } = useTranslation();
+
+  const { role, setRole, workerModeEnabled } = useSettings();
+
   const [openPopover, setOpenPopover] = useState<HTMLButtonElement | null>(null);
+  const [passwordDialog, setPasswordDialog] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [adminProfile, setAdminProfile] = useState(() => {
+    try {
+      const stored = localStorage.getItem('user_profile');
+      if (stored) return JSON.parse(stored) as { displayName: string };
+    } catch { /* ignore */ }
+    return { displayName: 'Admin' };
+  });
+
+  // Refresh profile whenever the popover opens
+  useEffect(() => {
+    if (openPopover) {
+      try {
+        const stored = localStorage.getItem('user_profile');
+        if (stored) setAdminProfile(JSON.parse(stored));
+      } catch { /* ignore */ }
+    }
+  }, [openPopover]);
 
   const handleOpenPopover = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     setOpenPopover(event.currentTarget);
@@ -50,6 +91,32 @@ export function AccountPopover({ data = [], sx, ...other }: AccountPopoverProps)
     [handleClosePopover, router]
   );
 
+  const handleToggleRole = useCallback(
+    (_e: React.MouseEvent, val: string | null) => {
+      if (!val) return;
+      if (val === 'admin' && role === 'worker') {
+        // Require password to switch back to Admin
+        setPasswordInput('');
+        setPasswordError(false);
+        setPasswordDialog(true);
+      } else {
+        setRole(val as 'admin' | 'worker');
+      }
+    },
+    [role, setRole]
+  );
+
+  const handlePasswordSubmit = useCallback(() => {
+    if (passwordInput === getAdminPassword()) {
+      setRole('admin');
+      setPasswordDialog(false);
+      setPasswordInput('');
+      setPasswordError(false);
+    } else {
+      setPasswordError(true);
+    }
+  }, [passwordInput, setRole]);
+
   return (
     <>
       <IconButton
@@ -64,8 +131,8 @@ export function AccountPopover({ data = [], sx, ...other }: AccountPopoverProps)
         }}
         {...other}
       >
-        <Avatar src={_myAccount.photoURL} alt={_myAccount.displayName} sx={{ width: 1, height: 1 }}>
-          {_myAccount.displayName.charAt(0).toUpperCase()}
+        <Avatar src={_myAccount.photoURL} alt={adminProfile.displayName} sx={{ width: 1, height: 1 }}>
+          {adminProfile.displayName.charAt(0).toUpperCase()}
         </Avatar>
       </IconButton>
 
@@ -77,18 +144,58 @@ export function AccountPopover({ data = [], sx, ...other }: AccountPopoverProps)
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         slotProps={{
           paper: {
-            sx: { width: 200 },
+            sx: { width: 230 },
           },
         }}
       >
         <Box sx={{ p: 2, pb: 1.5 }}>
-          <Typography variant="subtitle2" noWrap>
-            {_myAccount?.displayName}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="subtitle2" noWrap>
+                {adminProfile.displayName}
+              </Typography>
+            </Box>
 
-          <Typography variant="body2" sx={{ color: 'text.secondary' }} noWrap>
-            {_myAccount?.email}
-          </Typography>
+            {workerModeEnabled && (
+              <Chip
+                label={role === 'admin' ? 'Admin' : 'Worker'}
+                size="small"
+                color={role === 'admin' ? 'primary' : 'default'}
+                sx={{ ml: 1, flexShrink: 0, fontWeight: 600, fontSize: 11 }}
+              />
+            )}
+          </Box>
+
+          {workerModeEnabled && (
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={role}
+            onChange={handleToggleRole}
+            sx={{
+              mt: 1.5,
+              width: '100%',
+              '& .MuiToggleButton-root': {
+                flex: 1,
+                py: 0.5,
+                fontSize: 12,
+                fontWeight: 600,
+                border: '1px solid',
+                borderColor: 'divider',
+                textTransform: 'none',
+                '&.Mui-selected': {
+                  color: 'primary.contrastText',
+                  bgcolor: 'primary.main',
+                  borderColor: 'primary.main',
+                  '&:hover': { bgcolor: 'primary.dark' },
+                },
+              },
+            }}
+          >
+            <ToggleButton value="admin">Admin</ToggleButton>
+            <ToggleButton value="worker">Worker</ToggleButton>
+          </ToggleButtonGroup>
+          )}
         </Box>
 
         <Divider sx={{ borderStyle: 'dashed' }} />
@@ -114,26 +221,74 @@ export function AccountPopover({ data = [], sx, ...other }: AccountPopoverProps)
             },
           }}
         >
-          {data.map((option) => (
-            <MenuItem
-              key={option.label}
-              selected={option.href === pathname}
-              onClick={() => handleClickItem(option.href)}
-            >
-              {option.icon}
-              {option.label}
-            </MenuItem>
-          ))}
+          {data.map((option) => {
+            const displayLabel = option.titleKey ? t(option.titleKey) : option.label;
+            return (
+              <MenuItem
+                key={option.label}
+                selected={option.href === pathname}
+                onClick={() => handleClickItem(option.href)}
+              >
+                {option.icon}
+                {displayLabel}
+              </MenuItem>
+            );
+          })}
         </MenuList>
-
-        <Divider sx={{ borderStyle: 'dashed' }} />
-
-        <Box sx={{ p: 1 }}>
-          <Button fullWidth color="error" size="medium" variant="text">
-            Logout
-          </Button>
-        </Box>
       </Popover>
+
+      {/* Admin password dialog */}
+      <Dialog
+        open={passwordDialog}
+        onClose={() => setPasswordDialog(false)}
+        slotProps={{ paper: { sx: { width: 360 } } }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Iconify icon="solar:lock-bold-duotone" width={24} sx={{ color: 'warning.main' }} />
+          {t('settings.adminPasswordRequired')}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+            {t('settings.enterAdminPassword')}
+          </Typography>
+          <TextField
+            fullWidth
+            autoFocus
+            size="small"
+            label={t('settings.adminPassword')}
+            type={showPassword ? 'text' : 'password'}
+            value={passwordInput}
+            onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(false); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') handlePasswordSubmit(); }}
+            error={passwordError}
+            helperText={passwordError ? t('settings.wrongCurrentPassword') : ''}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setShowPassword((v) => !v)} edge="end">
+                      <Iconify icon={showPassword ? 'solar:eye-closed-bold' : 'solar:eye-bold'} width={18} />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setPasswordDialog(false)} color="inherit">
+            {t('common.cancel')}
+          </Button>
+          <Button
+            onClick={handlePasswordSubmit}
+            variant="contained"
+            color="primary"
+            startIcon={<Iconify icon="solar:lock-unlocked-bold-duotone" width={18} />}
+          >
+            {t('common.confirm')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

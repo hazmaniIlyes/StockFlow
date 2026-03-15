@@ -1,19 +1,22 @@
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
 
 import { fCurrency, fNumber } from 'src/utils/format-number';
+
+import { useSettings, useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 
 // ======================================================================
 
 type KpiItem = {
-  title: string;
+  titleKey: string;
   value: string;
   icon: string;
   color: 'primary' | 'error' | 'warning' | 'info';
+  workerHidden?: boolean;
 };
 
 type Props = {
@@ -25,38 +28,44 @@ type Props = {
 
 export function ClientsKpiCards({ totalClients, unpaidClients, totalCredit, overdueAmount }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
+  const { role } = useSettings();
 
   const kpis: KpiItem[] = [
     {
-      title: 'Total Clients',
+      titleKey: 'clients.totalClients',
       value: fNumber(totalClients),
       icon: 'solar:users-group-rounded-bold-duotone',
       color: 'primary',
     },
     {
-      title: 'Unpaid Clients',
+      titleKey: 'clients.unpaidClients',
       value: fNumber(unpaidClients),
       icon: 'solar:user-cross-bold-duotone',
       color: 'error',
     },
     {
-      title: 'Total Credit',
+      titleKey: 'clients.totalCredit',
       value: fCurrency(totalCredit),
       icon: 'solar:wallet-money-bold-duotone',
       color: 'warning',
+      workerHidden: true,
     },
     {
-      title: 'Overdue Amount',
+      titleKey: 'clients.overdueAmount',
       value: fCurrency(overdueAmount),
       icon: 'solar:clock-circle-bold-duotone',
       color: 'info',
+      workerHidden: true,
     },
   ];
 
+  const visibleKpis = role === 'worker' ? kpis.filter((k) => !k.workerHidden) : kpis;
+
   return (
     <Grid container spacing={3}>
-      {kpis.map((kpi) => (
-        <Grid key={kpi.title} size={{ xs: 12, sm: 6, md: 3 }}>
+      {visibleKpis.map((kpi) => (
+        <Grid key={kpi.titleKey} size={{ xs: 12, sm: 6, md: 3 }}>
           <Card
             sx={{
               p: 3,
@@ -77,7 +86,7 @@ export function ClientsKpiCards({ totalClients, unpaidClients, totalCredit, over
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: 1.5,
-                backgroundColor: `${kpi.color}.lighter`,
+                backgroundColor: alpha(theme.palette[kpi.color].main, 0.16),
                 color: `${kpi.color}.main`,
                 flexShrink: 0,
               }}
@@ -87,7 +96,7 @@ export function ClientsKpiCards({ totalClients, unpaidClients, totalCredit, over
 
             <Box>
               <Box sx={{ typography: 'subtitle2', color: 'text.secondary', mb: 0.5 }}>
-                {kpi.title}
+                {t(kpi.titleKey)}
               </Box>
               <Box sx={{ typography: 'h5' }}>{kpi.value}</Box>
             </Box>

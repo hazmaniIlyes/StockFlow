@@ -15,20 +15,25 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 
 import { fCurrency } from 'src/utils/format-number';
 import { fDate } from 'src/utils/format-time';
 
+import { useSettings, useTranslation } from 'src/contexts';
+
 import { Iconify } from 'src/components/iconify';
 import { Label } from 'src/components/label';
 import { Scrollbar } from 'src/components/scrollbar';
+import { ExportButtons } from 'src/components/export-buttons';
 
-import type { Client } from 'src/_mock/_data';
+import type { Client, Invoice } from 'src/_mock/_data';
 
 // ======================================================================
 
 type Props = {
   clients: Client[];
+  invoices: Invoice[];
   onView: (client: Client) => void;
   onViewInvoices: (client: Client) => void;
   onRecordPayment: (client: Client) => void;
@@ -36,17 +41,19 @@ type Props = {
   onDelete: (clientId: string) => void;
 };
 
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'paid', label: 'Paid' },
-  { value: 'unpaid', label: 'Unpaid' },
-];
-
-export function ClientsTable({ clients, onView, onViewInvoices, onRecordPayment, onEdit, onDelete }: Props) {
+export function ClientsTable({ clients, invoices, onView, onViewInvoices, onRecordPayment, onEdit, onDelete }: Props) {
+  const { t } = useTranslation();
+  const { role } = useSettings();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuClient, setMenuClient] = useState<Client | null>(null);
+
+  const statusOptions = useMemo(() => [
+    { value: 'all', label: t('common.all') },
+    { value: 'paid', label: t('sales.paid') },
+    { value: 'unpaid', label: t('sales.unpaid') },
+  ], [t]);
 
   const filtered = useMemo(() => {
     let result = clients;
@@ -62,7 +69,12 @@ export function ClientsTable({ clients, onView, onViewInvoices, onRecordPayment,
       result = result.filter((c) => c.status === statusFilter);
     }
 
-    return result;
+    return [...result].sort((a, b) => {
+      const aTime = parseInt(a.id.replace('client-', ''), 10);
+      const bTime = parseInt(b.id.replace('client-', ''), 10);
+      if (!Number.isNaN(aTime) && !Number.isNaN(bTime)) return bTime - aTime;
+      return 0;
+    });
   }, [clients, search, statusFilter]);
 
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>, client: Client) => {
@@ -76,6 +88,22 @@ export function ClientsTable({ clients, onView, onViewInvoices, onRecordPayment,
     setMenuClient(null);
   };
 
+  // Per-client nearest unpaid due date derived from invoices
+  const clientDueMap = useMemo(() => {
+    const map = new Map<string, { date: Date; label: string }>();
+    const now = new Date();
+    invoices.forEach((inv) => {
+      if (inv.amountDue <= 0 || !inv.dueDate) return;
+      const due = new Date(inv.dueDate);
+      if (Number.isNaN(due.getTime())) return;
+      const existing = map.get(inv.client.name);
+      if (!existing || due < existing.date) {
+        map.set(inv.client.name, { date: due, label: inv.dueDate });
+      }
+    });
+    return map;
+  }, [invoices]);
+
   const handleAction = (action: (client: Client) => void) => {
     if (menuClient) action(menuClient);
     handleCloseMenu();
@@ -87,7 +115,7 @@ export function ClientsTable({ clients, onView, onViewInvoices, onRecordPayment,
       <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <TextField
           size="small"
-          placeholder="Search clients..."
+          placeholder={t('clients.searchClients')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ flexGrow: 1, minWidth: 200 }}
@@ -109,12 +137,26 @@ export function ClientsTable({ clients, onView, onViewInvoices, onRecordPayment,
           onChange={(e) => setStatusFilter(e.target.value)}
           sx={{ minWidth: 130 }}
         >
-          {STATUS_OPTIONS.map((option) => (
+          {statusOptions.map((option) => (
             <MenuItem key={option.value} value={option.value}>
               {option.label}
             </MenuItem>
           ))}
         </TextField>
+
+        <ExportButtons
+          data={filtered}
+          columns={[
+            { label: t('clients.name'), key: 'name' },
+            { label: t('clients.phone'), key: 'phone' },
+            { label: t('clients.totalPurchases'), key: 'totalPurchases' },
+            { label: t('clients.totalPaid'), key: 'totalPaid' },
+            ...(role !== 'worker' ? [{ label: t('clients.remainingBalance'), key: 'remainingBalance' }] : []),
+            { label: t('clients.lastInvoiceDate'), key: 'lastInvoiceDate' },
+            { label: t('common.status'), key: 'status' },
+          ]}
+          fileName="clients"
+        />
       </Box>
 
       {/* Table */}
@@ -123,21 +165,22 @@ export function ClientsTable({ clients, onView, onViewInvoices, onRecordPayment,
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Phone</TableCell>
-                <TableCell align="right">Total Purchases</TableCell>
-                <TableCell align="right">Total Paid</TableCell>
-                <TableCell align="right">Remaining</TableCell>
-                <TableCell>Last Invoice</TableCell>
-                <TableCell align="center">Status</TableCell>
+                <TableCell>{t('common.name')}</TableCell>
+                <TableCell>{t('common.phone')}</TableCell>
+                <TableCell align="right">{t('clients.totalPurchases')}</TableCell>
+                <TableCell align="right">{t('clients.totalPaid')}</TableCell>
+                {role !== 'worker' && <TableCell align="right">{t('clients.remaining')}</TableCell>}
+                <TableCell>{t('clients.lastInvoice')}</TableCell>
+                <TableCell>{t('common.dueDate') || 'Due Date'}</TableCell>
+                <TableCell align="center">{t('common.status')}</TableCell>
                 <TableCell align="center" sx={{ width: 60 }} />
               </TableRow>
             </TableHead>
             <TableBody>
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                    No clients found
+                  <TableCell colSpan={role === 'worker' ? 7 : 8} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                    {t('clients.noClientsFound')}
                   </TableCell>
                 </TableRow>
               )}
@@ -154,6 +197,7 @@ export function ClientsTable({ clients, onView, onViewInvoices, onRecordPayment,
                   <TableCell>{client.phone}</TableCell>
                   <TableCell align="right">{fCurrency(client.totalPurchases)}</TableCell>
                   <TableCell align="right">{fCurrency(client.totalPaid)}</TableCell>
+                  {role !== 'worker' && (
                   <TableCell align="right">
                     <Box
                       sx={{
@@ -164,10 +208,36 @@ export function ClientsTable({ clients, onView, onViewInvoices, onRecordPayment,
                       {fCurrency(client.remainingBalance)}
                     </Box>
                   </TableCell>
+                  )}
                   <TableCell>{fDate(client.lastInvoiceDate)}</TableCell>
+                  <TableCell>
+                    {(() => {
+                      const entry = clientDueMap.get(client.name);
+                      if (!entry) return <Typography variant="caption" color="text.disabled">—</Typography>;
+                      const now = new Date();
+                      const diffDays = Math.ceil((entry.date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                      const isOverdue = diffDays < 0;
+                      const isSoon = diffDays >= 0 && diffDays <= 7;
+                      return (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Iconify
+                            icon={isOverdue ? 'solar:danger-triangle-bold' : 'solar:calendar-bold-duotone'}
+                            width={15}
+                            sx={{ color: isOverdue ? 'error.main' : isSoon ? 'warning.main' : 'text.secondary' }}
+                          />
+                          <Typography
+                            variant="caption"
+                            sx={{ fontWeight: isOverdue || isSoon ? 700 : 400, color: isOverdue ? 'error.main' : isSoon ? 'warning.main' : 'text.primary' }}
+                          >
+                            {isOverdue ? `Overdue ${Math.abs(diffDays)}d` : isSoon ? `Due in ${diffDays}d` : fDate(entry.label)}
+                          </Typography>
+                        </Box>
+                      );
+                    })()}
+                  </TableCell>
                   <TableCell align="center">
                     <Label color={client.status === 'paid' ? 'success' : 'error'}>
-                      {client.status === 'paid' ? 'Paid' : 'Unpaid'}
+                      {client.status === 'paid' ? t('sales.paid') : t('sales.unpaid')}
                     </Label>
                   </TableCell>
                   <TableCell align="center">
@@ -196,19 +266,19 @@ export function ClientsTable({ clients, onView, onViewInvoices, onRecordPayment,
       >
         <MenuItem onClick={() => handleAction(onView)}>
           <ListItemIcon><Iconify icon="solar:eye-bold-duotone" width={20} /></ListItemIcon>
-          <ListItemText>View</ListItemText>
+          <ListItemText>{t('common.view')}</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => handleAction(onViewInvoices)}>
           <ListItemIcon><Iconify icon="solar:bill-list-bold-duotone" width={20} /></ListItemIcon>
-          <ListItemText>View Invoices</ListItemText>
+          <ListItemText>{t('clients.viewInvoices')}</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => handleAction(onRecordPayment)}>
           <ListItemIcon><Iconify icon="solar:wallet-money-bold-duotone" width={20} /></ListItemIcon>
-          <ListItemText>Record Payment</ListItemText>
+          <ListItemText>{t('clients.recordPayment')}</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => handleAction(onEdit)}>
           <ListItemIcon><Iconify icon="solar:pen-bold-duotone" width={20} /></ListItemIcon>
-          <ListItemText>Edit</ListItemText>
+          <ListItemText>{t('common.edit')}</ListItemText>
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -218,7 +288,7 @@ export function ClientsTable({ clients, onView, onViewInvoices, onRecordPayment,
           sx={{ color: 'error.main' }}
         >
           <ListItemIcon><Iconify icon="solar:trash-bin-trash-bold" width={20} sx={{ color: 'error.main' }} /></ListItemIcon>
-          <ListItemText>Delete</ListItemText>
+          <ListItemText>{t('common.delete')}</ListItemText>
         </MenuItem>
       </Menu>
     </Card>

@@ -2,9 +2,35 @@ import 'src/global.css';
 
 import { useEffect } from 'react';
 
+import { Navigate } from 'react-router-dom';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+
 import { usePathname } from 'src/routes/hooks';
 
+import { SnackbarProvider } from 'src/components/snackbar';
+
+import { BusinessProvider, ClientsProvider, ExpensesProvider, I18nProvider, InventoryProvider, SettingsProvider, SuppliersProvider } from 'src/contexts';
+
+import { InvoiceProvider } from 'src/sections/sales/context';
+
 import { ThemeProvider } from 'src/theme/theme-provider';
+import { isOnboardingComplete } from 'src/sections/onboarding/onboarding-view';
+
+// ----------------------------------------------------------------------
+
+function OnboardingGuard({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const onboardingDone = isOnboardingComplete();
+
+  if (!onboardingDone && pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
+  if (onboardingDone && pathname === '/onboarding') {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
 
 // ----------------------------------------------------------------------
 
@@ -16,9 +42,31 @@ export default function App({ children }: AppProps) {
   useScrollToTop();
 
   return (
-    <ThemeProvider>
-      {children}
-    </ThemeProvider>
+    <I18nProvider>
+      <SettingsProvider>
+        <ThemeProvider>
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <SnackbarProvider>
+            <BusinessProvider>
+              <ClientsProvider>
+                <SuppliersProvider>
+                  <ExpensesProvider>
+                    <InventoryProvider>
+                      <InvoiceProvider>
+                        <OnboardingGuard>
+                          {children}
+                        </OnboardingGuard>
+                      </InvoiceProvider>
+                    </InventoryProvider>
+                  </ExpensesProvider>
+                </SuppliersProvider>
+              </ClientsProvider>
+            </BusinessProvider>
+          </SnackbarProvider>
+          </LocalizationProvider>
+        </ThemeProvider>
+      </SettingsProvider>
+    </I18nProvider>
   );
 }
 

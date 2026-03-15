@@ -2,11 +2,13 @@ import type { CardProps } from '@mui/material/Card';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
 
-import { fCurrency, fShortenNumber } from 'src/utils/format-number';
+import { fCurrency, fNumber } from 'src/utils/format-number';
 
 import { Iconify } from 'src/components/iconify';
+
+import { useTranslation } from 'src/contexts';
 
 // ======================================================================
 
@@ -30,6 +32,7 @@ export function SalesSummaryCard({
   ...other
 }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   return (
     <Card
@@ -56,7 +59,7 @@ export function SalesSummaryCard({
           alignItems: 'center',
           justifyContent: 'center',
           borderRadius: 1.5,
-          backgroundColor: `${color}.lighter`,
+          backgroundColor: alpha(theme.palette[color].main, 0.16),
           color: `${color}.main`,
           flexShrink: 0,
         }}
@@ -69,7 +72,7 @@ export function SalesSummaryCard({
         <Box sx={{ typography: 'h5' }}>{fCurrency(total)}</Box>
         {profit !== undefined && (
           <Box sx={{ typography: 'caption', color: 'success.main', mt: 0.25 }}>
-            Profit: {fCurrency(profit)}
+            {t('common.net')}: {fCurrency(profit)}
           </Box>
         )}
       </Box>
@@ -83,8 +86,8 @@ export function SalesSummaryCard({
             minWidth: 40,
           }}
         >
-          <Box sx={{ typography: 'caption', color: 'text.disabled' }}>Count</Box>
-          {fShortenNumber(count)}
+          <Box sx={{ typography: 'caption', color: 'text.disabled' }}>#</Box>
+          {fNumber(count)}
         </Box>
       )}
     </Card>

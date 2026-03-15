@@ -7,7 +7,7 @@ export type InputNumberValue = string | number | null | undefined;
 
 type Options = Intl.NumberFormatOptions;
 
-const DEFAULT_LOCALE = { code: 'en-US', currency: 'USD' };
+const DEFAULT_LOCALE = { code: 'fr-DZ', currency: 'DZD' };
 
 function processInput(inputValue: InputNumberValue): number | null {
   if (inputValue == null || Number.isNaN(inputValue)) return null;
@@ -34,20 +34,18 @@ export function fNumber(inputValue: InputNumberValue, options?: Options) {
 // ----------------------------------------------------------------------
 
 export function fCurrency(inputValue: InputNumberValue, options?: Options) {
-  const locale = DEFAULT_LOCALE;
-
   const number = processInput(inputValue);
   if (number === null) return '';
 
-  const fm = new Intl.NumberFormat(locale.code, {
-    style: 'currency',
-    currency: locale.currency,
+  // Format number with French-Algerian locale (uses space as thousands separator)
+  const fm = new Intl.NumberFormat('fr-DZ', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
     ...options,
   }).format(number);
 
-  return fm;
+  // Append "DA" suffix for Algerian Dinar
+  return `${fm} DA`;
 }
 
 // ----------------------------------------------------------------------

@@ -6,144 +6,97 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardHeader from '@mui/material/CardHeader';
 import Chip from '@mui/material/Chip';
-import Dialog from '@mui/material/Dialog';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
-import IconButton from '@mui/material/IconButton';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
 
 import { fCurrency } from 'src/utils/format-number';
 import { fDate } from 'src/utils/format-time';
 
-import { _suppliers, _inventory, _supplierPayments } from 'src/_mock';
+import { useSuppliers, useInventory, useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 import { Label } from 'src/components/label';
 import { Scrollbar } from 'src/components/scrollbar';
+import { useSnackbar } from 'src/components/snackbar';
 
 import { SuppliersPaymentDialog } from '../suppliers-payment-dialog';
+import { SuppliersPurchaseDialog } from '../suppliers-purchase-dialog';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 
-import type { Supplier } from 'src/_mock/_data';
-
 // ======================================================================
-
-type PurchaseOrderItem = {
-  name: string;
-  qty: number;
-  unitPrice: number;
-};
-
-type PurchaseOrder = {
-  id: string;
-  supplierId: string;
-  date: string;
-  items: PurchaseOrderItem[];
-  total: number;
-  amountPaid: number;
-  paid: boolean;
-  note: string;
-};
-
-const MOCK_PURCHASE_ORDERS: PurchaseOrder[] = [
-  {
-    id: 'po-1', supplierId: 'sup-0', date: '02/18/2026',
-    items: [{ name: 'Wireless Mouse', qty: 50, unitPrice: 1500 }, { name: 'Mechanical Keyboard', qty: 20, unitPrice: 5200 }],
-    total: 179000, amountPaid: 179000, paid: true, note: 'Paid via bank transfer',
-  },
-  {
-    id: 'po-2', supplierId: 'sup-0', date: '01/25/2026',
-    items: [{ name: 'USB-C Hub', qty: 30, unitPrice: 3000 }, { name: 'Wireless Mouse', qty: 40, unitPrice: 1500 }],
-    total: 150000, amountPaid: 150000, paid: true, note: 'Paid via bank transfer',
-  },
-  {
-    id: 'po-3', supplierId: 'sup-0', date: '01/05/2026',
-    items: [{ name: 'Mechanical Keyboard', qty: 25, unitPrice: 5200 }, { name: 'USB-C Hub', qty: 20, unitPrice: 3000 }],
-    total: 190000, amountPaid: 65000, paid: false, note: 'Partial — 125,000 DA remaining',
-  },
-  {
-    id: 'po-4', supplierId: 'sup-1', date: '02/10/2026',
-    items: [{ name: 'Bluetooth Speaker', qty: 40, unitPrice: 2200 }, { name: 'Laptop Stand Pro', qty: 15, unitPrice: 3800 }],
-    total: 145000, amountPaid: 145000, paid: true, note: 'Paid in full — cash',
-  },
-  {
-    id: 'po-5', supplierId: 'sup-1', date: '01/12/2026',
-    items: [{ name: 'Monitor Stand', qty: 30, unitPrice: 1800 }, { name: 'Bluetooth Speaker', qty: 25, unitPrice: 2200 }],
-    total: 109000, amountPaid: 41000, paid: false, note: 'Partial — 68,000 DA remaining',
-  },
-  {
-    id: 'po-6', supplierId: 'sup-1', date: '02/19/2026',
-    items: [{ name: 'Laptop Stand Pro', qty: 10, unitPrice: 3800 }],
-    total: 38000, amountPaid: 38000, paid: true, note: 'Paid on delivery',
-  },
-  {
-    id: 'po-7', supplierId: 'sup-2', date: '02/05/2026',
-    items: [{ name: 'Webcam HD 1080p', qty: 20, unitPrice: 2800 }, { name: 'External SSD 500GB', qty: 10, unitPrice: 7500 }],
-    total: 131000, amountPaid: 131000, paid: true, note: 'Bank transfer',
-  },
-  {
-    id: 'po-8', supplierId: 'sup-2', date: '12/20/2025',
-    items: [{ name: 'USB Flash Drive 64GB', qty: 100, unitPrice: 600 }],
-    total: 60000, amountPaid: 60000, paid: true, note: 'Cash payment',
-  },
-  {
-    id: 'po-9', supplierId: 'sup-3', date: '02/01/2026',
-    items: [{ name: 'HDMI Cable 2m', qty: 100, unitPrice: 350 }, { name: 'Power Strip 6-Port', qty: 30, unitPrice: 900 }],
-    total: 62000, amountPaid: 39500, paid: false, note: 'Partial — 22,500 DA remaining',
-  },
-  {
-    id: 'po-10', supplierId: 'sup-3', date: '01/10/2026',
-    items: [{ name: 'Surge Protector', qty: 35, unitPrice: 1400 }],
-    total: 49000, amountPaid: 49000, paid: true, note: 'Paid — bank transfer',
-  },
-  {
-    id: 'po-11', supplierId: 'sup-4', date: '11/15/2025',
-    items: [{ name: 'Wireless Headset', qty: 10, unitPrice: 4200 }, { name: 'Mouse Pad XL', qty: 20, unitPrice: 800 }],
-    total: 58000, amountPaid: 58000, paid: true, note: 'Final order — paid in full',
-  },
-];
 
 export function SuppliersDetailView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
+  const { t } = useTranslation();
+  const { showSuccess } = useSnackbar();
+  const { getSupplier, recordPayment, recordPurchase } = useSuppliers();
+  const { products, updateProduct, addProduct } = useInventory();
 
-  const [supplier, setSupplier] = useState<Supplier | undefined>(
-    _suppliers.find((s) => s.id === id)
-  );
+  const supplier = getSupplier(id || '');
   const [paymentOpen, setPaymentOpen] = useState(false);
-  const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
 
-  const inventoryProducts = _inventory.filter((p) => p.supplierId === id);
-
-  const supplierPayments = useMemo(
-    () => (supplier ? _supplierPayments.filter((p) => p.supplierId === supplier.id) : []),
-    [supplier]
-  );
-
-  const purchaseOrders = useMemo(
-    () => (supplier ? MOCK_PURCHASE_ORDERS.filter((po) => po.supplierId === supplier.id) : []),
-    [supplier]
+  const inventoryProducts = useMemo(
+    () => products.filter((p) => p.supplierId === id),
+    [products, id]
   );
 
   const handlePaymentSubmit = useCallback(
-    (supplierId: string, amount: number, _note: string) => {
-      setSupplier((prev) => {
-        if (!prev || prev.id !== supplierId) return prev;
-        const newOwed = Math.max(0, prev.totalOwed - amount);
-        return { ...prev, totalPaid: prev.totalPaid + amount, totalOwed: newOwed };
-      });
+    (supplierId: string, amount: number, note: string) => {
+      recordPayment(supplierId, amount, note);
+      showSuccess(t('suppliers.paymentRecorded', { amount: amount.toLocaleString() }));
     },
-    []
+    [recordPayment, showSuccess, t]
+  );
+
+  const handlePurchaseSubmit = useCallback(
+    (
+      supplierId: string,
+      items: { productName: string; quantity: number; unitPrice: number }[],
+      amountPaid: number
+    ) => {
+      // Record the purchase in supplier context
+      const purchase = recordPurchase(supplierId, items, amountPaid);
+
+      // Update inventory for each item
+      items.forEach((item) => {
+        const existingProduct = inventoryProducts.find((p) => p.name === item.productName);
+        if (existingProduct) {
+          // Update existing product stock
+          updateProduct(existingProduct.id, {
+            stock: existingProduct.stock + item.quantity,
+            buyingPrice: item.unitPrice, // Update buying price to latest
+          });
+        } else {
+          // Add new product to inventory
+          addProduct({
+            name: item.productName,
+            sku: '', // Auto-generated by inventory context
+            category: 'Other',
+            supplierId,
+            supplierName: supplier?.name || '',
+            buyingPrice: item.unitPrice,
+            sellPrice: 0,
+            stock: item.quantity,
+            minStock: 5,
+            unit: 'pcs',
+          });
+        }
+      });
+
+      showSuccess(t('suppliers.purchaseRecorded', { amount: fCurrency(purchase.total) }));
+    },
+    [recordPurchase, inventoryProducts, updateProduct, addProduct, supplier, showSuccess, t]
   );
 
   if (!supplier) {
@@ -151,19 +104,22 @@ export function SuppliersDetailView() {
       <DashboardContent maxWidth="xl">
         <Box sx={{ textAlign: 'center', py: 10 }}>
           <Typography variant="h5" sx={{ mb: 2 }}>
-            Supplier not found
+            {t('suppliers.supplierNotFound')}
           </Typography>
           <Button variant="contained" onClick={() => navigate('/suppliers')}>
-            Back to Suppliers
+            {t('suppliers.backToSuppliers')}
           </Button>
         </Box>
       </DashboardContent>
     );
   }
 
+  const purchases = supplier.purchases || [];
+  const payments = supplier.payments || [];
+
   return (
     <DashboardContent maxWidth="xl">
-      {/* ── Back button ── */}
+      {/* Back button */}
       <Button
         variant="text"
         color="inherit"
@@ -171,10 +127,10 @@ export function SuppliersDetailView() {
         onClick={() => navigate('/suppliers')}
         sx={{ alignSelf: 'flex-start', mb: 1 }}
       >
-        Back to Suppliers
+        {t('suppliers.backToSuppliers')}
       </Button>
 
-      {/* ── Header ── */}
+      {/* Header */}
       <Box
         sx={{
           display: 'flex',
@@ -186,50 +142,68 @@ export function SuppliersDetailView() {
         }}
       >
         <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5, flexWrap: 'wrap' }}>
             <Typography variant="h4">{supplier.name}</Typography>
             <Label color={supplier.status === 'active' ? 'success' : 'default'}>
-              {supplier.status === 'active' ? 'Active' : 'Inactive'}
+              {supplier.status === 'active' ? t('common.active') : t('common.inactive')}
+            </Label>
+            <Label
+              color={supplier.totalOwed > 0 ? 'error' : 'success'}
+              startIcon={
+                <Iconify
+                  icon={supplier.totalOwed > 0 ? 'solar:clock-circle-bold' : 'solar:check-circle-bold'}
+                  width={14}
+                />
+              }
+            >
+              {supplier.totalOwed > 0 ? t('suppliers.unpaid') : t('suppliers.paid')}
             </Label>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, color: 'text.secondary' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, color: 'text.secondary', flexWrap: 'wrap' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Iconify icon="solar:phone-bold-duotone" width={16} />
               <Typography variant="body2">{supplier.phone}</Typography>
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Iconify icon="solar:letter-bold-duotone" width={16} />
-              <Typography variant="body2">{supplier.email}</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Iconify icon="solar:map-point-bold-duotone" width={16} />
-              <Typography variant="body2">{supplier.address}</Typography>
-            </Box>
+            {supplier.email && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Iconify icon="solar:letter-bold-duotone" width={16} />
+                <Typography variant="body2">{supplier.email}</Typography>
+              </Box>
+            )}
+            {supplier.address && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Iconify icon="solar:map-point-bold-duotone" width={16} />
+                <Typography variant="body2">{supplier.address}</Typography>
+              </Box>
+            )}
           </Box>
         </Box>
 
-        {supplier.totalOwed > 0 && (
-          <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {supplier.status === 'active' && (
             <Button
               variant="outlined"
-              color="success"
-              startIcon={<Iconify icon="solar:check-circle-bold-duotone" width={20} />}
-              onClick={() => handlePaymentSubmit(supplier.id, supplier.totalOwed, 'Cleared full balance')}
+              color="primary"
+              startIcon={<Iconify icon="solar:cart-plus-bold-duotone" width={20} />}
+              onClick={() => setPurchaseOpen(true)}
             >
-              Clear Balance
+              {t('suppliers.recordPurchase')}
             </Button>
+          )}
+          {supplier.totalOwed > 0 && (
             <Button
               variant="contained"
+              color="primary"
               startIcon={<Iconify icon="solar:wallet-money-bold-duotone" width={20} />}
               onClick={() => setPaymentOpen(true)}
             >
-              Record Payment
+              {t('suppliers.recordPayment')}
             </Button>
-          </Box>
-        )}
+          )}
+        </Box>
       </Box>
 
-      {/* ── Financial Summary Cards ── */}
+      {/* Financial Summary */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid size={{ xs: 12, sm: 4 }}>
           <Card
@@ -238,7 +212,7 @@ export function SuppliersDetailView() {
               display: 'flex',
               alignItems: 'center',
               gap: 2,
-              bgcolor: 'primary.lighter',
+              bgcolor: alpha(theme.palette.primary.main, 0.16),
               boxShadow: theme.vars.customShadows.z8,
               border: `1px solid ${theme.vars.palette.divider}`,
               borderRadius: 2,
@@ -257,11 +231,11 @@ export function SuppliersDetailView() {
                 flexShrink: 0,
               }}
             >
-              <Iconify icon="solar:cart-large-2-bold-duotone" width={28} />
+              <Iconify icon="solar:cart-large-bold-duotone" width={28} />
             </Box>
             <Box>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Total Purchased
+                {t('suppliers.totalPurchased')}
               </Typography>
               <Typography variant="h5">{fCurrency(supplier.totalPurchased)}</Typography>
             </Box>
@@ -275,7 +249,7 @@ export function SuppliersDetailView() {
               display: 'flex',
               alignItems: 'center',
               gap: 2,
-              bgcolor: 'success.lighter',
+              bgcolor: alpha(theme.palette.success.main, 0.16),
               boxShadow: theme.vars.customShadows.z8,
               border: `1px solid ${theme.vars.palette.divider}`,
               borderRadius: 2,
@@ -298,9 +272,9 @@ export function SuppliersDetailView() {
             </Box>
             <Box>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Total Paid
+                {t('suppliers.totalPaid')}
               </Typography>
-              <Typography variant="h5" color="success.dark">
+              <Typography variant="h5" color="success.main">
                 {fCurrency(supplier.totalPaid)}
               </Typography>
             </Box>
@@ -314,7 +288,7 @@ export function SuppliersDetailView() {
               display: 'flex',
               alignItems: 'center',
               gap: 2,
-              bgcolor: supplier.totalOwed > 0 ? 'error.lighter' : 'success.lighter',
+              bgcolor: alpha(supplier.totalOwed > 0 ? theme.palette.error.main : theme.palette.success.main, 0.16),
               boxShadow: theme.vars.customShadows.z8,
               border: `1px solid ${theme.vars.palette.divider}`,
               borderRadius: 2,
@@ -337,12 +311,9 @@ export function SuppliersDetailView() {
             </Box>
             <Box>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Remaining Balance
+                {t('suppliers.totalOwed')}
               </Typography>
-              <Typography
-                variant="h5"
-                color={supplier.totalOwed > 0 ? 'error.dark' : 'success.dark'}
-              >
+              <Typography variant="h5" color={supplier.totalOwed > 0 ? 'error.main' : 'success.main'}>
                 {fCurrency(supplier.totalOwed)}
               </Typography>
             </Box>
@@ -350,174 +321,113 @@ export function SuppliersDetailView() {
         </Grid>
       </Grid>
 
-      {/* ── Purchase Orders ── */}
-      <Card sx={{ mb: 3 }}>
-        <CardHeader
-          title="Purchase Orders"
-          subheader={`${purchaseOrders.length} orders from this supplier`}
-          avatar={
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 1,
-                bgcolor: 'info.lighter',
-                color: 'info.main',
-              }}
-            >
-              <Iconify icon="solar:document-text-bold-duotone" width={22} />
-            </Box>
-          }
-        />
-        <Scrollbar>
-          <Table sx={{ minWidth: 500 }}>
-            <TableHead>
-              <TableRow>
-                <TableCell>Date</TableCell>
-                <TableCell align="right">Total</TableCell>
-                <TableCell align="center">Status</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {purchaseOrders.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={3} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                    No purchase orders
-                  </TableCell>
-                </TableRow>
-              )}
-              {purchaseOrders.map((po) => (
-                <TableRow
-                  key={po.id}
-                  hover
-                  onClick={() => setSelectedPO(po)}
-                  sx={{ cursor: 'pointer' }}
+      {/* Two-column layout */}
+      <Grid container spacing={3}>
+        {/* Left column - Purchase History */}
+        <Grid size={{ xs: 12, lg: 8 }}>
+          <Card sx={{ mb: 3 }}>
+            <CardHeader
+              title={t('suppliers.purchaseHistory')}
+              subheader={`${purchases.length} ${t('suppliers.purchases')}`}
+              avatar={
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 1,
+                    bgcolor: alpha(theme.palette.warning.main, 0.16),
+                    color: 'warning.main',
+                  }}
                 >
-                  <TableCell>
-                    <Box sx={{ typography: 'subtitle2' }}>{fDate(po.date)}</Box>
-                    <Box sx={{ typography: 'caption', color: 'text.secondary' }}>
-                      {po.items.length} item{po.items.length > 1 ? 's' : ''}
-                    </Box>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Box sx={{ typography: 'subtitle2' }}>{fCurrency(po.total)}</Box>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Label color={po.paid ? 'success' : 'error'}>
-                      {po.paid ? 'Paid' : 'Unpaid'}
-                    </Label>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Scrollbar>
-      </Card>
-
-      {/* ── Purchase Order Detail Dialog ── */}
-      <Dialog
-        open={Boolean(selectedPO)}
-        onClose={() => setSelectedPO(null)}
-        maxWidth="sm"
-        fullWidth
-      >
-        {selectedPO && (
-          <>
-            <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pr: 2 }}>
-              <Box>
-                <Typography variant="h6" component="span">Purchase Order</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }} component="span">
-                  {fDate(selectedPO.date)}
-                </Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Label color={selectedPO.paid ? 'success' : 'error'}>
-                  {selectedPO.paid ? 'Paid' : 'Unpaid'}
-                </Label>
-                <IconButton size="small" onClick={() => setSelectedPO(null)}>
-                  <Iconify icon="solar:close-circle-bold" width={22} />
-                </IconButton>
-              </Box>
-            </DialogTitle>
-
-            <DialogContent>
-              {/* Items table */}
-              <Table size="small" sx={{ mb: 3 }}>
+                  <Iconify icon="solar:cart-large-bold-duotone" width={22} />
+                </Box>
+              }
+              action={
+                supplier.status === 'active' && (
+                  <Button
+                    size="small"
+                    startIcon={<Iconify icon="solar:add-circle-bold-duotone" width={18} />}
+                    onClick={() => setPurchaseOpen(true)}
+                  >
+                    {t('suppliers.newPurchase')}
+                  </Button>
+                )
+              }
+            />
+            <Scrollbar>
+              <Table sx={{ minWidth: 600 }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Product</TableCell>
-                    <TableCell align="center">Qty</TableCell>
-                    <TableCell align="right">Unit Price</TableCell>
-                    <TableCell align="right">Total</TableCell>
+                    <TableCell>{t('suppliers.date')}</TableCell>
+                    <TableCell>{t('suppliers.products')}</TableCell>
+                    <TableCell align="right">{t('common.total')}</TableCell>
+                    <TableCell align="right">{t('suppliers.paid')}</TableCell>
+                    <TableCell align="center">{t('common.status')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {selectedPO.items.map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>
-                        <Box sx={{ typography: 'subtitle2' }}>{item.name}</Box>
+                  {purchases.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                        {t('suppliers.noPurchasesRecorded')}
                       </TableCell>
-                      <TableCell align="center">{item.qty}</TableCell>
-                      <TableCell align="right">{fCurrency(item.unitPrice)}</TableCell>
-                      <TableCell align="right">
-                        <Box sx={{ typography: 'subtitle2' }}>
-                          {fCurrency(item.qty * item.unitPrice)}
+                    </TableRow>
+                  )}
+                  {purchases.map((purchase) => (
+                    <TableRow key={purchase.id}>
+                      <TableCell>
+                        <Typography variant="body2">{fDate(purchase.date)}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {purchase.items.map((item, idx) => (
+                            <Chip
+                              key={idx}
+                              size="small"
+                              variant="outlined"
+                              label={`${item.productName} ×${item.quantity}`}
+                            />
+                          ))}
                         </Box>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="subtitle2">{fCurrency(purchase.total)}</Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2">{fCurrency(purchase.amountPaid)}</Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Label
+                          color={
+                            purchase.status === 'paid'
+                              ? 'success'
+                              : purchase.status === 'partial'
+                                ? 'warning'
+                                : 'error'
+                          }
+                        >
+                          {purchase.status === 'paid'
+                            ? t('suppliers.paid')
+                            : purchase.status === 'partial'
+                              ? t('suppliers.partial')
+                              : t('suppliers.unpaid')}
+                        </Label>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+            </Scrollbar>
+          </Card>
 
-              <Divider sx={{ mb: 2 }} />
-
-              {/* Financial summary */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="body2" color="text.secondary">Total</Typography>
-                  <Typography variant="subtitle1">{fCurrency(selectedPO.total)}</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="body2" color="text.secondary">Amount Paid</Typography>
-                  <Typography variant="subtitle1" color="success.main">
-                    {fCurrency(selectedPO.amountPaid)}
-                  </Typography>
-                </Box>
-                {!selectedPO.paid && (
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">Remaining</Typography>
-                    <Typography variant="subtitle1" color="error.main">
-                      {fCurrency(selectedPO.total - selectedPO.amountPaid)}
-                    </Typography>
-                  </Box>
-                )}
-              </Box>
-
-              {/* Note */}
-              {selectedPO.note && (
-                <Box sx={{ mt: 2, p: 1.5, borderRadius: 1, bgcolor: 'background.neutral' }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Note: {selectedPO.note}
-                  </Typography>
-                </Box>
-              )}
-            </DialogContent>
-          </>
-        )}
-      </Dialog>
-
-      {/* ── Two-column: Catalog + Inventory (left) | Payment History (right) ── */}
-      <Grid container spacing={3}>
-        {/* Left column */}
-        <Grid size={{ xs: 12, lg: 8 }}>
-          {/* Product Catalog */}
-          <Card sx={{ mb: 3 }}>
+          {/* Linked Inventory Products */}
+          <Card>
             <CardHeader
-              title="Product Catalog"
-              subheader={`${supplier.catalog.length} products available`}
+              title={t('suppliers.productsInInventory', { count: inventoryProducts.length })}
+              subheader={t('suppliers.productsFromSupplier')}
               avatar={
                 <Box
                   sx={{
@@ -527,153 +437,94 @@ export function SuppliersDetailView() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     borderRadius: 1,
-                    bgcolor: 'warning.lighter',
-                    color: 'warning.main',
+                    bgcolor: alpha(theme.palette.info.main, 0.16),
+                    color: 'info.main',
                   }}
                 >
                   <Iconify icon="solar:box-bold-duotone" width={22} />
                 </Box>
               }
+              action={
+                <Button
+                  size="small"
+                  endIcon={<Iconify icon="solar:arrow-right-bold" width={18} />}
+                  onClick={() => navigate(`/inventory?supplier=${supplier.id}`)}
+                >
+                  {t('suppliers.viewInInventory')}
+                </Button>
+              }
             />
             <Scrollbar>
-              <Table sx={{ minWidth: 500 }}>
+              <Table sx={{ minWidth: 560 }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Product Name</TableCell>
-                    <TableCell>Category</TableCell>
-                    <TableCell align="right">Buying Price</TableCell>
-                    <TableCell align="center">In Inventory</TableCell>
+                    <TableCell>{t('common.name')}</TableCell>
+                    <TableCell>{t('common.category')}</TableCell>
+                    <TableCell align="right">{t('inventory.buyingPrice')}</TableCell>
+                    <TableCell align="right">{t('inventory.sellPrice')}</TableCell>
+                    <TableCell align="right">{t('inventory.stock')}</TableCell>
+                    <TableCell align="center">{t('common.status')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {supplier.catalog.map((product) => {
-                    const inInventory = inventoryProducts.find(
-                      (ip) => ip.name === product.name
-                    );
-                    return (
-                      <TableRow key={product.id}>
+                  {inventoryProducts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                        {t('inventory.noProducts')}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    inventoryProducts.map((p) => (
+                      <TableRow key={p.id} hover>
                         <TableCell>
-                          <Box sx={{ typography: 'subtitle2' }}>{product.name}</Box>
+                          <Typography variant="body2" fontWeight={600}>{p.name}</Typography>
+                          <Typography variant="caption" color="text.secondary">{p.sku}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Chip label={product.category} size="small" variant="outlined" />
+                          <Typography variant="body2">{p.category}</Typography>
                         </TableCell>
-                        <TableCell align="right">{fCurrency(product.buyingPrice)}</TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2">{fCurrency(p.buyingPrice)}{p.unit !== 'pcs' ? `/${p.unit}` : ''}</Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2">{fCurrency(p.sellPrice)}{p.unit !== 'pcs' ? `/${p.unit}` : ''}</Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2">{p.stock}{p.unit !== 'pcs' ? ` ${p.unit}` : ''}</Typography>
+                        </TableCell>
                         <TableCell align="center">
-                          {inInventory ? (
-                            <Label
-                              color={
-                                inInventory.status === 'in-stock'
-                                  ? 'success'
-                                  : inInventory.status === 'low-stock'
-                                    ? 'warning'
-                                    : 'error'
-                              }
-                            >
-                              {inInventory.stock} in stock
-                            </Label>
-                          ) : (
-                            <Label color="default">Not added</Label>
-                          )}
+                          <Label
+                            color={
+                              p.status === 'in-stock'
+                                ? 'success'
+                                : p.status === 'low-stock'
+                                  ? 'warning'
+                                  : 'error'
+                            }
+                          >
+                            {p.status === 'in-stock'
+                              ? t('inventory.inStock')
+                              : p.status === 'low-stock'
+                                ? t('inventory.lowStock')
+                                : t('inventory.outOfStock')}
+                          </Label>
                         </TableCell>
                       </TableRow>
-                    );
-                  })}
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </Scrollbar>
           </Card>
-
-          {/* Inventory Products */}
-          {inventoryProducts.length > 0 && (
-            <Card>
-              <CardHeader
-                title="Products in Inventory"
-                subheader={`${inventoryProducts.length} products sourced from this supplier`}
-                avatar={
-                  <Box
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: 1,
-                      bgcolor: 'primary.lighter',
-                      color: 'primary.main',
-                    }}
-                  >
-                    <Iconify icon="solar:clipboard-list-bold-duotone" width={22} />
-                  </Box>
-                }
-              />
-              <Scrollbar>
-                <Table sx={{ minWidth: 600 }}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Product</TableCell>
-                      <TableCell align="right">Buy Price</TableCell>
-                      <TableCell align="right">Sell Price</TableCell>
-                      <TableCell align="right">Margin</TableCell>
-                      <TableCell align="center">Stock</TableCell>
-                      <TableCell align="center">Status</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {inventoryProducts.map((product) => {
-                      const margin =
-                        product.buyingPrice > 0
-                          ? ((product.sellPrice - product.buyingPrice) / product.buyingPrice) * 100
-                          : 0;
-                      return (
-                        <TableRow key={product.id}>
-                          <TableCell>
-                            <Box sx={{ typography: 'subtitle2' }}>{product.name}</Box>
-                            <Box sx={{ typography: 'caption', color: 'text.disabled' }}>
-                              {product.sku}
-                            </Box>
-                          </TableCell>
-                          <TableCell align="right">{fCurrency(product.buyingPrice)}</TableCell>
-                          <TableCell align="right">{fCurrency(product.sellPrice)}</TableCell>
-                          <TableCell align="right">
-                            <Box sx={{ typography: 'subtitle2', color: 'success.main' }}>
-                              {margin.toFixed(1)}%
-                            </Box>
-                          </TableCell>
-                          <TableCell align="center">{product.stock}</TableCell>
-                          <TableCell align="center">
-                            <Label
-                              color={
-                                product.status === 'in-stock'
-                                  ? 'success'
-                                  : product.status === 'low-stock'
-                                    ? 'warning'
-                                    : 'error'
-                              }
-                            >
-                              {product.status === 'in-stock'
-                                ? 'In Stock'
-                                : product.status === 'low-stock'
-                                  ? 'Low Stock'
-                                  : 'Out of Stock'}
-                            </Label>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </Scrollbar>
-            </Card>
-          )}
         </Grid>
 
-        {/* Right column — Payment History */}
+        {/* Right column - Payment History + Info */}
         <Grid size={{ xs: 12, lg: 4 }}>
-          <Card sx={{ height: '100%' }}>
+          {/* Payment History */}
+          <Card sx={{ mb: 3 }}>
             <CardHeader
-              title="Payment History"
-              subheader={`${supplierPayments.length} payments`}
+              title={t('suppliers.paymentHistory')}
+              subheader={`${payments.length} ${t('suppliers.payments')}`}
               avatar={
                 <Box
                   sx={{
@@ -683,7 +534,7 @@ export function SuppliersDetailView() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     borderRadius: 1,
-                    bgcolor: 'success.lighter',
+                    bgcolor: alpha(theme.palette.success.main, 0.16),
                     color: 'success.main',
                   }}
                 >
@@ -691,72 +542,169 @@ export function SuppliersDetailView() {
                 </Box>
               }
             />
-
-            {supplierPayments.length === 0 ? (
-              <Box sx={{ py: 6, textAlign: 'center', color: 'text.secondary' }}>
-                <Iconify icon="solar:wallet-bold-duotone" width={48} sx={{ mb: 1, opacity: 0.4 }} />
-                <Typography variant="body2">No payments recorded</Typography>
-              </Box>
-            ) : (
-              <Box sx={{ px: 3, pb: 3 }}>
-                {supplierPayments.map((payment, index) => (
-                  <Box
-                    key={payment.id}
-                    sx={{
-                      py: 2,
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 2,
-                      ...(index < supplierPayments.length - 1 && {
-                        borderBottom: `1px dashed ${theme.vars.palette.divider}`,
-                      }),
-                    }}
-                  >
+            <Divider />
+            <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+              {payments.length === 0 ? (
+                <Box sx={{ py: 4, textAlign: 'center', color: 'text.secondary' }}>
+                  <Typography variant="body2">{t('suppliers.noPaymentsRecorded')}</Typography>
+                </Box>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                  {payments.map((payment) => (
                     <Box
+                      key={payment.id}
                       sx={{
-                        width: 36,
-                        height: 36,
+                        px: 3,
+                        py: 2,
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: '50%',
-                        bgcolor: 'success.lighter',
-                        color: 'success.main',
-                        flexShrink: 0,
-                        mt: 0.25,
+                        justifyContent: 'space-between',
+                        borderBottom: '1px dashed',
+                        borderColor: 'divider',
+                        '&:last-child': { borderBottom: 'none' },
                       }}
                     >
-                      <Iconify icon="solar:check-circle-bold" width={18} />
-                    </Box>
-                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
-                        <Typography variant="subtitle2" color="success.main">
-                          +{fCurrency(payment.amount)}
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>
+                          {fCurrency(payment.amount)}
                         </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {fDate(payment.date)}
+                        </Typography>
+                        {payment.note && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {payment.note}
+                          </Typography>
+                        )}
                       </Box>
-                      <Typography variant="caption" color="text.secondary">
-                        {fDate(payment.date)}
-                      </Typography>
-                      {payment.note && (
-                        <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
-                          {payment.note}
-                        </Typography>
-                      )}
+                      <Iconify
+                        icon="solar:check-circle-bold"
+                        width={20}
+                        sx={{ color: 'success.main' }}
+                      />
                     </Box>
-                  </Box>
-                ))}
+                  ))}
+                </Box>
+              )}
+            </Box>
+          </Card>
+
+          {/* Supplier Info */}
+          <Card>
+            <CardHeader
+              title={t('suppliers.supplierInfo')}
+              avatar={
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 1,
+                    bgcolor: 'grey.200',
+                    color: 'grey.700',
+                  }}
+                >
+                  <Iconify icon="solar:user-bold-duotone" width={22} />
+                </Box>
+              }
+            />
+            <Divider />
+            <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  {t('common.phone')}
+                </Typography>
+                <Typography variant="body2">{supplier.phone}</Typography>
               </Box>
-            )}
+              {supplier.email && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    {t('common.email')}
+                  </Typography>
+                  <Typography variant="body2">{supplier.email}</Typography>
+                </Box>
+              )}
+              {supplier.address && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    {t('common.address')}
+                  </Typography>
+                  <Typography variant="body2">{supplier.address}</Typography>
+                </Box>
+              )}
+
+              {/* Tax Information */}
+              {(supplier.nif || supplier.nis || supplier.rc || supplier.ai) && (
+                <>
+                  <Divider />
+                  <Typography variant="caption" color="text.secondary">
+                    {t('suppliers.taxInfo')}
+                  </Typography>
+                  {supplier.nif && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        NIF
+                      </Typography>
+                      <Typography variant="body2">{supplier.nif}</Typography>
+                    </Box>
+                  )}
+                  {supplier.nis && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        NIS
+                      </Typography>
+                      <Typography variant="body2">{supplier.nis}</Typography>
+                    </Box>
+                  )}
+                  {supplier.rc && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        RC
+                      </Typography>
+                      <Typography variant="body2">{supplier.rc}</Typography>
+                    </Box>
+                  )}
+                  {supplier.ai && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        AI
+                      </Typography>
+                      <Typography variant="body2">{supplier.ai}</Typography>
+                    </Box>
+                  )}
+                </>
+              )}
+
+              <Divider />
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  {t('common.status')}
+                </Typography>
+                <Box sx={{ mt: 0.5 }}>
+                  <Label color={supplier.status === 'active' ? 'success' : 'default'}>
+                    {supplier.status === 'active' ? t('common.active') : t('common.inactive')}
+                  </Label>
+                </Box>
+              </Box>
+            </Box>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Payment Dialog */}
+      {/* Dialogs */}
       <SuppliersPaymentDialog
         open={paymentOpen}
         supplier={supplier}
         onClose={() => setPaymentOpen(false)}
         onSubmit={handlePaymentSubmit}
+      />
+      <SuppliersPurchaseDialog
+        open={purchaseOpen}
+        supplier={supplier}
+        onClose={() => setPurchaseOpen(false)}
+        onSubmit={handlePurchaseSubmit}
       />
     </DashboardContent>
   );

@@ -18,9 +18,12 @@ import TextField from '@mui/material/TextField';
 
 import { fCurrency } from 'src/utils/format-number';
 
+import { useSettings, useTranslation } from 'src/contexts';
+
 import { Iconify } from 'src/components/iconify';
 import { Label } from 'src/components/label';
 import { Scrollbar } from 'src/components/scrollbar';
+import { ExportButtons } from 'src/components/export-buttons';
 
 import type { InventoryProduct } from 'src/_mock/_data';
 
@@ -28,33 +31,36 @@ import type { InventoryProduct } from 'src/_mock/_data';
 
 type Props = {
   products: InventoryProduct[];
+  onView: (productId: string) => void;
   onEdit: (product: InventoryProduct) => void;
   onAdjustStock: (product: InventoryProduct) => void;
   onDelete: (productId: string) => void;
 };
 
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'in-stock', label: 'In Stock' },
-  { value: 'low-stock', label: 'Low Stock' },
-  { value: 'out-of-stock', label: 'Out of Stock' },
-];
-
-const CATEGORY_OPTIONS = [
-  { value: 'all', label: 'All Categories' },
-  { value: 'Peripherals', label: 'Peripherals' },
-  { value: 'Accessories', label: 'Accessories' },
-  { value: 'Audio', label: 'Audio' },
-  { value: 'Storage', label: 'Storage' },
-  { value: 'Cables', label: 'Cables' },
-];
-
-export function InventoryTable({ products, onEdit, onAdjustStock, onDelete }: Props) {
+export function InventoryTable({ products, onView, onEdit, onAdjustStock, onDelete }: Props) {
+  const { t } = useTranslation();
+  const { role } = useSettings();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuProduct, setMenuProduct] = useState<InventoryProduct | null>(null);
+
+  const STATUS_OPTIONS = [
+    { value: 'all', label: t('common.all') },
+    { value: 'in-stock', label: t('inventory.inStock') },
+    { value: 'low-stock', label: t('inventory.lowStock') },
+    { value: 'out-of-stock', label: t('inventory.outOfStock') },
+  ];
+
+  const CATEGORY_OPTIONS = [
+    { value: 'all', label: t('inventory.allCategories') },
+    { value: 'Peripherals', label: 'Peripherals' },
+    { value: 'Accessories', label: 'Accessories' },
+    { value: 'Audio', label: 'Audio' },
+    { value: 'Storage', label: 'Storage' },
+    { value: 'Cables', label: 'Cables' },
+  ];
 
   const filtered = useMemo(() => {
     let result = products;
@@ -102,7 +108,7 @@ export function InventoryTable({ products, onEdit, onAdjustStock, onDelete }: Pr
       <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <TextField
           size="small"
-          placeholder="Search products..."
+          placeholder={t('inventory.searchProducts')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ flexGrow: 1, minWidth: 200 }}
@@ -144,6 +150,22 @@ export function InventoryTable({ products, onEdit, onAdjustStock, onDelete }: Pr
             </MenuItem>
           ))}
         </TextField>
+
+        <ExportButtons
+          data={filtered}
+          columns={[
+            { label: t('inventory.sku'), key: 'sku' },
+            { label: t('inventory.productName'), key: 'name' },
+            { label: t('inventory.category'), key: 'category' },
+            { label: t('inventory.supplier'), key: 'supplierName' },
+            ...(role !== 'worker' ? [{ label: t('inventory.buyingPrice'), key: 'buyingPrice' }] : []),
+            { label: t('inventory.sellPrice'), key: 'sellPrice' },
+            { label: t('inventory.stock'), key: 'stock' },
+            { label: t('inventory.minStock'), key: 'minStock' },
+            { label: t('common.status'), key: 'status' },
+          ]}
+          fileName="inventory"
+        />
       </Box>
 
       {/* Table */}
@@ -152,23 +174,24 @@ export function InventoryTable({ products, onEdit, onAdjustStock, onDelete }: Pr
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>SKU</TableCell>
-                <TableCell>Product Name</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell>Supplier</TableCell>
-                <TableCell align="right">Buying Price</TableCell>
-                <TableCell align="right">Sell Price</TableCell>
-                <TableCell align="right">Margin</TableCell>
-                <TableCell align="center">Stock</TableCell>
-                <TableCell align="center">Status</TableCell>
+                <TableCell>{t('inventory.sku')}</TableCell>
+                <TableCell>{t('inventory.productName')}</TableCell>
+                <TableCell>{t('inventory.category')}</TableCell>
+                <TableCell>{t('inventory.supplier')}</TableCell>
+                {role !== 'worker' && <TableCell align="right">{t('inventory.buyingPrice')}</TableCell>}
+                <TableCell align="right">{t('inventory.sellPrice')}</TableCell>
+                {role !== 'worker' && <TableCell align="right">{t('inventory.margin')}</TableCell>}
+                <TableCell align="center">{t('common.stock')}</TableCell>
+                <TableCell align="center">{t('inventory.expiryDate')}</TableCell>
+                <TableCell align="center">{t('common.status')}</TableCell>
                 <TableCell align="center" sx={{ width: 60 }} />
               </TableRow>
             </TableHead>
             <TableBody>
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                    No products found
+                  <TableCell colSpan={role === 'worker' ? 9 : 11} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                    {t('inventory.noProductsFound')}
                   </TableCell>
                 </TableRow>
               )}
@@ -179,7 +202,12 @@ export function InventoryTable({ products, onEdit, onAdjustStock, onDelete }: Pr
                     : 0;
 
                 return (
-                  <TableRow key={product.id} hover>
+                  <TableRow
+                    key={product.id}
+                    hover
+                    onClick={() => onView(product.id)}
+                    sx={{ cursor: 'pointer' }}
+                  >
                     <TableCell>
                       <Box sx={{ typography: 'caption', color: 'text.secondary' }}>
                         {product.sku}
@@ -194,13 +222,15 @@ export function InventoryTable({ products, onEdit, onAdjustStock, onDelete }: Pr
                         {product.supplierName}
                       </Box>
                     </TableCell>
-                    <TableCell align="right">{fCurrency(product.buyingPrice)}</TableCell>
+                    {role !== 'worker' && <TableCell align="right">{fCurrency(product.buyingPrice)}</TableCell>}
                     <TableCell align="right">{fCurrency(product.sellPrice)}</TableCell>
+                    {role !== 'worker' && (
                     <TableCell align="right">
                       <Box sx={{ typography: 'subtitle2', color: 'success.main' }}>
                         {margin.toFixed(1)}%
                       </Box>
                     </TableCell>
+                    )}
                     <TableCell align="center">
                       <Box
                         sx={{
@@ -213,8 +243,24 @@ export function InventoryTable({ products, onEdit, onAdjustStock, onDelete }: Pr
                                 : 'text.primary',
                         }}
                       >
-                        {product.stock}
+                        {product.stock} {product.unit ?? 'pcs'}
                       </Box>
+                    </TableCell>
+                    <TableCell align="center">
+                      {product.expiryDate ? (() => {
+                        const today = new Date();
+                        today.setHours(0,0,0,0);
+                        const exp = new Date(product.expiryDate);
+                        const daysLeft = Math.ceil((exp.getTime() - today.getTime()) / 86400000);
+                        const color = daysLeft < 0 ? 'error.main' : daysLeft <= 30 ? 'warning.main' : 'text.secondary';
+                        return (
+                          <Box sx={{ typography: 'caption', color }}>
+                            {exp.toLocaleDateString()}
+                            {daysLeft < 0 && <Box component="span" sx={{ display: 'block', fontSize: 10 }}>Expired</Box>}
+                            {daysLeft >= 0 && daysLeft <= 30 && <Box component="span" sx={{ display: 'block', fontSize: 10 }}>{daysLeft}d left</Box>}
+                          </Box>
+                        );
+                      })() : <Box sx={{ typography: 'caption', color: 'text.disabled' }}>—</Box>}
                     </TableCell>
                     <TableCell align="center">
                       <Label
@@ -227,10 +273,10 @@ export function InventoryTable({ products, onEdit, onAdjustStock, onDelete }: Pr
                         }
                       >
                         {product.status === 'in-stock'
-                          ? 'In Stock'
+                          ? t('inventory.inStock')
                           : product.status === 'low-stock'
-                            ? 'Low Stock'
-                            : 'Out of Stock'}
+                            ? t('inventory.lowStock')
+                            : t('inventory.outOfStock')}
                       </Label>
                     </TableCell>
                     <TableCell align="center">
@@ -257,11 +303,11 @@ export function InventoryTable({ products, onEdit, onAdjustStock, onDelete }: Pr
       >
         <MenuItem onClick={() => handleAction(onEdit)}>
           <ListItemIcon><Iconify icon="solar:pen-bold-duotone" width={20} /></ListItemIcon>
-          <ListItemText>Edit</ListItemText>
+          <ListItemText>{t('common.edit')}</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => handleAction(onAdjustStock)}>
           <ListItemIcon><Iconify icon="solar:sort-bold-duotone" width={20} /></ListItemIcon>
-          <ListItemText>Adjust Stock</ListItemText>
+          <ListItemText>{t('inventory.adjustStock')}</ListItemText>
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -273,7 +319,7 @@ export function InventoryTable({ products, onEdit, onAdjustStock, onDelete }: Pr
           <ListItemIcon>
             <Iconify icon="solar:trash-bin-trash-bold" width={20} sx={{ color: 'error.main' }} />
           </ListItemIcon>
-          <ListItemText>Delete</ListItemText>
+          <ListItemText>{t('common.delete')}</ListItemText>
         </MenuItem>
       </Menu>
     </Card>

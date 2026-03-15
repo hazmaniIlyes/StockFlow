@@ -1,10 +1,12 @@
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 
 import { fCurrency } from 'src/utils/format-number';
+
+import { useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -25,24 +27,25 @@ type Props = {
 
 export function ExpensesKpiCards({ thisMonth, lastMonth, yearTotal }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   const diff = lastMonth > 0 ? ((thisMonth - lastMonth) / lastMonth) * 100 : 0;
 
   const kpis: KpiItem[] = [
     {
-      title: 'This Month',
+      title: t('expenses.thisMonth'),
       value: fCurrency(thisMonth),
       icon: 'solar:calendar-bold-duotone',
       color: 'error',
     },
     {
-      title: 'Last Month',
+      title: t('expenses.lastMonth'),
       value: fCurrency(lastMonth),
       icon: 'solar:calendar-date-bold-duotone',
       color: 'warning',
     },
     {
-      title: 'Year Total',
+      title: t('expenses.yearTotal'),
       value: fCurrency(yearTotal),
       icon: 'solar:chart-2-bold-duotone',
       color: 'info',
@@ -73,7 +76,7 @@ export function ExpensesKpiCards({ thisMonth, lastMonth, yearTotal }: Props) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: 1.5,
-                backgroundColor: `${kpi.color}.lighter`,
+                backgroundColor: alpha(theme.palette[kpi.color].main, 0.16),
                 color: `${kpi.color}.main`,
                 flexShrink: 0,
               }}
@@ -86,7 +89,7 @@ export function ExpensesKpiCards({ thisMonth, lastMonth, yearTotal }: Props) {
                 {kpi.title}
               </Box>
               <Box sx={{ typography: 'h5' }}>{kpi.value}</Box>
-              {kpi.title === 'This Month' && lastMonth > 0 && (
+              {kpi.title === t('expenses.thisMonth') && lastMonth > 0 && (
                 <Box
                   sx={{
                     display: 'flex',
@@ -104,7 +107,7 @@ export function ExpensesKpiCards({ thisMonth, lastMonth, yearTotal }: Props) {
                     variant="caption"
                     color={diff >= 0 ? 'error.main' : 'success.main'}
                   >
-                    {Math.abs(diff).toFixed(1)}% vs last month
+                    {Math.abs(diff).toFixed(1)}% {t('expenses.vsLastMonth')}
                   </Typography>
                 </Box>
               )}

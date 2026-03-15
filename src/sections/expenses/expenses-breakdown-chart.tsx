@@ -7,9 +7,9 @@ import CardHeader from '@mui/material/CardHeader';
 
 import { fCurrency } from 'src/utils/format-number';
 
-import { Chart, useChart, ChartLegends } from 'src/components/chart';
+import { useSettings } from 'src/contexts';
 
-import { EXPENSE_CATEGORIES } from 'src/_mock/_data';
+import { Chart, useChart, ChartLegends } from 'src/components/chart';
 
 // ======================================================================
 
@@ -23,10 +23,12 @@ type Props = CardProps & {
 };
 
 export function ExpensesBreakdownChart({ title, subheader, chart, sx, ...other }: Props) {
+  const { expenseCategories } = useSettings();
+
   const chartSeries = chart.series.map((item) => item.value);
 
   const chartColors = chart.series.map((item) => {
-    const cat = EXPENSE_CATEGORIES.find((c) => c.label === item.label);
+    const cat = expenseCategories.find((c) => c.label === item.label);
     return cat?.color ?? '#A29BFE';
   });
 

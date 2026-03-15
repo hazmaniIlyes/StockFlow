@@ -2,13 +2,21 @@ import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
-import { _clients, _invoices } from 'src/_mock';
+import { useClients, useTranslation } from 'src/contexts';
+
+import { ConfirmDialog } from 'src/components/confirm-dialog';
+import { Iconify } from 'src/components/iconify';
+import { useSnackbar } from 'src/components/snackbar';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 
+import { useInvoices } from 'src/sections/sales/context';
+
 import { ClientsKpiCards } from '../clients-kpi-cards';
+import { ClientsNewDialog } from '../clients-new-dialog';
 import { ClientsPaymentDialog } from '../clients-payment-dialog';
 import { ClientsTable } from '../clients-table';
 
@@ -18,11 +26,20 @@ import type { Client } from 'src/_mock/_data';
 
 export function ClientsView() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { showSuccess, showError } = useSnackbar();
+  const { clients, addClient, updateClient, deleteClient, recordPayment } = useClients();
+  const { invoices } = useInvoices();
 
-  const [clients, setClients] = useState<Client[]>(_clients);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [paymentClient, setPaymentClient] = useState<Client | null>(null);
 
-  // KPI calculations
+  // Delete confirmation
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+
+  // KPI calculations - now dynamic from actual data
   const kpis = useMemo(() => {
     const totalClients = clients.length;
     const unpaidClients = clients.filter((c) => c.status === 'unpaid').length;
@@ -30,12 +47,48 @@ export function ClientsView() {
 
     // Overdue = unpaid invoices past their due date
     const now = new Date();
-    const overdueAmount = _invoices
+    const overdueAmount = invoices
       .filter((inv) => inv.amountDue > 0 && new Date(inv.dueDate) < now)
       .reduce((sum, inv) => sum + inv.amountDue, 0);
 
     return { totalClients, unpaidClients, totalCredit, overdueAmount };
-  }, [clients]);
+  }, [clients, invoices]);
+
+  const handleNewClient = () => {
+    setEditingClient(null);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (client: Client) => {
+    setEditingClient(client);
+    setDialogOpen(true);
+  };
+
+  const handleSave = useCallback(
+    (data: { name: string; phone: string; address: string; nif?: string; nis?: string; rc?: string; ai?: string }) => {
+      try {
+        if (editingClient) {
+          updateClient(editingClient.id, data);
+          showSuccess(t('clients.clientUpdated'));
+        } else {
+          addClient({
+            ...data,
+            totalPurchases: 0,
+            totalPaid: 0,
+            remainingBalance: 0,
+            lastInvoiceDate: '',
+            status: 'paid',
+          });
+          showSuccess(t('clients.clientAdded'));
+        }
+        setDialogOpen(false);
+        setEditingClient(null);
+      } catch (e) {
+        showError(t('clients.failedToSave'));
+      }
+    },
+    [editingClient, addClient, updateClient, showSuccess, showError, t]
+  );
 
   const handleView = (client: Client) => {
     navigate(`/clients/${client.id}`);
@@ -45,37 +98,53 @@ export function ClientsView() {
     navigate(`/clients/${client.id}#invoices`);
   };
 
-  const handleRecordPayment = (client: Client) => {
+  const handleRecordPaymentRequest = (client: Client) => {
     setPaymentClient(client);
   };
 
-  const handlePaymentSubmit = useCallback((clientId: string, amount: number, _note: string) => {
-    setClients((prev) =>
-      prev.map((c) => {
-        if (c.id !== clientId) return c;
-        const newRemaining = Math.max(0, c.remainingBalance - amount);
-        return {
-          ...c,
-          totalPaid: c.totalPaid + amount,
-          remainingBalance: newRemaining,
-          status: (newRemaining === 0 ? 'paid' : 'unpaid') as Client['status'],
-        };
-      })
-    );
-  }, []);
+  const handlePaymentSubmit = useCallback(
+    (clientId: string, amount: number, _note: string) => {
+      recordPayment(clientId, amount);
+      showSuccess(t('clients.paymentRecorded', { amount: amount.toLocaleString() }));
+    },
+    [recordPayment, showSuccess, t]
+  );
 
-  const handleEdit = (client: Client) => {
-    console.log('Edit client:', client.name);
+  const handleDeleteRequest = (clientId: string) => {
+    const client = clients.find((c) => c.id === clientId);
+    if (client) {
+      setClientToDelete(client);
+      setDeleteDialogOpen(true);
+    }
   };
 
-  const handleDelete = useCallback((clientId: string) => {
-    setClients((prev) => prev.filter((c) => c.id !== clientId));
-  }, []);
+  const handleDeleteConfirm = () => {
+    if (clientToDelete) {
+      deleteClient(clientToDelete.id);
+      showSuccess(t('clients.clientDeleted'));
+      setDeleteDialogOpen(false);
+      setClientToDelete(null);
+    }
+  };
 
   return (
     <DashboardContent maxWidth="xl">
-      <Box sx={{ mb: { xs: 3, md: 5 } }}>
-        <Typography variant="h4">Clients</Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          mb: { xs: 3, md: 5 },
+        }}
+      >
+        <Typography variant="h4">{t('clients.title')}</Typography>
+        <Button
+          variant="contained"
+          startIcon={<Iconify icon="solar:user-plus-bold-duotone" width={20} />}
+          onClick={handleNewClient}
+        >
+          {t('clients.newClient')}
+        </Button>
       </Box>
 
       {/* KPI Cards */}
@@ -91,11 +160,23 @@ export function ClientsView() {
       {/* Client List */}
       <ClientsTable
         clients={clients}
+        invoices={invoices}
         onView={handleView}
         onViewInvoices={handleViewInvoices}
-        onRecordPayment={handleRecordPayment}
+        onRecordPayment={handleRecordPaymentRequest}
         onEdit={handleEdit}
-        onDelete={handleDelete}
+        onDelete={handleDeleteRequest}
+      />
+
+      {/* New/Edit Client Dialog */}
+      <ClientsNewDialog
+        open={dialogOpen}
+        onClose={() => {
+          setDialogOpen(false);
+          setEditingClient(null);
+        }}
+        onSave={handleSave}
+        editClient={editingClient}
       />
 
       {/* Payment Dialog */}
@@ -104,6 +185,19 @@ export function ClientsView() {
         client={paymentClient}
         onClose={() => setPaymentClient(null)}
         onSubmit={handlePaymentSubmit}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title={t('clients.deleteClient')}
+        content={t('clients.confirmDeleteContent', { name: clientToDelete?.name || '' })}
+        confirmLabel={t('common.delete')}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => {
+          setDeleteDialogOpen(false);
+          setClientToDelete(null);
+        }}
       />
     </DashboardContent>
   );

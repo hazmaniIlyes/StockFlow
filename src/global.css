@@ -10,6 +10,15 @@
 @import '@fontsource/barlow/800.css';
 
 /** **************************************
+* Arabic font override
+*************************************** */
+html[lang='ar'],
+html[lang='ar'] body,
+html[lang='ar'] * {
+  font-family: 'Cairo', sans-serif !important;
+}
+
+/** **************************************
 * Plugins
 *************************************** */
 /* scrollbar */
@@ -53,4 +62,40 @@ input[type='number']::-webkit-outer-spin-button {
 input[type='number']::-webkit-inner-spin-button {
   margin: 0;
   -webkit-appearance: none;
+}
+
+/** **************************************
+* Print styles
+*************************************** */
+@media print {
+  /* Hide everything */
+  body * { visibility: hidden; }
+
+  /* Show only the invoice content */
+  .print-area,
+  .print-area * { visibility: visible; }
+
+  /* Preserve all background colors, images, and colors exactly as on screen */
+  .print-area,
+  .print-area * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Position the invoice at the top-left */
+  .print-area {
+    display: block;
+    width: 100%;
+  }
+
+  /* Hide nav, headers, action buttons */
+  .no-print { display: none !important; }
+
+  /* Remove page margins */
+  @page { margin: 12mm 14mm; }
+
+  /* Clean background */
+  body, html { background: white !important; }
+  .MuiCard-root { box-shadow: none !important; border: none !important; }
 }

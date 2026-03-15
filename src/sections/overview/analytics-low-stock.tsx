@@ -10,6 +10,8 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 
+import { useTranslation } from 'src/contexts';
+
 import { fNumber } from 'src/utils/format-number';
 
 import { Scrollbar } from 'src/components/scrollbar';
@@ -38,7 +40,12 @@ export function AnalyticsLowStock({
   sx,
   ...other
 }: Props) {
+  const { t } = useTranslation();
   const criticalCount = list.filter((item) => item.status === 'critical').length;
+
+  const getStatusLabel = (status: 'critical' | 'warning') => {
+    return status === 'critical' ? t('common.critical') : t('common.warning');
+  };
 
   return (
     <Card
@@ -50,16 +57,16 @@ export function AnalyticsLowStock({
     >
       <CardHeader
         title={title}
-        subheader={subheader || `${criticalCount} critical · ${list.length} total`}
+        subheader={subheader || `${criticalCount} ${t('common.critical')} · ${list.length} ${t('common.total')}`}
       />
 
       <Scrollbar sx={{ flex: 1 }}>
         <Table sx={{ minWidth: 360 }}>
           <TableHead>
             <TableRow>
-              <TableCell>Product</TableCell>
-              <TableCell align="center">Stock</TableCell>
-              <TableCell align="right">Status</TableCell>
+              <TableCell>{t('common.product')}</TableCell>
+              <TableCell align="center">{t('common.stock')}</TableCell>
+              <TableCell align="right">{t('common.status')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -72,7 +79,7 @@ export function AnalyticsLowStock({
                     <Box
                       sx={{
                         typography: 'subtitle2',
-                        maxWidth: 140,
+                        maxWidth: 180,
                         textOverflow: 'ellipsis',
                         overflow: 'hidden',
                         whiteSpace: 'nowrap',
@@ -99,7 +106,7 @@ export function AnalyticsLowStock({
                   </TableCell>
                   <TableCell align="right">
                     <Label color={row.status === 'critical' ? 'error' : 'warning'}>
-                      {row.status}
+                      {getStatusLabel(row.status)}
                     </Label>
                   </TableCell>
                 </TableRow>

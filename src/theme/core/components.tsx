@@ -22,6 +22,17 @@ const MuiButton: Components<Theme>['MuiButton'] = {
     disableElevation: true,
   },
   styleOverrides: {
+    root: {
+      // Ensure proper icon spacing in RTL mode
+      '& .MuiButton-startIcon': {
+        marginInlineEnd: 8,
+        marginInlineStart: -4,
+      },
+      '& .MuiButton-endIcon': {
+        marginInlineStart: 8,
+        marginInlineEnd: -4,
+      },
+    },
     containedInherit: ({ theme }) => ({
       color: theme.vars.palette.common.white,
       backgroundColor: theme.vars.palette.grey[800],
@@ -43,6 +54,7 @@ const MuiCard: Components<Theme>['MuiCard'] = {
       position: 'relative',
       boxShadow: theme.vars.customShadows.card,
       borderRadius: theme.shape.borderRadius * 2,
+      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], theme.palette.mode === 'dark' ? 0.32 : 0.16)}`,
     }),
   },
 };
@@ -54,7 +66,7 @@ const MuiCardHeader: Components<Theme>['MuiCardHeader'] = {
   },
   styleOverrides: {
     root: ({ theme }) => ({
-      padding: theme.spacing(3, 3, 0),
+      padding: theme.spacing(3, 3, 2),
     }),
   },
 };
@@ -153,6 +165,17 @@ const MuiRadio: Components<Theme>['MuiRadio'] = {
   },
 };
 
+const MuiDialogActions: Components<Theme>['MuiDialogActions'] = {
+  styleOverrides: {
+    root: {
+      gap: 8,
+      '& > :not(:first-of-type)': {
+        marginInlineStart: 0,
+      },
+    },
+  },
+};
+
 // ----------------------------------------------------------------------
 
 export const components = {
@@ -167,5 +190,6 @@ export const components = {
   MuiTableCell,
   MuiCardHeader,
   MuiOutlinedInput,
+  MuiDialogActions,
   MuiFormControlLabel,
 };

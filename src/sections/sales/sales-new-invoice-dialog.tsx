@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
+import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -10,6 +12,7 @@ import Divider from '@mui/material/Divider';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Grid from '@mui/material/Grid';
 import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
@@ -18,9 +21,15 @@ import Typography from '@mui/material/Typography';
 
 import { fCurrency } from 'src/utils/format-number';
 
+import { alpha, useTheme } from '@mui/material/styles';
+
+import { useClients, useInventory, useTranslation, useSettings } from 'src/contexts';
+
+import { useInvoices } from './context/invoice-context';
+
 import { Iconify } from 'src/components/iconify';
 
-import type { Invoice, InvoiceProduct } from 'src/_mock/_data';
+import type { Invoice, InvoiceProduct, Client, InventoryProduct, ProductUnit } from 'src/_mock/_data';
 
 // ======================================================================
 
@@ -29,12 +38,18 @@ type ProductRow = {
   name: string;
   quantity: number;
   unitPrice: number;
+  inventoryId?: string;
+  availableStock?: number;
+  unit?: ProductUnit;
 };
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  onSave: (invoice: Omit<Invoice, 'id'>) => void;
+  onSave: (
+    invoice: Omit<Invoice, 'id'>,
+    options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery' }
+  ) => void;
   editInvoice?: Invoice | null;
 };
 
@@ -45,29 +60,158 @@ const emptyProduct = (): ProductRow => ({
   unitPrice: 0,
 });
 
+type FormErrors = {
+  clientName?: string;
+  products?: string;
+  stockErrors?: string[];
+};
+
 export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Props) {
   const isEdit = !!editInvoice;
+  const { t } = useTranslation();
 
-  const [clientName, setClientName] = useState(editInvoice?.client.name ?? '');
-  const [clientPhone, setClientPhone] = useState(editInvoice?.client.phone ?? '');
-  const [clientAddress, setClientAddress] = useState(editInvoice?.client.address ?? '');
-  const [tvaRate, setTvaRate] = useState(editInvoice?.tvaRate ?? 19);
-  const [paymentStatus, setPaymentStatus] = useState<'paid' | 'partly-paid' | 'unpaid'>(
-    editInvoice?.status ?? 'unpaid'
-  );
-  const [amountPaid, setAmountPaid] = useState(editInvoice?.amountPaid ?? 0);
-  const [products, setProducts] = useState<ProductRow[]>(
-    editInvoice?.products.map((p) => ({
-      id: p.id,
-      name: p.name,
-      quantity: p.quantity,
-      unitPrice: p.unitPrice,
-    })) ?? [emptyProduct()]
-  );
+  const { clients } = useClients();
+  const { products: inventoryProducts } = useInventory();
+  const { getNextInvoiceNumber } = useInvoices();
+  const { invoice: invoiceSettings } = useSettings();
+  const theme = useTheme();
+
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [clientName, setClientName] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientAddress, setClientAddress] = useState('');
+  const [clientNif, setClientNif] = useState('');
+  const [clientNis, setClientNis] = useState('');
+  const [clientRc, setClientRc] = useState('');
+  const [clientAi, setClientAi] = useState('');
+  const [tvaRate, setTvaRate] = useState(19);
+  const [paymentStatus, setPaymentStatus] = useState<'paid' | 'partly-paid' | 'unpaid'>('paid');
+  const [amountPaid, setAmountPaid] = useState(0);
+  const defaultDueDate = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().split('T')[0];
+  };
+  const [dueDate, setDueDate] = useState(defaultDueDate);
+  const [products, setProducts] = useState<ProductRow[]>([emptyProduct()]);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState(false);
+
+  // Reset form when dialog opens or editInvoice changes
+  useEffect(() => {
+    if (open) {
+      if (editInvoice) {
+        const existingClient = clients.find(
+          (c) => c.name.toLowerCase() === editInvoice.client.name.toLowerCase()
+        );
+        setSelectedClient(existingClient || null);
+        setClientName(editInvoice.client.name);
+        setClientPhone(editInvoice.client.phone);
+        setClientAddress(editInvoice.client.address);
+        setClientNif(editInvoice.client.nif || '');
+        setClientNis(editInvoice.client.nis || '');
+        setClientRc(editInvoice.client.rc || '');
+        setClientAi(editInvoice.client.ai || '');
+        setTvaRate(editInvoice.tvaRate);
+        setPaymentStatus(editInvoice.status);
+        setAmountPaid(editInvoice.amountPaid);
+        setDueDate(
+          editInvoice.dueDate
+            ? (() => { try { return new Date(editInvoice.dueDate).toISOString().split('T')[0]; } catch { return defaultDueDate(); } })()
+            : defaultDueDate()
+        );
+        setProducts(
+          editInvoice.products.map((p) => {
+            const invProduct = inventoryProducts.find(
+              (ip) => ip.name.toLowerCase() === p.name.toLowerCase()
+            );
+            return {
+              id: p.id,
+              name: p.name,
+              quantity: p.quantity,
+              unitPrice: p.unitPrice,
+              inventoryId: invProduct?.id,
+              availableStock: invProduct ? invProduct.stock + p.quantity : undefined,
+              unit: p.unit ?? invProduct?.unit,
+            };
+          })
+        );
+      } else {
+        setSelectedClient(null);
+        setClientName('');
+        setClientPhone('');
+        setClientAddress('');
+        setClientNif('');
+        setClientNis('');
+        setClientRc('');
+        setClientAi('');
+        setTvaRate(invoiceSettings.tvaRate);
+        setPaymentStatus('paid');
+        setAmountPaid(0);
+        setDueDate(defaultDueDate());
+        setProducts([emptyProduct()]);
+      }
+      setErrors({});
+      setTouched(false);
+    }
+  }, [open, editInvoice, clients, inventoryProducts]);
+
+  const handleClientSelect = (client: Client | null) => {
+    setSelectedClient(client);
+    if (client) {
+      setClientName(client.name);
+      setClientPhone(client.phone);
+      setClientAddress(client.address);
+      setClientNif(client.nif || '');
+      setClientNis(client.nis || '');
+      setClientRc(client.rc || '');
+      setClientAi(client.ai || '');
+    }
+  };
+
+  const handleProductSelect = (rowId: string, product: InventoryProduct | null) => {
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (p.id !== rowId) return p;
+        if (!product) {
+          return { ...p, name: '', unitPrice: 0, inventoryId: undefined, availableStock: undefined };
+        }
+        return {
+          ...p,
+          name: product.name,
+          unitPrice: product.sellPrice,
+          inventoryId: product.id,
+          availableStock: product.stock,
+          unit: product.unit,
+        };
+      })
+    );
+  };
 
   const handleProductChange = (id: string, field: keyof ProductRow, value: string | number) => {
     setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const updated = { ...p, [field]: value };
+
+        if (field === 'name') {
+          const invProduct = inventoryProducts.find(
+            (ip) => ip.name.toLowerCase() === String(value).toLowerCase()
+          );
+          if (invProduct) {
+            updated.inventoryId = invProduct.id;
+            updated.availableStock = invProduct.stock;
+            if (!updated.unitPrice) {
+              updated.unitPrice = invProduct.sellPrice;
+            }
+          } else {
+            updated.inventoryId = undefined;
+            updated.availableStock = undefined;
+          }
+        }
+
+        return updated;
+      })
     );
   };
 
@@ -80,11 +224,48 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
     setProducts((prev) => prev.filter((p) => p.id !== id));
   };
 
-  const subtotal = products.reduce((sum, p) => sum + p.quantity * p.unitPrice, 0);
-  const tvaAmount = subtotal * (tvaRate / 100);
-  const total = subtotal + tvaAmount;
+  // TVA is taken directly from the price (19% of total)
+  const totalTTC = products.reduce((sum, p) => sum + p.quantity * p.unitPrice, 0);
+  const tvaAmount = totalTTC * (tvaRate / 100);
+  const subtotalHT = totalTTC - tvaAmount;
+  const total = totalTTC; // The price entered is the final total
 
-  const handleSave = () => {
+  const validate = (): boolean => {
+    const newErrors: FormErrors = {};
+    const stockErrors: string[] = [];
+
+    if (!clientName.trim()) {
+      newErrors.clientName = 'Client name is required';
+    }
+
+    const validProducts = products.filter((p) => p.name.trim() && p.quantity > 0 && p.unitPrice > 0);
+    if (validProducts.length === 0) {
+      newErrors.products = 'At least one product with name, quantity, and price is required';
+    }
+
+    for (const product of validProducts) {
+      if (product.inventoryId && product.availableStock !== undefined) {
+        if (product.quantity > product.availableStock) {
+          stockErrors.push(
+            `"${product.name}": Only ${product.availableStock} in stock, requested ${product.quantity}`
+          );
+        }
+      }
+    }
+
+    if (stockErrors.length > 0) {
+      newErrors.stockErrors = stockErrors;
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = (printMode?: 'invoice' | 'delivery') => {
+    setTouched(true);
+
+    if (!validate()) return;
+
     const invoiceProducts: InvoiceProduct[] = products
       .filter((p) => p.name.trim())
       .map((p) => ({
@@ -93,57 +274,101 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
         quantity: p.quantity,
         unitPrice: p.unitPrice,
         total: p.quantity * p.unitPrice,
+        unit: p.unit,
       }));
 
-    const finalAmountPaid = paymentStatus === 'paid' ? total : paymentStatus === 'unpaid' ? 0 : amountPaid;
+    const finalAmountPaid =
+      paymentStatus === 'paid' ? total : paymentStatus === 'unpaid' ? 0 : amountPaid;
 
-    onSave({
-      invoiceNumber: editInvoice?.invoiceNumber ?? `INV-${Date.now().toString().slice(-4)}`,
-      client: { name: clientName, phone: clientPhone, address: clientAddress },
-      products: invoiceProducts,
-      subtotal,
-      tvaRate,
-      tvaAmount,
-      total,
-      amountPaid: finalAmountPaid,
-      amountDue: total - finalAmountPaid,
-      status: paymentStatus,
-      createdAt: editInvoice?.createdAt ?? new Date().toLocaleDateString('en-US'),
-      dueDate: editInvoice?.dueDate ?? (() => {
-        const d = new Date();
-        d.setDate(d.getDate() + 30);
-        return d.toLocaleDateString('en-US');
-      })(),
-    });
-
-    onClose();
+    onSave(
+      {
+        invoiceNumber: editInvoice?.invoiceNumber ?? getNextInvoiceNumber(),
+        client: { 
+          name: clientName, 
+          phone: clientPhone, 
+          address: clientAddress,
+          nif: clientNif || undefined,
+          nis: clientNis || undefined,
+          rc: clientRc || undefined,
+          ai: clientAi || undefined,
+        },
+        products: invoiceProducts,
+        subtotal: subtotalHT,
+        tvaRate,
+        tvaAmount,
+        total,
+        amountPaid: finalAmountPaid,
+        amountDue: total - finalAmountPaid,
+        status: paymentStatus,
+        createdAt: editInvoice?.createdAt ?? new Date().toLocaleDateString('en-US'),
+        dueDate: dueDate ? new Date(dueDate).toLocaleDateString('en-US') : (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toLocaleDateString('en-US'); })(),
+      },
+      { isEdit, originalProducts: editInvoice?.products, printMode }
+    );
   };
 
-  const isValid = clientName.trim() && products.some((p) => p.name.trim() && p.quantity > 0 && p.unitPrice > 0);
+  const availableProducts = useMemo(() => {
+    const selectedNames = products.map((p) => p.name.toLowerCase());
+    return inventoryProducts.filter(
+      (ip) => ip.stock > 0 || selectedNames.includes(ip.name.toLowerCase())
+    );
+  }, [inventoryProducts, products]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{isEdit ? 'Edit Invoice' : 'New Invoice'}</DialogTitle>
+      <DialogTitle>{isEdit ? t('common.edit') : t('sales.newInvoice')}</DialogTitle>
 
       <DialogContent dividers sx={{ pt: 3 }}>
         {/* Client Info */}
         <Typography variant="subtitle1" sx={{ mb: 2 }}>
-          Client Information
+          {t('clients.title')}
         </Typography>
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField
-              fullWidth
-              label="Client Name"
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-              required
+            <Autocomplete
+              freeSolo
+              options={clients}
+              getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+              value={selectedClient}
+              onChange={(_, newValue) => {
+                if (typeof newValue === 'string') {
+                  setClientName(newValue);
+                  setSelectedClient(null);
+                } else {
+                  handleClientSelect(newValue);
+                }
+              }}
+              onInputChange={(_, newInputValue) => {
+                if (!selectedClient || selectedClient.name !== newInputValue) {
+                  setClientName(newInputValue);
+                }
+              }}
+              inputValue={clientName}
+              renderOption={(props, option) => (
+                <Box component="li" {...props} key={option.id}>
+                  <Box>
+                    <Typography variant="subtitle2">{option.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {option.phone} • Balance: {fCurrency(option.remainingBalance)}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={t('clients.clientName')}
+                  required
+                  error={touched && !!errors.clientName}
+                  helperText={touched && errors.clientName}
+                />
+              )}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 4 }}>
             <TextField
               fullWidth
-              label="Phone"
+              label={t('common.phone')}
               value={clientPhone}
               onChange={(e) => setClientPhone(e.target.value)}
             />
@@ -151,9 +376,56 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
           <Grid size={{ xs: 12, sm: 4 }}>
             <TextField
               fullWidth
-              label="Address"
+              label={t('common.address')}
               value={clientAddress}
               onChange={(e) => setClientAddress(e.target.value)}
+            />
+          </Grid>
+
+          {/* Tax Information - show when not selecting existing client or always show input */}
+          <Grid size={{ xs: 12 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+              {t('clients.taxFields.nif')}
+            </Typography>
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="NIF"
+              value={clientNif}
+              onChange={(e) => setClientNif(e.target.value)}
+              placeholder="Numéro d'Identification Fiscale"
+            />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="NIS"
+              value={clientNis}
+              onChange={(e) => setClientNis(e.target.value)}
+              placeholder="Numéro d'Identification Statistique"
+            />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="RC"
+              value={clientRc}
+              onChange={(e) => setClientRc(e.target.value)}
+              placeholder="Registre de Commerce"
+            />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="AI"
+              value={clientAi}
+              onChange={(e) => setClientAi(e.target.value)}
+              placeholder="Article d'Imposition"
             />
           </Grid>
         </Grid>
@@ -162,45 +434,131 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
 
         {/* Products */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Typography variant="subtitle1">Products</Typography>
+          <Typography variant="subtitle1">{t('sales.products')}</Typography>
           <Button
             size="small"
             startIcon={<Iconify icon="solar:add-circle-bold-duotone" width={20} />}
             onClick={handleAddProduct}
           >
-            Add Product
+            {t('sales.addProduct')}
           </Button>
         </Box>
+
+        {touched && errors.products && (
+          <Typography variant="caption" color="error" sx={{ display: 'block', mb: 2 }}>
+            {errors.products}
+          </Typography>
+        )}
+
+        {touched && errors.stockErrors && errors.stockErrors.length > 0 && (
+          <Box sx={{ mb: 2, p: 1.5, bgcolor: alpha(theme.palette.error.main, 0.12), borderRadius: 1 }}>
+            <Typography variant="subtitle2" color="error" sx={{ mb: 0.5 }}>
+              {t('common.stock')}:
+            </Typography>
+            {errors.stockErrors.map((err, idx) => (
+              <Typography key={idx} variant="caption" color="error" sx={{ display: 'block' }}>
+                • {err}
+              </Typography>
+            ))}
+          </Box>
+        )}
 
         {products.map((product, index) => (
           <Grid container spacing={2} key={product.id} sx={{ mb: 1.5 }}>
             <Grid size={{ xs: 12, sm: 5 }}>
-              <TextField
-                fullWidth
+              <Autocomplete
+                freeSolo
                 size="small"
-                label={`Product ${index + 1}`}
-                value={product.name}
-                onChange={(e) => handleProductChange(product.id, 'name', e.target.value)}
+                options={availableProducts}
+                getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+                value={
+                  product.inventoryId
+                    ? inventoryProducts.find((p) => p.id === product.inventoryId) || null
+                    : null
+                }
+                onChange={(_, newValue) => {
+                  if (typeof newValue === 'string') {
+                    handleProductChange(product.id, 'name', newValue);
+                  } else {
+                    handleProductSelect(product.id, newValue);
+                  }
+                }}
+                onInputChange={(_, newInputValue) => {
+                  if (!product.inventoryId) {
+                    handleProductChange(product.id, 'name', newInputValue);
+                  }
+                }}
+                inputValue={product.name}
+                renderOption={(props, option) => (
+                  <Box
+                    component="li"
+                    {...props}
+                    key={option.id}
+                    sx={{ display: 'flex', justifyContent: 'space-between' }}
+                  >
+                    <Box>
+                      <Typography variant="body2">{option.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {fCurrency(option.sellPrice)} / {option.unit ?? 'pcs'}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      size="small"
+                      label={`${option.stock} ${option.unit ?? 'pcs'}`}
+                      color={option.stock <= option.minStock ? 'warning' : 'default'}
+                      sx={{ marginInlineStart: 1 }}
+                    />
+                  </Box>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label={`${t('common.product')} ${index + 1}`}
+                    slotProps={{
+                      input: {
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {product.availableStock !== undefined && (
+                              <Chip
+                                size="small"
+                                label={`${product.availableStock} ${product.unit ?? 'pcs'}`}
+                                color={
+                                  product.quantity > product.availableStock ? 'error' : 'success'
+                                }
+                                sx={{ marginInlineEnd: 0.5, height: 20, fontSize: '0.7rem' }}
+                              />
+                            )}
+                            {params.InputProps.endAdornment}
+                          </>
+                        ),
+                      },
+                    }}
+                  />
+                )}
               />
             </Grid>
             <Grid size={{ xs: 6, sm: 2 }}>
               <TextField
                 fullWidth
                 size="small"
-                label="Qty"
+                label={product.unit && product.unit !== 'pcs' ? `${t('common.quantity')} (${product.unit})` : t('common.quantity')}
                 type="number"
                 value={product.quantity}
                 onChange={(e) =>
-                  handleProductChange(product.id, 'quantity', Math.max(1, Number(e.target.value)))
+                  handleProductChange(product.id, 'quantity', Math.max(product.unit === 'pcs' || !product.unit ? 1 : 0.001, Number(e.target.value)))
                 }
-                slotProps={{ htmlInput: { min: 1 } }}
+                error={
+                  product.availableStock !== undefined && product.quantity > product.availableStock
+                }
+                slotProps={{ htmlInput: { min: product.unit === 'pcs' || !product.unit ? 1 : 0.001, step: product.unit === 'pcs' || !product.unit ? 1 : 0.001 } }}
               />
             </Grid>
             <Grid size={{ xs: 6, sm: 3 }}>
               <TextField
                 fullWidth
                 size="small"
-                label="Unit Price"
+                label={product.unit && product.unit !== 'pcs' ? `${t('common.price')} DA/${product.unit}` : t('common.price')}
                 type="number"
                 value={product.unitPrice || ''}
                 onChange={(e) =>
@@ -214,7 +572,11 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
                 {fCurrency(product.quantity * product.unitPrice)}
               </Box>
               {products.length > 1 && (
-                <IconButton size="small" onClick={() => handleRemoveProduct(product.id)} color="error">
+                <IconButton
+                  size="small"
+                  onClick={() => handleRemoveProduct(product.id)}
+                  color="error"
+                >
                   <Iconify icon="solar:trash-bin-trash-bold" width={18} />
                 </IconButton>
               )}
@@ -229,21 +591,21 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
           <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
-              label="TVA Rate (%)"
+              label={t('sales.taxRate')}
               type="number"
               value={tvaRate}
               onChange={(e) => setTvaRate(Math.max(0, Number(e.target.value)))}
               slotProps={{ htmlInput: { min: 0, max: 100 } }}
-              helperText="Default: 19%"
+              helperText={`${t('sales.taxRate')} (19%)`}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
-            <Box sx={{ textAlign: 'right' }}>
+            <Box sx={{ textAlign: 'end' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body2" color="text.secondary">
-                  Subtotal
+                  {t('common.subtotal')} HT
                 </Typography>
-                <Typography variant="body2">{fCurrency(subtotal)}</Typography>
+                <Typography variant="body2">{fCurrency(subtotalHT)}</Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body2" color="text.secondary">
@@ -253,7 +615,7 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
               </Box>
               <Divider sx={{ my: 1 }} />
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="subtitle1">Total</Typography>
+                <Typography variant="subtitle1">{t('common.total')} TTC</Typography>
                 <Typography variant="subtitle1">{fCurrency(total)}</Typography>
               </Box>
             </Box>
@@ -264,22 +626,22 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
 
         {/* Payment Status */}
         <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
-          Payment Status
+          {t('sales.paymentStatus')}
         </Typography>
         <RadioGroup
           row
           value={paymentStatus}
           onChange={(e) => setPaymentStatus(e.target.value as Invoice['status'])}
         >
-          <FormControlLabel value="paid" control={<Radio />} label="Fully Paid" />
-          <FormControlLabel value="partly-paid" control={<Radio />} label="Partly Paid" />
-          <FormControlLabel value="unpaid" control={<Radio />} label="Not Paid" />
+          <FormControlLabel value="paid" control={<Radio />} label={t('sales.paid')} />
+          <FormControlLabel value="partly-paid" control={<Radio />} label={t('sales.partial')} />
+          <FormControlLabel value="unpaid" control={<Radio />} label={t('sales.unpaid')} />
         </RadioGroup>
 
         {paymentStatus === 'partly-paid' && (
-          <Box sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Box sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
             <TextField
-              label="Amount Paid"
+              label={t('sales.amountPaid')}
               type="number"
               size="small"
               value={amountPaid}
@@ -288,7 +650,24 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
               sx={{ width: 200 }}
             />
             <Typography variant="body2" color="text.secondary">
-              Remaining: <strong>{fCurrency(total - amountPaid)}</strong>
+              {t('sales.amountDue')}: <strong>{fCurrency(total - amountPaid)}</strong>
+            </Typography>
+          </Box>
+        )}
+        {(paymentStatus === 'partly-paid' || paymentStatus === 'unpaid') && (
+          <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Iconify icon="solar:calendar-bold-duotone" width={20} sx={{ color: 'text.secondary' }} />
+            <TextField
+              label={t('sales.dueDate')}
+              type="date"
+              size="small"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+              sx={{ width: 200 }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              {t('sales.dueDateHelper')}
             </Typography>
           </Box>
         )}
@@ -296,12 +675,50 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
 
       <DialogActions sx={{ px: 3, py: 2 }}>
         <Button variant="outlined" color="inherit" onClick={onClose}>
-          Cancel
+          {t('common.cancel')}
         </Button>
-        <Button variant="contained" onClick={handleSave} disabled={!isValid}>
-          {isEdit ? 'Update Invoice' : 'Save Invoice'}
+        <PrintDropdownButton onSelect={(mode) => handleSave(mode)} t={t} />
+        <Button variant="contained" onClick={() => handleSave()}>
+          {t('common.save')}
         </Button>
       </DialogActions>
     </Dialog>
+  );
+}
+
+// ── Split print dropdown ──────────────────────────────────────────────
+function PrintDropdownButton({
+  onSelect,
+  t,
+}: {
+  onSelect: (mode: 'invoice' | 'delivery') => void;
+  t: (key: string) => string;
+}) {
+  const [anchor, setAnchor] = useState<null | HTMLElement>(null);
+  return (
+    <>
+      <Button
+        variant="outlined"
+        startIcon={<Iconify icon="solar:printer-bold-duotone" width={20} />}
+        endIcon={<Iconify icon="solar:alt-arrow-down-bold" width={16} />}
+        onClick={(e) => setAnchor(e.currentTarget)}
+      >
+        {t('common.saveAndPrint')}
+      </Button>
+      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
+        <MenuItem
+          onClick={() => { setAnchor(null); onSelect('invoice'); }}
+        >
+          <Iconify icon="solar:bill-list-bold-duotone" width={18} sx={{ mr: 1.5 }} />
+          {t('sales.saveAndPrintInvoice')}
+        </MenuItem>
+        <MenuItem
+          onClick={() => { setAnchor(null); onSelect('delivery'); }}
+        >
+          <Iconify icon="solar:box-bold-duotone" width={18} sx={{ mr: 1.5 }} />
+          {t('sales.saveAndPrintDelivery')}
+        </MenuItem>
+      </Menu>
+    </>
   );
 }

@@ -13,10 +13,12 @@ import TableRow from '@mui/material/TableRow';
 import { useTheme } from '@mui/material/styles';
 
 import { fCurrency, fNumber } from 'src/utils/format-number';
+
+import { useSettings, useTranslation } from 'src/contexts';
+
 import { Label } from 'src/components/label';
 
 import type { Invoice, Client, Supplier, Expense, InventoryProduct } from 'src/_mock/_data';
-import { EXPENSE_CATEGORIES } from 'src/_mock/_data';
 
 // ======================================================================
 
@@ -31,6 +33,8 @@ type Props = {
 export function ReportsBreakdownTabs({ invoices, clients, suppliers, expenses, inventory }: Props) {
   const theme = useTheme();
   const [tab, setTab] = useState(0);
+  const { expenseCategories } = useSettings();
+  const { t } = useTranslation();
 
   return (
     <Card
@@ -43,24 +47,27 @@ export function ReportsBreakdownTabs({ invoices, clients, suppliers, expenses, i
       <Tabs
         value={tab}
         onChange={(_, v) => setTab(v)}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
         sx={{
           px: 2,
           pt: 1,
           borderBottom: `1px solid ${theme.vars.palette.divider}`,
         }}
       >
-        <Tab label="Sales Report" />
-        <Tab label="Client Balances" />
-        <Tab label="Supplier Balances" />
-        <Tab label="Expenses" />
-        <Tab label="Inventory Valuation" />
+        <Tab label={t('reports.salesReport')} />
+        <Tab label={t('reports.clientBalances')} />
+        <Tab label={t('reports.supplierBalances')} />
+        <Tab label={t('reports.expenses')} />
+        <Tab label={t('reports.inventoryValuation')} />
       </Tabs>
 
       <Box sx={{ p: 0 }}>
         {tab === 0 && <SalesReport invoices={invoices} />}
         {tab === 1 && <ClientBalances clients={clients} />}
         {tab === 2 && <SupplierBalances suppliers={suppliers} />}
-        {tab === 3 && <ExpensesReport expenses={expenses} />}
+        {tab === 3 && <ExpensesReport expenses={expenses} expenseCategories={expenseCategories} />}
         {tab === 4 && <InventoryValuation inventory={inventory} />}
       </Box>
     </Card>
@@ -72,6 +79,7 @@ export function ReportsBreakdownTabs({ invoices, clients, suppliers, expenses, i
 // ======================================================================
 
 function SalesReport({ invoices }: { invoices: Invoice[] }) {
+  const { t } = useTranslation();
   const totalRevenue = invoices.reduce((s, i) => s + i.total, 0);
   const totalCollected = invoices.reduce((s, i) => s + i.amountPaid, 0);
   const totalPending = invoices.reduce((s, i) => s + i.amountDue, 0);
@@ -81,13 +89,13 @@ function SalesReport({ invoices }: { invoices: Invoice[] }) {
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell>Invoice #</TableCell>
-            <TableCell>Client</TableCell>
-            <TableCell>Date</TableCell>
-            <TableCell align="right">Total</TableCell>
-            <TableCell align="right">Paid</TableCell>
-            <TableCell align="right">Due</TableCell>
-            <TableCell align="center">Status</TableCell>
+            <TableCell>{t('reports.invoiceNumber')}</TableCell>
+            <TableCell>{t('reports.client')}</TableCell>
+            <TableCell>{t('common.date')}</TableCell>
+            <TableCell align="right">{t('common.total')}</TableCell>
+            <TableCell align="right">{t('reports.paid')}</TableCell>
+            <TableCell align="right">{t('reports.due')}</TableCell>
+            <TableCell align="center">{t('common.status')}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -105,7 +113,7 @@ function SalesReport({ invoices }: { invoices: Invoice[] }) {
                     inv.status === 'paid' ? 'success' : inv.status === 'partly-paid' ? 'warning' : 'error'
                   }
                 >
-                  {inv.status === 'partly-paid' ? 'Partial' : inv.status === 'paid' ? 'Paid' : 'Unpaid'}
+                  {inv.status === 'partly-paid' ? t('reports.partial') : inv.status === 'paid' ? t('reports.paid') : t('reports.unpaid')}
                 </Label>
               </TableCell>
             </TableRow>
@@ -113,7 +121,7 @@ function SalesReport({ invoices }: { invoices: Invoice[] }) {
 
           {/* Totals row */}
           <TableRow sx={{ '& td': { fontWeight: 'bold', borderTop: '2px solid', borderColor: 'divider' } }}>
-            <TableCell colSpan={3}>Total ({invoices.length} invoices)</TableCell>
+            <TableCell colSpan={3}>{t('common.total')} ({invoices.length} {t('reports.invoices')})</TableCell>
             <TableCell align="right">{fCurrency(totalRevenue)}</TableCell>
             <TableCell align="right">{fCurrency(totalCollected)}</TableCell>
             <TableCell align="right">{fCurrency(totalPending)}</TableCell>
@@ -130,6 +138,7 @@ function SalesReport({ invoices }: { invoices: Invoice[] }) {
 // ======================================================================
 
 function ClientBalances({ clients }: { clients: Client[] }) {
+  const { t } = useTranslation();
   const sorted = [...clients].sort((a, b) => b.remainingBalance - a.remainingBalance);
   const totalPurchases = clients.reduce((s, c) => s + c.totalPurchases, 0);
   const totalPaid = clients.reduce((s, c) => s + c.totalPaid, 0);
@@ -140,12 +149,12 @@ function ClientBalances({ clients }: { clients: Client[] }) {
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell>Client</TableCell>
-            <TableCell>Phone</TableCell>
-            <TableCell align="right">Total Purchases</TableCell>
-            <TableCell align="right">Total Paid</TableCell>
-            <TableCell align="right">Remaining</TableCell>
-            <TableCell align="center">Status</TableCell>
+            <TableCell>{t('reports.client')}</TableCell>
+            <TableCell>{t('common.phone')}</TableCell>
+            <TableCell align="right">{t('reports.totalPurchases')}</TableCell>
+            <TableCell align="right">{t('reports.totalPaid')}</TableCell>
+            <TableCell align="right">{t('reports.remaining')}</TableCell>
+            <TableCell align="center">{t('common.status')}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -158,14 +167,14 @@ function ClientBalances({ clients }: { clients: Client[] }) {
               <TableCell align="right">{fCurrency(c.remainingBalance)}</TableCell>
               <TableCell align="center">
                 <Label color={c.status === 'paid' ? 'success' : 'error'}>
-                  {c.status === 'paid' ? 'Paid' : 'Unpaid'}
+                  {c.status === 'paid' ? t('reports.paid') : t('reports.unpaid')}
                 </Label>
               </TableCell>
             </TableRow>
           ))}
 
           <TableRow sx={{ '& td': { fontWeight: 'bold', borderTop: '2px solid', borderColor: 'divider' } }}>
-            <TableCell colSpan={2}>Total ({clients.length} clients)</TableCell>
+            <TableCell colSpan={2}>{t('common.total')} ({clients.length} {t('reports.clients')})</TableCell>
             <TableCell align="right">{fCurrency(totalPurchases)}</TableCell>
             <TableCell align="right">{fCurrency(totalPaid)}</TableCell>
             <TableCell align="right">{fCurrency(totalRemaining)}</TableCell>
@@ -182,6 +191,7 @@ function ClientBalances({ clients }: { clients: Client[] }) {
 // ======================================================================
 
 function SupplierBalances({ suppliers }: { suppliers: Supplier[] }) {
+  const { t } = useTranslation();
   const sorted = [...suppliers].sort((a, b) => b.totalOwed - a.totalOwed);
   const totalPurchased = suppliers.reduce((s, sp) => s + sp.totalPurchased, 0);
   const totalPaid = suppliers.reduce((s, sp) => s + sp.totalPaid, 0);
@@ -192,12 +202,12 @@ function SupplierBalances({ suppliers }: { suppliers: Supplier[] }) {
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell>Supplier</TableCell>
-            <TableCell>Email</TableCell>
-            <TableCell align="right">Total Purchased</TableCell>
-            <TableCell align="right">Total Paid</TableCell>
-            <TableCell align="right">Owed</TableCell>
-            <TableCell align="center">Status</TableCell>
+            <TableCell>{t('reports.supplier')}</TableCell>
+            <TableCell>{t('common.email')}</TableCell>
+            <TableCell align="right">{t('reports.totalPurchased')}</TableCell>
+            <TableCell align="right">{t('reports.totalPaid')}</TableCell>
+            <TableCell align="right">{t('reports.owed')}</TableCell>
+            <TableCell align="center">{t('common.status')}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -210,14 +220,14 @@ function SupplierBalances({ suppliers }: { suppliers: Supplier[] }) {
               <TableCell align="right">{fCurrency(sp.totalOwed)}</TableCell>
               <TableCell align="center">
                 <Label color={sp.totalOwed === 0 ? 'success' : 'error'}>
-                  {sp.totalOwed === 0 ? 'Settled' : 'Owing'}
+                  {sp.totalOwed === 0 ? t('reports.settled') : t('reports.owing')}
                 </Label>
               </TableCell>
             </TableRow>
           ))}
 
           <TableRow sx={{ '& td': { fontWeight: 'bold', borderTop: '2px solid', borderColor: 'divider' } }}>
-            <TableCell colSpan={2}>Total ({suppliers.length} suppliers)</TableCell>
+            <TableCell colSpan={2}>{t('common.total')} ({suppliers.length} {t('reports.suppliers')})</TableCell>
             <TableCell align="right">{fCurrency(totalPurchased)}</TableCell>
             <TableCell align="right">{fCurrency(totalPaid)}</TableCell>
             <TableCell align="right">{fCurrency(totalOwed)}</TableCell>
@@ -233,12 +243,16 @@ function SupplierBalances({ suppliers }: { suppliers: Supplier[] }) {
 // Tab 4 — Expenses Report
 // ======================================================================
 
-function ExpensesReport({ expenses }: { expenses: Expense[] }) {
+type ExpenseCategory = { id: string; label: string; color: string };
+
+function ExpensesReport({ expenses, expenseCategories }: { expenses: Expense[]; expenseCategories: ExpenseCategory[] }) {
+  const { t } = useTranslation();
   // Group by category
   const categoryMap = new Map<string, { label: string; total: number; count: number }>();
 
   expenses.forEach((e) => {
-    const cat = EXPENSE_CATEGORIES.find((c) => c.value === e.category);
+    // Category is now stored as label directly (e.g., "Rent", "Utilities")
+    const cat = expenseCategories.find((c) => c.label === e.category);
     const label = cat?.label ?? e.category;
     const existing = categoryMap.get(label);
 
@@ -258,10 +272,10 @@ function ExpensesReport({ expenses }: { expenses: Expense[] }) {
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell>Category</TableCell>
-            <TableCell align="center">Transactions</TableCell>
-            <TableCell align="right">Total</TableCell>
-            <TableCell align="right">% of Total</TableCell>
+            <TableCell>{t('common.category')}</TableCell>
+            <TableCell align="center">{t('reports.transactions')}</TableCell>
+            <TableCell align="right">{t('common.total')}</TableCell>
+            <TableCell align="right">{t('reports.percentOfTotal')}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -277,7 +291,7 @@ function ExpensesReport({ expenses }: { expenses: Expense[] }) {
           ))}
 
           <TableRow sx={{ '& td': { fontWeight: 'bold', borderTop: '2px solid', borderColor: 'divider' } }}>
-            <TableCell>Grand Total</TableCell>
+            <TableCell>{t('reports.grandTotal')}</TableCell>
             <TableCell align="center">{expenses.length}</TableCell>
             <TableCell align="right">{fCurrency(grandTotal)}</TableCell>
             <TableCell align="right">100%</TableCell>
@@ -293,6 +307,7 @@ function ExpensesReport({ expenses }: { expenses: Expense[] }) {
 // ======================================================================
 
 function InventoryValuation({ inventory }: { inventory: InventoryProduct[] }) {
+  const { t } = useTranslation();
   // Group by category
   const categoryMap = new Map<
     string,
@@ -333,12 +348,12 @@ function InventoryValuation({ inventory }: { inventory: InventoryProduct[] }) {
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell>Category</TableCell>
-            <TableCell align="center">Products</TableCell>
-            <TableCell align="center">Total Stock</TableCell>
-            <TableCell align="right">Cost Value</TableCell>
-            <TableCell align="right">Retail Value</TableCell>
-            <TableCell align="right">Potential Profit</TableCell>
+            <TableCell>{t('common.category')}</TableCell>
+            <TableCell align="center">{t('reports.products')}</TableCell>
+            <TableCell align="center">{t('reports.totalStock')}</TableCell>
+            <TableCell align="right">{t('reports.costValue')}</TableCell>
+            <TableCell align="right">{t('reports.retailValue')}</TableCell>
+            <TableCell align="right">{t('reports.potentialProfit')}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -354,7 +369,7 @@ function InventoryValuation({ inventory }: { inventory: InventoryProduct[] }) {
           ))}
 
           <TableRow sx={{ '& td': { fontWeight: 'bold', borderTop: '2px solid', borderColor: 'divider' } }}>
-            <TableCell>Total</TableCell>
+            <TableCell>{t('common.total')}</TableCell>
             <TableCell align="center">{totals.items}</TableCell>
             <TableCell align="center">{fNumber(totals.stock)}</TableCell>
             <TableCell align="right">{fCurrency(totals.cost)}</TableCell>

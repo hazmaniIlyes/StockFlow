@@ -47,7 +47,7 @@ function createCustomShadows(colorChannel: string): CustomShadows {
     z24: `0 20px 24px 0 ${varAlpha(colorChannel, 0.08)}`,
     /********/
     dialog: `-40px 40px 80px -8px ${varAlpha(common.blackChannel, 0.16)}`,
-    card: `0 0 1px 0 ${varAlpha(colorChannel, 0.12)}, 0 8px 16px -4px ${varAlpha(colorChannel, 0.08)}`,
+    card: `0 0 2px 0 ${varAlpha(colorChannel, 0.2)}, 0 8px 20px -4px ${varAlpha(colorChannel, 0.18)}`,
     dropdown: `0 0 1px 0 ${varAlpha(colorChannel, 0.12)}, -12px 12px 24px -4px ${varAlpha(colorChannel, 0.12)}`,
     /********/
     primary: createShadowColor(primary.mainChannel),
@@ -61,4 +61,5 @@ function createCustomShadows(colorChannel: string): CustomShadows {
 
 export const customShadows: Partial<Record<ThemeColorScheme, CustomShadows>> = {
   light: createCustomShadows(grey['500Channel']),
+  dark: createCustomShadows('0 0 0'),
 };

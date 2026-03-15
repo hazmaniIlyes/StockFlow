@@ -15,6 +15,8 @@ import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 
+import { useTranslation } from 'src/contexts';
+
 import { Iconify } from 'src/components/iconify';
 import { Scrollbar } from 'src/components/scrollbar';
 
@@ -39,6 +41,7 @@ export function AnalyticsTodoList({
   sx,
   ...other
 }: Props) {
+  const { t } = useTranslation();
   const [todos, setTodos] = useState<TodoItem[]>(list);
   const [input, setInput] = useState('');
 
@@ -68,7 +71,7 @@ export function AnalyticsTodoList({
     <Card sx={[{ display: 'flex', flexDirection: 'column', height: '100%', maxHeight: 350 }, ...(Array.isArray(sx) ? sx : [sx])]} {...other}>
       <CardHeader
         title={title}
-        subheader={`${completedCount} of ${todos.length} completed`}
+        subheader={`${completedCount} / ${todos.length}`}
       />
 
       <Scrollbar sx={{ flex: 1 }}>
@@ -115,7 +118,7 @@ export function AnalyticsTodoList({
         <TextField
           fullWidth
           size="small"
-          placeholder="Add a new task..."
+          placeholder={t('common.add')}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={(e) => {
@@ -130,7 +133,7 @@ export function AnalyticsTodoList({
           sx={{ flexShrink: 0 }}
           size="small"
         >
-          Add
+          {t('common.add')}
         </Button>
       </Box>
     </Card>

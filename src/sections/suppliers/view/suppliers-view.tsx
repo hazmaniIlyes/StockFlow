@@ -5,10 +5,12 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
-import { _suppliers } from 'src/_mock';
+import { useSuppliers, useInventory, useTranslation } from 'src/contexts';
 
+import { ConfirmDialog } from 'src/components/confirm-dialog';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { Iconify } from 'src/components/iconify';
+import { useSnackbar } from 'src/components/snackbar';
 
 import { SuppliersKpiCards } from '../suppliers-kpi-cards';
 import { SuppliersTable } from '../suppliers-table';
@@ -21,14 +23,22 @@ import type { Supplier } from 'src/_mock/_data';
 
 export function SuppliersView() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { showSuccess, showError } = useSnackbar();
+  const { suppliers, addSupplier, updateSupplier, deleteSupplier, recordPayment, recordPurchase } = useSuppliers();
+  const { addProduct } = useInventory();
 
-  const [suppliers, setSuppliers] = useState<Supplier[]>(_suppliers);
   const [formOpen, setFormOpen] = useState(false);
   const [editSupplier, setEditSupplier] = useState<Supplier | null>(null);
   const [paymentSupplier, setPaymentSupplier] = useState<Supplier | null>(null);
 
-  // KPI calculations
+  // Delete confirmation
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
+
+  // KPI calculations - from shared context
   const kpis = useMemo(() => {
+    console.log('Suppliers in context:', suppliers);
     const totalSuppliers = suppliers.length;
     const activeSuppliers = suppliers.filter((s) => s.status === 'active').length;
     const totalOwed = suppliers.reduce((sum, s) => sum + s.totalOwed, 0);
@@ -56,81 +66,150 @@ export function SuppliersView() {
       phone: string;
       address: string;
       email: string;
+      nif?: string;
+      nis?: string;
+      rc?: string;
+      ai?: string;
       status: 'active' | 'inactive';
-      catalog: { name: string; buyingPrice: number; category: string }[];
+      catalog: { name: string; buyingPrice: number; category: string; purchaseDate?: string; expiryDate?: string; sellPrice: number; stock: number; unit: string }[];
+      initialDebt: number;
+      debtDueDate?: string;
     }) => {
-      if (editSupplier) {
-        // Update existing supplier
-        setSuppliers((prev) =>
-          prev.map((s) => {
-            if (s.id !== editSupplier.id) return s;
-            return {
-              ...s,
-              name: data.name,
-              phone: data.phone,
-              address: data.address,
-              email: data.email,
-              status: data.status,
-              catalog: data.catalog.map((p, i) => ({
-                ...p,
-                id: s.catalog[i]?.id ?? `sp-new-${Date.now()}-${i}`,
-              })),
-            };
-          })
-        );
-      } else {
-        // Add new supplier
-        const newId = `sup-${Date.now()}`;
-        const newSupplier: Supplier = {
-          id: newId,
-          name: data.name,
-          phone: data.phone,
-          address: data.address,
-          email: data.email,
-          status: data.status,
-          catalog: data.catalog.map((p, i) => ({ ...p, id: `sp-${newId}-${i}` })),
-          totalPurchased: 0,
-          totalOwed: 0,
-          totalPaid: 0,
-        };
-        setSuppliers((prev) => [newSupplier, ...prev]);
+      console.log('handleFormSubmit received:', data);
+      const today = new Date().toISOString().split('T')[0];
+      try {
+        if (editSupplier) {
+          updateSupplier(editSupplier.id, {
+            name: data.name,
+            phone: data.phone,
+            address: data.address,
+            email: data.email,
+            nif: data.nif,
+            nis: data.nis,
+            rc: data.rc,
+            ai: data.ai,
+            status: data.status,
+            catalog: data.catalog.map((p, i) => ({
+              ...p,
+              purchaseDate: p.purchaseDate || today,
+              expiryDate: p.expiryDate || undefined,
+              id: editSupplier.catalog[i]?.id ?? `sp-new-${Date.now()}-${i}`,
+              unit: (p.unit || 'pcs') as any,
+            })),
+          });
+          showSuccess(t('suppliers.supplierUpdated'));
+        } else {
+          console.log('About to call addSupplier');
+          const catalogProducts = data.catalog.filter((p) => p.name.trim());
+          
+          // Create supplier with zero financial values - recordPurchase will set them
+          const newSupplier = addSupplier({
+            name: data.name,
+            phone: data.phone,
+            address: data.address,
+            email: data.email,
+            nif: data.nif,
+            nis: data.nis,
+            rc: data.rc,
+            ai: data.ai,
+            status: data.status,
+            catalog: catalogProducts.map((p) => ({
+              ...p,
+              purchaseDate: p.purchaseDate || today,
+              expiryDate: p.expiryDate || undefined,
+              unit: (p.unit || 'pcs') as any,
+            })),
+            totalPurchased: 0,
+            totalOwed: 0,
+            debtDueDate: data.debtDueDate,
+          });
+          console.log('addSupplier returned:', newSupplier);
+
+          // Create purchase items for the purchase record
+          const purchaseItems = catalogProducts.map((product) => ({
+            productName: product.name,
+            quantity: product.stock || 1,
+            unitPrice: product.buyingPrice,
+          }));
+
+          // Record the initial purchase (if there are products)
+          if (purchaseItems.length > 0) {
+            const purchaseTotal = purchaseItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+            const amountPaid = Math.max(0, purchaseTotal - (data.initialDebt || 0));
+            recordPurchase(newSupplier.id, purchaseItems, amountPaid);
+          }
+
+          // Add products to inventory
+          console.log('About to add products to inventory, count:', catalogProducts.length);
+          catalogProducts.forEach((product, index) => {
+            console.log('Adding product to inventory:', product.name);
+            addProduct({
+              name: product.name,
+              sku: '', // Auto-generated by inventory context
+              category: product.category,
+              supplierId: newSupplier.id,
+              supplierName: data.name,
+              buyingPrice: product.buyingPrice,
+              sellPrice: product.sellPrice || 0,
+              stock: product.stock || 0,
+              minStock: 5,
+              unit: (product.unit as any) || 'pcs',
+              expiryDate: product.expiryDate || undefined,
+            });
+          });
+          console.log('Finished adding products to inventory');
+
+          showSuccess(t('suppliers.supplierAdded'));
+        }
+        setFormOpen(false);
+        setEditSupplier(null);
+      } catch (e) {
+        showError(t('suppliers.failedToSave'));
       }
     },
-    [editSupplier]
+    [editSupplier, addSupplier, updateSupplier, addProduct, recordPurchase, showSuccess, showError]
   );
 
-  const handleDelete = useCallback((supplierId: string) => {
-    setSuppliers((prev) => prev.filter((s) => s.id !== supplierId));
-  }, []);
+  const handleDeleteRequest = (supplierId: string) => {
+    const supplier = suppliers.find((s) => s.id === supplierId);
+    if (supplier) {
+      setSupplierToDelete(supplier);
+      setDeleteDialogOpen(true);
+    }
+  };
+
+  const handleDeleteConfirm = () => {
+    if (supplierToDelete) {
+      deleteSupplier(supplierToDelete.id);
+      showSuccess(t('suppliers.supplierDeleted'));
+      setDeleteDialogOpen(false);
+      setSupplierToDelete(null);
+    }
+  };
 
   const handleRecordPayment = (supplier: Supplier) => {
     setPaymentSupplier(supplier);
   };
 
   const handlePaymentSubmit = useCallback(
-    (supplierId: string, amount: number, _note: string) => {
-      setSuppliers((prev) =>
-        prev.map((s) => {
-          if (s.id !== supplierId) return s;
-          const newOwed = Math.max(0, s.totalOwed - amount);
-          return { ...s, totalPaid: s.totalPaid + amount, totalOwed: newOwed };
-        })
-      );
+    (supplierId: string, amount: number, note: string) => {
+      recordPayment(supplierId, amount, note);
+      showSuccess(t('suppliers.paymentRecorded', { amount: amount.toLocaleString() }));
     },
-    []
+    [recordPayment, showSuccess, t]
   );
 
   return (
     <DashboardContent maxWidth="xl">
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: { xs: 3, md: 5 } }}>
-        <Typography variant="h4">Suppliers</Typography>
+        <Typography variant="h4">{t('suppliers.title')}</Typography>
         <Button
           variant="contained"
           startIcon={<Iconify icon="solar:add-circle-bold-duotone" width={20} />}
           onClick={handleAdd}
         >
-          Add Supplier
+          {t('suppliers.addSupplier')}
         </Button>
       </Box>
 
@@ -149,7 +228,7 @@ export function SuppliersView() {
         suppliers={suppliers}
         onView={handleView}
         onEdit={handleEdit}
-        onDelete={handleDelete}
+        onDelete={handleDeleteRequest}
         onRecordPayment={handleRecordPayment}
       />
 
@@ -172,6 +251,18 @@ export function SuppliersView() {
         supplier={paymentSupplier}
         onClose={() => setPaymentSupplier(null)}
         onSubmit={handlePaymentSubmit}
+      />
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title={t('suppliers.deleteSupplier')}
+        content={t('suppliers.confirmDeleteContent', { name: supplierToDelete?.name || '' })}
+        onCancel={() => {
+          setDeleteDialogOpen(false);
+          setSupplierToDelete(null);
+        }}
+        onConfirm={handleDeleteConfirm}
       />
     </DashboardContent>
   );

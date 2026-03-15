@@ -6,8 +6,10 @@ import Card from '@mui/material/Card';
 import CardHeader from '@mui/material/CardHeader';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
+
+import { useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -37,12 +39,13 @@ export function AnalyticsQuickActions({
   ...other
 }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   const actions: ActionItem[] = [
-    { id: 'sale', label: 'Create Invoice', icon: <Iconify icon="solar:bill-list-bold-duotone" width={28} />, color: 'primary', onClick: onAddSale },
-    { id: 'product', label: 'Add Product', icon: <Iconify icon="solar:box-bold-duotone" width={28} />, color: 'info', onClick: onAddProduct },
-    { id: 'supplier', label: 'Add Supplier', icon: <Iconify icon="solar:delivery-bold-duotone" width={28} />, color: 'warning', onClick: onAddSupplier },
-    { id: 'reports', label: 'View Reports', icon: <Iconify icon="solar:chart-bold-duotone" width={28} />, color: 'secondary', onClick: onViewReports },
+    { id: 'sale', label: t('dashboard.newInvoice'), icon: <Iconify icon="solar:bill-list-bold-duotone" width={28} />, color: 'primary', onClick: onAddSale },
+    { id: 'product', label: t('dashboard.addProduct'), icon: <Iconify icon="solar:box-bold-duotone" width={28} />, color: 'info', onClick: onAddProduct },
+    { id: 'supplier', label: t('dashboard.addSupplier'), icon: <Iconify icon="solar:delivery-bold-duotone" width={28} />, color: 'warning', onClick: onAddSupplier },
+    { id: 'reports', label: t('dashboard.viewReports'), icon: <Iconify icon="solar:chart-bold-duotone" width={28} />, color: 'secondary', onClick: onViewReports },
   ];
 
   const getColorValue = (colorName: string) => {
@@ -69,29 +72,47 @@ export function AnalyticsQuickActions({
       ]} 
       {...other}
     >
-      <CardHeader title="Quick Actions" />
+      <CardHeader title={t('dashboard.quickActions')} />
 
       <Box sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         <Grid container spacing={2}>
           {actions.map((action) => (
             <Grid key={action.id} size={{ xs: 12, sm: 6 }}>
               <ButtonBase
+                disableRipple
                 onClick={action.onClick}
                 sx={{
                   width: '100%',
                   p: 3.5,
-                  borderRadius: 1.5,
-                  border: `1px solid ${theme.vars.palette.divider}`,
-                  transition: theme.transitions.create(['background-color', 'border-color'], {
-                    duration: theme.transitions.duration.shorter,
-                  }),
+                  position: 'relative',
+                  borderRadius: 2,
+                  backgroundImage: `linear-gradient(135deg, ${alpha(getColorValue(action.color), 0.04)} 0%, ${alpha(getColorValue(action.color), 0.01)} 100%)`,
+                  border: `1px solid ${alpha(getColorValue(action.color), 0.1)}`,
+                  boxShadow: `inset 0 1px 0 0 rgba(255,255,255,0.4), 0 2px 4px 0 rgba(0,0,0,0.02)`,
+                  transition: 'transform 0.15s ease-out, box-shadow 0.15s ease-out, background-image 0.2s',
+                  overflow: 'hidden',
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 40%)',
+                    pointerEvents: 'none',
+                  },
                   '&:hover': {
-                    backgroundColor: theme.vars.palette.action.hover,
-                    borderColor: getColorValue(action.color),
+                    transform: 'translateY(-1px)',
+                    backgroundImage: `linear-gradient(135deg, ${alpha(getColorValue(action.color), 0.06)} 0%, ${alpha(getColorValue(action.color), 0.02)} 100%)`,
+                    boxShadow: `inset 0 1px 0 0 rgba(255,255,255,0.6), 0 4px 8px -2px ${alpha(getColorValue(action.color), 0.12)}`,
+                  },
+                  '&:active': {
+                    transform: 'translateY(1px)',
+                    boxShadow: `inset 0 1px 0 0 rgba(255,255,255,0.2), 0 1px 2px 0 rgba(0,0,0,0.02)`,
                   },
                 }}
               >
-                <Stack alignItems="center" spacing={1.5} sx={{ width: '100%' }}>
+                <Stack alignItems="center" spacing={1.5} sx={{ width: '100%', position: 'relative', zIndex: 1 }}>
                   <Box
                     sx={{
                       display: 'flex',
@@ -99,9 +120,12 @@ export function AnalyticsQuickActions({
                       justifyContent: 'center',
                       width: 56,
                       height: 56,
-                      borderRadius: 1,
-                      backgroundColor: `${action.color}.lighter`,
+                      borderRadius: '12px',
                       color: getColorValue(action.color),
+                      background: `linear-gradient(135deg, ${alpha(getColorValue(action.color), 0.1)}, ${alpha(getColorValue(action.color), 0.02)})`,
+                      boxShadow: `inset 0 1px 0 0 rgba(255,255,255,0.3), 0 1px 4px 0 ${alpha(getColorValue(action.color), 0.05)}`,
+                      backdropFilter: 'blur(2px)',
+                      border: `1px solid ${alpha(getColorValue(action.color), 0.08)}`,
                     }}
                   >
                     {action.icon}

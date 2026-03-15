@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
@@ -6,26 +6,53 @@ import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 
-import { _invoices, _salesSummary } from 'src/_mock';
+import { useClients, useInventory, useTranslation } from 'src/contexts';
 
+import { ConfirmDialog } from 'src/components/confirm-dialog';
 import { Iconify } from 'src/components/iconify';
+import { useSnackbar } from 'src/components/snackbar';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 
+import { useInvoices } from '../context';
 import { SalesInvoiceList } from '../sales-invoice-list';
 import { SalesNewInvoiceDialog } from '../sales-new-invoice-dialog';
+import { SalesRecordPaymentDialog } from '../sales-record-payment-dialog';
 import { SalesSummaryCard } from '../sales-summary-card';
 
-import type { Invoice } from 'src/_mock/_data';
+import type { Invoice, InvoiceProduct } from 'src/_mock/_data';
 
 // ======================================================================
 
 export function SalesView() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { showSuccess, showError, showWarning } = useSnackbar();
+  const {
+    invoices,
+    addInvoice,
+    updateInvoice,
+    deleteInvoice,
+    recordPayment,
+    markAsPaid,
+    getSummary,
+  } = useInvoices();
+  const { updateClientFromInvoice, recordPayment: recordClientPayment, getClientByName } = useClients();
+  const { deductStockForInvoice, restoreStockForInvoice } = useInventory();
 
-  const [invoices, setInvoices] = useState<Invoice[]>(_invoices);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+
+  // Delete confirmation
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
+
+  // Record payment
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [invoiceForPayment, setInvoiceForPayment] = useState<Invoice | null>(null);
+
+  // Dynamic summary
+  const summary = useMemo(() => getSummary(), [getSummary]);
 
   const handleNewInvoice = () => {
     setEditingInvoice(null);
@@ -38,24 +65,137 @@ export function SalesView() {
   };
 
   const handleSave = useCallback(
-    (data: Omit<Invoice, 'id'>) => {
-      if (editingInvoice) {
-        setInvoices((prev) =>
-          prev.map((inv) => (inv.id === editingInvoice.id ? { ...inv, ...data } : inv))
-        );
-      } else {
-        const newInvoice: Invoice = { ...data, id: `inv-${Date.now()}` };
-        setInvoices((prev) => [newInvoice, ...prev]);
+    (
+      data: Omit<Invoice, 'id'>,
+      options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery' }
+    ) => {
+      try {
+        const productItems = data.products.map((p) => ({ name: p.name, quantity: p.quantity }));
+        let savedInvoiceId: string | undefined;
+
+        if (options.isEdit && editingInvoice) {
+          // Restore stock from original products first
+          if (options.originalProducts) {
+            const originalItems = options.originalProducts.map((p) => ({
+              name: p.name,
+              quantity: p.quantity,
+            }));
+            restoreStockForInvoice(originalItems);
+          }
+
+          // Deduct stock for new products
+          const stockResult = deductStockForInvoice(productItems);
+          if (!stockResult.success) {
+            // Re-deduct original if validation failed
+            if (options.originalProducts) {
+              const originalItems = options.originalProducts.map((p) => ({
+                name: p.name,
+                quantity: p.quantity,
+              }));
+              deductStockForInvoice(originalItems);
+            }
+            showError(`Stock error: ${stockResult.errors.join(', ')}`);
+            return;
+          }
+
+          updateInvoice(editingInvoice.id, data);
+          savedInvoiceId = editingInvoice.id;
+          showSuccess(t('sales.invoiceUpdated'));
+        } else {
+          // New invoice - deduct stock
+          const stockResult = deductStockForInvoice(productItems);
+          if (!stockResult.success) {
+            showError(`Stock error: ${stockResult.errors.join(', ')}`);
+            return;
+          }
+
+          const newInvoice = addInvoice(data);
+          savedInvoiceId = newInvoice.id;
+
+          // Update client record
+          updateClientFromInvoice(
+            data.client.name,
+            data.client.phone,
+            data.client.address,
+            data.total,
+            data.amountPaid,
+            { nif: data.client.nif, nis: data.client.nis, rc: data.client.rc, ai: data.client.ai }
+          );
+
+          showSuccess(t('sales.invoiceCreated'), !options.printMode && savedInvoiceId ? {
+            label: t('common.view'),
+            onClick: () => navigate(`/sales/${savedInvoiceId}`),
+          } : undefined);
+        }
+
+        setDialogOpen(false);
+        setEditingInvoice(null);
+
+        // Navigate to print if requested
+        if (options.printMode && savedInvoiceId) {
+          navigate(`/sales/${savedInvoiceId}?printMode=${options.printMode}`);
+        }
+      } catch (e) {
+        showError(t('common.error'));
       }
-      setDialogOpen(false);
-      setEditingInvoice(null);
     },
-    [editingInvoice]
+    [
+      editingInvoice,
+      addInvoice,
+      updateInvoice,
+      updateClientFromInvoice,
+      deductStockForInvoice,
+      restoreStockForInvoice,
+      showSuccess,
+      showError,
+      navigate,
+    ]
   );
 
-  const handleDelete = useCallback((invoiceId: string) => {
-    setInvoices((prev) => prev.filter((inv) => inv.id !== invoiceId));
-  }, []);
+  const handleDeleteRequest = (invoiceId: string) => {
+    const invoice = invoices.find((inv) => inv.id === invoiceId);
+    if (invoice) {
+      setInvoiceToDelete(invoice);
+      setDeleteDialogOpen(true);
+    }
+  };
+
+  const handleDeleteConfirm = () => {
+    if (invoiceToDelete) {
+      // Restore stock when deleting invoice
+      const productItems = invoiceToDelete.products.map((p) => ({
+        name: p.name,
+        quantity: p.quantity,
+      }));
+      restoreStockForInvoice(productItems);
+
+      deleteInvoice(invoiceToDelete.id);
+      showSuccess(`${t('sales.invoiceDeleted')} (${invoiceToDelete.invoiceNumber})`);
+      setDeleteDialogOpen(false);
+      setInvoiceToDelete(null);
+    }
+  };
+
+  const handleRecordPaymentRequest = (invoice: Invoice) => {
+    setInvoiceForPayment(invoice);
+    setPaymentDialogOpen(true);
+  };
+
+  const handleRecordPayment = (amount: number) => {
+    if (invoiceForPayment) {
+      recordPayment(invoiceForPayment.id, amount);
+      const client = getClientByName(invoiceForPayment.client.name);
+      if (client) recordClientPayment(client.id, amount);
+      showSuccess(`${t('sales.paymentReceived')}: ${amount.toLocaleString()} DA`);
+    }
+  };
+
+  const handleMarkAsPaid = (invoice: Invoice) => {
+    const client = getClientByName(invoice.client.name);
+    if (client) recordClientPayment(client.id, invoice.amountDue);
+    markAsPaid(invoice.id);
+    showSuccess(`${invoice.invoiceNumber} - ${t('sales.paid')}`);
+  };
 
   const handleRowClick = (invoice: Invoice) => {
     navigate(`/sales/${invoice.id}`);
@@ -67,46 +207,62 @@ export function SalesView() {
 
   return (
     <DashboardContent maxWidth="xl">
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: { xs: 3, md: 5 } }}>
-        <Typography variant="h4">Sales / Invoicing</Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          mb: { xs: 3, md: 5 },
+        }}
+      >
+        <Typography variant="h4">{t('sales.title')}</Typography>
         <Button
           variant="contained"
           startIcon={<Iconify icon="solar:add-circle-bold-duotone" width={20} />}
           onClick={handleNewInvoice}
         >
-          New Invoice
+          {t('sales.newInvoice')}
         </Button>
       </Box>
 
-      {/* Summary Cards */}
+      {/* Summary Cards - Now Dynamic */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, sm: 4 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <SalesSummaryCard
-            title="Today Sales"
-            total={_salesSummary.today.totalSales}
-            profit={_salesSummary.today.profit}
-            count={_salesSummary.today.count}
+            title={t('dashboard.todaySales')}
+            total={summary.today.totalSales}
+            profit={summary.today.profit}
+            count={summary.today.count}
             icon="solar:dollar-minimalistic-bold-duotone"
             color="primary"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <SalesSummaryCard
-            title="Pending Payments"
-            total={_salesSummary.pending.totalAmount}
-            count={_salesSummary.pending.count}
+            title={t('dashboard.pendingPayments')}
+            total={summary.pending.totalAmount}
+            count={summary.pending.count}
             icon="solar:clock-circle-bold-duotone"
             color="warning"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <SalesSummaryCard
-            title="This Month Sales"
-            total={_salesSummary.thisMonth.totalSales}
-            profit={_salesSummary.thisMonth.profit}
-            count={_salesSummary.thisMonth.count}
+            title={t('dashboard.thisMonth')}
+            total={summary.thisMonth.totalSales}
+            profit={summary.thisMonth.profit}
+            count={summary.thisMonth.count}
             icon="solar:graph-up-bold-duotone"
             color="success"
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <SalesSummaryCard
+            title={t('sales.overdue')}
+            total={summary.overdue.totalAmount}
+            count={summary.overdue.count}
+            icon="solar:danger-triangle-bold-duotone"
+            color="error"
           />
         </Grid>
       </Grid>
@@ -116,8 +272,10 @@ export function SalesView() {
         invoices={invoices}
         onRowClick={handleRowClick}
         onEdit={handleEdit}
-        onDelete={handleDelete}
+        onDelete={handleDeleteRequest}
         onPrint={handlePrint}
+        onRecordPayment={handleRecordPaymentRequest}
+        onMarkAsPaid={handleMarkAsPaid}
       />
 
       {/* New/Edit Invoice Dialog */}
@@ -129,6 +287,30 @@ export function SalesView() {
         }}
         onSave={handleSave}
         editInvoice={editingInvoice}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title={t('sales.deleteInvoice')}
+        content={`${t('common.confirm')} ${t('common.delete').toLowerCase()} ${invoiceToDelete?.invoiceNumber}?`}
+        confirmLabel={t('common.delete')}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => {
+          setDeleteDialogOpen(false);
+          setInvoiceToDelete(null);
+        }}
+      />
+
+      {/* Record Payment Dialog */}
+      <SalesRecordPaymentDialog
+        open={paymentDialogOpen}
+        invoice={invoiceForPayment}
+        onClose={() => {
+          setPaymentDialogOpen(false);
+          setInvoiceForPayment(null);
+        }}
+        onSave={handleRecordPayment}
       />
     </DashboardContent>
   );

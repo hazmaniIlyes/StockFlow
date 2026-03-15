@@ -12,6 +12,7 @@ import CardHeader from '@mui/material/CardHeader';
 import { fCurrency, fNumber } from 'src/utils/format-number';
 
 import { Scrollbar } from 'src/components/scrollbar';
+import { useTranslation } from 'src/contexts';
 
 // ----------------------------------------------------------------------
 
@@ -37,6 +38,7 @@ export function AnalyticsProductsSold({
   sx,
   ...other
 }: Props) {
+  const { t } = useTranslation();
   const totalQuantity = list.reduce((sum, item) => sum + item.quantity, 0);
   const totalRevenue = list.reduce((sum, item) => sum + item.amount, 0);
 
@@ -53,9 +55,9 @@ export function AnalyticsProductsSold({
         <Table sx={{ minWidth: 360 }}>
           <TableHead>
             <TableRow>
-              <TableCell>Product</TableCell>
-              <TableCell align="right">Qty</TableCell>
-              <TableCell align="right">Revenue</TableCell>
+              <TableCell>{t('common.product')}</TableCell>
+              <TableCell align="right">{t('common.quantity')}</TableCell>
+              <TableCell align="right">{t('reports.revenue')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

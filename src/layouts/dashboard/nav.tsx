@@ -14,6 +14,8 @@ import Tooltip from '@mui/material/Tooltip';
 import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
+import { useTranslation, useI18n } from 'src/contexts';
+
 import { Iconify } from 'src/components/iconify';
 import { Logo } from 'src/components/logo';
 import { Scrollbar } from 'src/components/scrollbar';
@@ -44,14 +46,17 @@ export function NavDesktop({
   onToggleCollapse?: () => void;
 }) {
   const theme = useTheme();
+  const { dir } = useI18n();
+  const isRTL = dir === 'rtl';
 
   return (
     <Box
       sx={{
         pt: 2.5,
-        px: collapsed ? 1 : 2.5,
+        paddingInlineStart: collapsed ? 1 : 2.5,
+        paddingInlineEnd: 0,
         top: 0,
-        left: 0,
+        insetInlineStart: 0,
         height: 1,
         display: 'none',
         position: 'fixed',
@@ -59,11 +64,23 @@ export function NavDesktop({
         zIndex: 'var(--layout-nav-zIndex)',
         width: 'var(--layout-nav-vertical-width)',
         bgcolor: '#0A1929',
-        borderRight: 'none',
+        backgroundImage: 'linear-gradient(135deg, #163251 0%, #0A1929 100%)',
+        boxShadow: 'inset 0 1px 0 0 rgba(255, 255, 255, 0.1), inset -2px 0 20px -4px rgba(0,0,0,0.4)',
+        borderInlineEnd: 'none',
         transition: theme.transitions.create(['width', 'padding'], {
           easing: 'var(--layout-transition-easing)',
           duration: 'var(--layout-transition-duration)',
         }),
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundImage: 'linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 25%)',
+          pointerEvents: 'none',
+        },
         [theme.breakpoints.up(layoutQuery)]: {
           display: 'flex',
         },
@@ -71,29 +88,6 @@ export function NavDesktop({
       }}
     >
       <NavContent data={data} slots={slots} collapsed={collapsed} />
-
-      {/* Toggle button */}
-      <IconButton
-        onClick={onToggleCollapse}
-        sx={{
-          position: 'absolute',
-          top: 32,
-          right: -14,
-          zIndex: 9,
-          width: 28,
-          height: 28,
-          bgcolor: '#0A1929',
-          border: '1px solid rgba(255,255,255,0.16)',
-          color: '#fff',
-          boxShadow: '0 1px 4px 0 rgba(0,0,0,0.24)',
-          '&:hover': { bgcolor: '#132F4C' },
-        }}
-      >
-        <Iconify
-          icon={collapsed ? 'eva:arrow-ios-forward-fill' : 'eva:arrow-ios-back-fill'}
-          width={16}
-        />
-      </IconButton>
     </Box>
   );
 }
@@ -108,6 +102,8 @@ export function NavMobile({
   onClose,
 }: NavContentProps & { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
+  const { dir } = useI18n();
+  const isRTL = dir === 'rtl';
 
   useEffect(() => {
     if (open) {
@@ -120,12 +116,28 @@ export function NavMobile({
     <Drawer
       open={open}
       onClose={onClose}
+      anchor={isRTL ? 'right' : 'left'}
       sx={{
         [`& .${drawerClasses.paper}`]: {
           pt: 2.5,
-          px: 2.5,
+          paddingInlineStart: 2.5,
+          paddingInlineEnd: 0,
           overflow: 'unset',
           width: 'var(--layout-nav-mobile-width)',
+          bgcolor: '#0A1929',
+          backgroundImage: 'linear-gradient(135deg, #163251 0%, #0A1929 100%)',
+          boxShadow: 'inset 0 1px 0 0 rgba(255, 255, 255, 0.1), inset -2px 0 20px -4px rgba(0,0,0,0.4)',
+          borderInlineEnd: 'none',
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundImage: 'linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 25%)',
+            pointerEvents: 'none',
+          },
           ...sx,
         },
       }}
@@ -139,16 +151,28 @@ export function NavMobile({
 
 export function NavContent({ data, slots, sx, collapsed = false }: NavContentProps) {
   const pathname = usePathname();
+  const { t } = useTranslation();
+  const { dir } = useI18n();
+  const isRtl = dir === 'rtl';
 
   return (
     <>
-      <Box sx={{ display: 'flex', justifyContent: collapsed ? 'center' : 'flex-start' }}>
+      <Box sx={{
+        display: 'flex',
+        justifyContent: (collapsed || isRtl) ? 'center' : 'flex-start',
+        mt: 2,
+        ...(!isRtl && collapsed && { ml: -1.5 }),
+        // In RTL: compensate asymmetric sidebar padding (paddingInlineStart:2.5/1, paddingInlineEnd:0)
+        // Use ml (not mr) because stylis-plugin-rtl flips ml→margin-right in RTL mode
+        ...(isRtl && !collapsed && { ml: -2.5 }),
+        ...(isRtl && collapsed && { ml: -1 }),
+      }}>
         <Logo isSingle={collapsed} />
       </Box>
 
       {slots?.topArea}
 
-      <Box sx={{ mt: 3 }} />
+      <Box sx={{ mt: 8 }} />
 
       <Scrollbar fillContent>
         <Box
@@ -165,56 +189,94 @@ export function NavContent({ data, slots, sx, collapsed = false }: NavContentPro
           <Box
             component="ul"
             sx={{
-              gap: 1.5,
+              gap: 2.5,
               display: 'flex',
               flexDirection: 'column',
+              pb: 3,
             }}
           >
             {data.map((item) => {
               const isActived = item.path === pathname;
+              const displayTitle = item.titleKey ? t(item.titleKey) : item.title;
 
               return (
-                <ListItem disableGutters disablePadding key={item.title}>
-                  <Tooltip title={collapsed ? item.title : ''} placement="right" arrow>
+                <ListItem disableGutters disablePadding key={item.path}>
+                  <Tooltip title={collapsed ? displayTitle : ''} placement="right" arrow>
                     <ListItemButton
+                      disableRipple
                       disableGutters
                       component={RouterLink}
                       href={item.path}
                       sx={[
                         (theme) => ({
-                          pl: collapsed ? 0 : 2,
-                          py: 1,
+                          paddingInlineStart: collapsed ? 0 : 2,
+                          py: 1.25,
                           gap: collapsed ? 0 : 2,
-                          pr: collapsed ? 0 : 1.5,
-                          borderRadius: 0.75,
+                          paddingInlineEnd: collapsed ? 0 : 1.5,
+                          borderRadius: 2.5,
                           typography: 'body2',
                           fontWeight: 'fontWeightMedium',
-                          color: 'rgba(255,255,255,0.7)',
-                          minHeight: 44,
+                          color: 'rgba(255,255,255,0.65)',
+                          minHeight: 48,
                           justifyContent: collapsed ? 'center' : 'flex-start',
-                          '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
-                          ...(isActived && {
-                            fontWeight: 'fontWeightSemiBold',
+                          transition: 'background-color 0.18s, color 0.18s',
+                          '&:hover': {
+                            bgcolor: 'rgba(255,255,255,0.08)',
                             color: '#fff',
-                            bgcolor: 'rgba(255,255,255,0.12)',
+                          },
+                          ...(isActived && {
+                            fontWeight: 'fontWeightBold',
+                            color: theme.vars.palette.primary.main,
+                            bgcolor: theme.vars.palette.background.default,
+                            borderRadius: '24px 0 0 24px',
+                            paddingInlineEnd: 2.5,
+                            overflow: 'visible',
+                            position: 'relative',
+                            zIndex: 2,
                             '&:hover': {
-                              bgcolor: 'rgba(255,255,255,0.18)',
+                              bgcolor: theme.vars.palette.background.default,
+                            },
+                            '&::before': {
+                              content: '""',
+                              position: 'absolute',
+                              top: -24,
+                              right: 0,
+                              width: 24, 
+                              height: 24,
+                              backgroundImage: theme.direction === 'rtl'
+                                ? `radial-gradient(circle at 100% 0%, transparent 23.5px, ${theme.vars.palette.background.default} 24px)`
+                                : `radial-gradient(circle at 0% 0%, transparent 23.5px, ${theme.vars.palette.background.default} 24px)`,
+                              pointerEvents: 'none',
+                              zIndex: 2,
+                            },
+                            '&::after': {
+                              content: '""',
+                              position: 'absolute',
+                              bottom: -24,
+                              right: 0,
+                              width: 24, 
+                              height: 24,
+                              backgroundImage: theme.direction === 'rtl'
+                                ? `radial-gradient(circle at 100% 100%, transparent 23.5px, ${theme.vars.palette.background.default} 24px)`
+                                : `radial-gradient(circle at 0% 100%, transparent 23.5px, ${theme.vars.palette.background.default} 24px)`,
+                              pointerEvents: 'none',
+                              zIndex: 2,
                             },
                           }),
                         }),
                       ]}
                     >
-                      <Box component="span" sx={{ width: 24, height: 24, flexShrink: 0, color: isActived ? '#60A5FA' : '#fff' }}>
+                      <Box component="span" sx={{ width: 24, height: 24, flexShrink: 0, color: isActived ? 'primary.main' : 'rgba(255,255,255,0.65)', zIndex: 2 }}>
                         {item.icon}
                       </Box>
 
                       {!collapsed && (
-                        <Box component="span" sx={{ flexGrow: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {item.title}
+                        <Box component="span" sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', zIndex: 2 }}>
+                          {displayTitle}
                         </Box>
                       )}
 
-                      {!collapsed && item.info && item.info}
+                      {!collapsed && item.info && <Box sx={{ zIndex: 2 }}>{item.info}</Box>}
                     </ListItemButton>
                   </Tooltip>
                 </ListItem>

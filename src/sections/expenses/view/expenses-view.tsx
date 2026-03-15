@@ -5,23 +5,26 @@ import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 
-import { _expenses } from 'src/_mock';
+import { useExpenses, useSettings, useTranslation } from 'src/contexts';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { Iconify } from 'src/components/iconify';
+import { useSnackbar } from 'src/components/snackbar';
 
 import { ExpensesKpiCards } from '../expenses-kpi-cards';
 import { ExpensesTable } from '../expenses-table';
 import { ExpensesFormDialog } from '../expenses-form-dialog';
 import { ExpensesBreakdownChart } from '../expenses-breakdown-chart';
 
-import { EXPENSE_CATEGORIES } from 'src/_mock/_data';
 import type { Expense } from 'src/_mock/_data';
 
 // ======================================================================
 
 export function ExpensesView() {
-  const [expenses, setExpenses] = useState<Expense[]>(_expenses);
+  const { expenses, addExpense, updateExpense, deleteExpense } = useExpenses();
+  const { expenseCategories } = useSettings();
+  const { showSnackbar } = useSnackbar();
+  const { t } = useTranslation();
   const [formOpen, setFormOpen] = useState(false);
   const [editExpense, setEditExpense] = useState<Expense | null>(null);
 
@@ -55,13 +58,14 @@ export function ExpensesView() {
   const breakdownData = useMemo(() => {
     const totals: Record<string, number> = {};
     expenses.forEach((e) => {
-      const label = EXPENSE_CATEGORIES.find((c) => c.value === e.category)?.label ?? e.category;
+      // Category is now stored as label directly (e.g., "Rent", "Utilities")
+      const label = expenseCategories.find((c) => c.label === e.category)?.label ?? e.category;
       totals[label] = (totals[label] ?? 0) + e.amount;
     });
     return Object.entries(totals)
       .map(([label, value]) => ({ label, value }))
       .sort((a, b) => b.value - a.value);
-  }, [expenses]);
+  }, [expenses, expenseCategories]);
 
   const handleAdd = () => {
     setEditExpense(null);
@@ -76,32 +80,32 @@ export function ExpensesView() {
   const handleFormSubmit = useCallback(
     (data: Omit<Expense, 'id'>) => {
       if (editExpense) {
-        setExpenses((prev) =>
-          prev.map((e) => (e.id === editExpense.id ? { ...e, ...data } : e))
-        );
+        updateExpense(editExpense.id, data);
+        showSnackbar(t('expenses.expenseUpdated'), 'success');
       } else {
-        const newExpense: Expense = { id: `exp-${Date.now()}`, ...data };
-        setExpenses((prev) => [newExpense, ...prev]);
+        addExpense(data);
+        showSnackbar(t('expenses.expenseAdded'), 'success');
       }
     },
-    [editExpense]
+    [editExpense, updateExpense, addExpense, showSnackbar, t]
   );
 
   const handleDelete = useCallback((expenseId: string) => {
-    setExpenses((prev) => prev.filter((e) => e.id !== expenseId));
-  }, []);
+    deleteExpense(expenseId);
+    showSnackbar(t('expenses.expenseDeleted'), 'info');
+  }, [deleteExpense, showSnackbar, t]);
 
   return (
     <DashboardContent maxWidth="xl">
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: { xs: 3, md: 5 } }}>
-        <Typography variant="h4">Expenses</Typography>
+        <Typography variant="h4">{t('expenses.title')}</Typography>
         <Button
           variant="contained"
           startIcon={<Iconify icon="solar:add-circle-bold-duotone" width={20} />}
           onClick={handleAdd}
         >
-          Add Expense
+          {t('expenses.addExpense')}
         </Button>
       </Box>
 
@@ -126,8 +130,8 @@ export function ExpensesView() {
 
         <Grid size={{ xs: 12, lg: 4 }}>
           <ExpensesBreakdownChart
-            title="Expenses by Category"
-            subheader="All time"
+            title={t('expenses.byCategory')}
+            subheader={t('expenses.allTime')}
             chart={{ series: breakdownData }}
           />
         </Grid>

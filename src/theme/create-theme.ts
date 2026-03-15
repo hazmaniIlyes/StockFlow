@@ -13,28 +13,43 @@ import type { ThemeOptions } from './types';
 
 // ----------------------------------------------------------------------
 
-export const baseTheme: ThemeOptions = {
-  colorSchemes: {
-    light: {
-      palette: palette.light,
-      shadows: shadows.light,
-      customShadows: customShadows.light,
+export function getBaseTheme(mode: 'light' | 'dark'): ThemeOptions {
+  return {
+    colorSchemes: {
+      [mode]: {
+        palette: palette[mode],
+        shadows: shadows[mode],
+        customShadows: customShadows[mode],
+      },
     },
-  },
-  components,
-  typography,
-  shape: { borderRadius: 8 },
-  cssVariables: themeConfig.cssVariables,
-};
+    components,
+    typography,
+    shape: { borderRadius: 8 },
+    cssVariables: themeConfig.cssVariables,
+  };
+}
+
+export const baseTheme: ThemeOptions = getBaseTheme('light');
 
 // ----------------------------------------------------------------------
 
 type CreateThemeProps = {
   themeOverrides?: ThemeOptions;
+  direction?: 'ltr' | 'rtl';
+  mode?: 'light' | 'dark';
 };
 
-export function createTheme({ themeOverrides = {} }: CreateThemeProps = {}): Theme {
-  const theme = createMuiTheme(baseTheme, themeOverrides);
+export function createTheme({ themeOverrides = {}, direction = 'ltr', mode = 'light' }: CreateThemeProps = {}): Theme {
+  const base = getBaseTheme(mode);
+  
+  const theme = createMuiTheme({
+    ...base,
+    direction,
+    palette: {
+      mode,
+      ...palette[mode],
+    },
+  }, themeOverrides);
 
   return theme;
 }

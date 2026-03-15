@@ -18,6 +18,7 @@ export type InvoiceProduct = {
   quantity: number;
   unitPrice: number;
   total: number;
+  unit?: ProductUnit;
 };
 
 export type Invoice = {
@@ -27,6 +28,10 @@ export type Invoice = {
     name: string;
     phone: string;
     address: string;
+    nif?: string;
+    nis?: string;
+    rc?: string;
+    ai?: string;
   };
   products: InvoiceProduct[];
   subtotal: number;
@@ -60,9 +65,11 @@ const buildInvoice = (
     unitPrice: p.unitPrice,
     total: p.quantity * p.unitPrice,
   }));
-  const subtotal = invoiceProducts.reduce((sum, p) => sum + p.total, 0);
-  const tvaAmount = subtotal * (tvaRate / 100);
-  const total = subtotal + tvaAmount;
+  // TVA is taken directly from the price (19% of total)
+  const totalTTC = invoiceProducts.reduce((sum, p) => sum + p.total, 0);
+  const tvaAmount = totalTTC * (tvaRate / 100);
+  const subtotHT = totalTTC - tvaAmount;
+  const total = totalTTC;
   const amountPaid =
     status === 'paid' ? total : status === 'unpaid' ? 0 : (amountPaidOverride ?? 0);
 
@@ -71,7 +78,7 @@ const buildInvoice = (
     invoiceNumber,
     client: { name: clientName, phone, address },
     products: invoiceProducts,
-    subtotal,
+    subtotal: subtotHT,
     tvaRate,
     tvaAmount,
     total,
@@ -88,34 +95,34 @@ const buildInvoice = (
 };
 
 export const _invoices: Invoice[] = [
-  buildInvoice(0, 'INV-1001', 'Ahmed Bensalem', '0555 12 34 56', '12 Rue Didouche Mourad, Algiers',
+  buildInvoice(0, 'INV-0001', 'Ahmed Bensalem', '0555 12 34 56', '12 Rue Didouche Mourad, Algiers',
     [{ name: 'Wireless Mouse', quantity: 10, unitPrice: 2500 }, { name: 'USB-C Hub', quantity: 5, unitPrice: 4800 }],
     19, 'paid', undefined, '02/18/2026'),
-  buildInvoice(1, 'INV-1002', 'Fatima Zerhouni', '0661 98 76 54', '45 Blvd Colonel Amirouche, Oran',
+  buildInvoice(1, 'INV-0002', 'Fatima Zerhouni', '0661 98 76 54', '45 Blvd Colonel Amirouche, Oran',
     [{ name: 'Mechanical Keyboard', quantity: 3, unitPrice: 8500 }, { name: 'Monitor Stand', quantity: 3, unitPrice: 3200 }],
     19, 'partly-paid', 20000, '02/18/2026'),
-  buildInvoice(2, 'INV-1003', 'Youcef Hamdani', '0770 55 44 33', '8 Rue Ben M\'hidi, Constantine',
+  buildInvoice(2, 'INV-0003', 'Youcef Hamdani', '0770 55 44 33', '8 Rue Ben M\'hidi, Constantine',
     [{ name: 'Laptop Stand Pro', quantity: 2, unitPrice: 6200 }],
     19, 'unpaid', undefined, '02/17/2026'),
-  buildInvoice(3, 'INV-1004', 'Nadia Boudiaf', '0542 11 22 33', '33 Rue Larbi Ben M\'hidi, Blida',
+  buildInvoice(3, 'INV-0004', 'Nadia Boudiaf', '0542 11 22 33', '33 Rue Larbi Ben M\'hidi, Blida',
     [{ name: 'Bluetooth Speaker', quantity: 8, unitPrice: 3800 }, { name: 'Wireless Mouse', quantity: 15, unitPrice: 2500 }],
     19, 'paid', undefined, '02/17/2026'),
-  buildInvoice(4, 'INV-1005', 'Karim Messaoudi', '0699 88 77 66', '21 Rue de la Liberté, Sétif',
+  buildInvoice(4, 'INV-0005', 'Karim Messaoudi', '0699 88 77 66', '21 Rue de la Liberté, Sétif',
     [{ name: 'USB-C Hub', quantity: 20, unitPrice: 4800 }],
     19, 'unpaid', undefined, '02/16/2026'),
-  buildInvoice(5, 'INV-1006', 'Samira Belkacem', '0555 66 77 88', '5 Place des Martyrs, Annaba',
+  buildInvoice(5, 'INV-0006', 'Samira Belkacem', '0555 66 77 88', '5 Place des Martyrs, Annaba',
     [{ name: 'Mechanical Keyboard', quantity: 5, unitPrice: 8500 }, { name: 'Monitor Stand', quantity: 10, unitPrice: 3200 }, { name: 'Laptop Stand Pro', quantity: 4, unitPrice: 6200 }],
     19, 'paid', undefined, '02/15/2026'),
-  buildInvoice(6, 'INV-1007', 'Mohamed Tahi', '0661 22 33 44', '78 Rue Hassiba Ben Bouali, Tlemcen',
+  buildInvoice(6, 'INV-0007', 'Mohamed Tahi', '0661 22 33 44', '78 Rue Hassiba Ben Bouali, Tlemcen',
     [{ name: 'Wireless Mouse', quantity: 50, unitPrice: 2500 }],
     19, 'partly-paid', 100000, '02/14/2026'),
-  buildInvoice(7, 'INV-1008', 'Leila Benali', '0770 99 88 77', '15 Rue Abane Ramdane, Bejaia',
+  buildInvoice(7, 'INV-0008', 'Leila Benali', '0770 99 88 77', '15 Rue Abane Ramdane, Bejaia',
     [{ name: 'Bluetooth Speaker', quantity: 12, unitPrice: 3800 }],
     19, 'paid', undefined, '02/13/2026'),
-  buildInvoice(8, 'INV-1009', 'Omar Khelif', '0542 44 55 66', '42 Blvd Emir Abdelkader, Mostaganem',
+  buildInvoice(8, 'INV-0009', 'Omar Khelif', '0542 44 55 66', '42 Blvd Emir Abdelkader, Mostaganem',
     [{ name: 'USB-C Hub', quantity: 8, unitPrice: 4800 }, { name: 'Mechanical Keyboard', quantity: 2, unitPrice: 8500 }],
     19, 'unpaid', undefined, '02/12/2026'),
-  buildInvoice(9, 'INV-1010', 'Amina Djebbar', '0699 11 00 99', '3 Rue du 1er Novembre, Djelfa',
+  buildInvoice(9, 'INV-0010', 'Amina Djebbar', '0699 11 00 99', '3 Rue du 1er Novembre, Djelfa',
     [{ name: 'Laptop Stand Pro', quantity: 6, unitPrice: 6200 }, { name: 'Monitor Stand', quantity: 8, unitPrice: 3200 }],
     19, 'partly-paid', 40000, '02/11/2026'),
 ];
@@ -135,6 +142,10 @@ export type Client = {
   name: string;
   phone: string;
   address: string;
+  nif?: string;
+  nis?: string;
+  rc?: string;
+  ai?: string;
   totalPurchases: number;
   totalPaid: number;
   remainingBalance: number;
@@ -188,10 +199,10 @@ const deriveClients = (invoices: Invoice[]): Client[] => {
 export const _clients: Client[] = deriveClients(_invoices);
 
 export const _paymentHistory: PaymentRecord[] = [
-  { id: 'pay-1', clientId: 'client-1', invoiceNumber: 'INV-1002', date: '02/18/2026', amount: 20000, note: 'Partial payment - cash' },
-  { id: 'pay-2', clientId: 'client-0', invoiceNumber: 'INV-1001', date: '02/18/2026', amount: 49980, note: 'Full payment - bank transfer' },
-  { id: 'pay-3', clientId: 'client-3', invoiceNumber: 'INV-1004', date: '02/17/2026', amount: 81410, note: 'Full payment - check' },
-  { id: 'pay-4', clientId: 'client-6', invoiceNumber: 'INV-1007', date: '02/14/2026', amount: 100000, note: 'Partial payment - cash' },
+  { id: 'pay-1', clientId: 'client-1', invoiceNumber: 'INV-0002', date: '02/18/2026', amount: 20000, note: 'Partial payment - cash' },
+  { id: 'pay-2', clientId: 'client-0', invoiceNumber: 'INV-0001', date: '02/18/2026', amount: 49980, note: 'Full payment - bank transfer' },
+  { id: 'pay-3', clientId: 'client-3', invoiceNumber: 'INV-0004', date: '02/17/2026', amount: 81410, note: 'Full payment - check' },
+  { id: 'pay-4', clientId: 'client-6', invoiceNumber: 'INV-0007', date: '02/14/2026', amount: 100000, note: 'Partial payment - cash' },
   { id: 'pay-5', clientId: 'client-5', invoiceNumber: 'INV-1006', date: '02/15/2026', amount: 118762, note: 'Full payment - bank transfer' },
   { id: 'pay-6', clientId: 'client-7', invoiceNumber: 'INV-1008', date: '02/13/2026', amount: 54264, note: 'Full payment - cash' },
   { id: 'pay-7', clientId: 'client-9', invoiceNumber: 'INV-1010', date: '02/12/2026', amount: 40000, note: 'Partial payment - cash' },
@@ -206,19 +217,19 @@ export type SupplierProduct = {
   name: string;
   buyingPrice: number;
   category: string;
+  purchaseDate: string;
+  expiryDate?: string;
+  unit?: ProductUnit;
 };
 
-export type Supplier = {
+export type SupplierPurchase = {
   id: string;
-  name: string;
-  phone: string;
-  address: string;
-  email: string;
-  catalog: SupplierProduct[];
-  totalPurchased: number;
-  totalPaid: number;
-  totalOwed: number;
-  status: 'active' | 'inactive';
+  supplierId: string;
+  date: string;
+  items: { productName: string; quantity: number; unitPrice: number }[];
+  total: number;
+  amountPaid: number;
+  status: 'paid' | 'partial' | 'unpaid';
 };
 
 export type SupplierPaymentRecord = {
@@ -229,6 +240,26 @@ export type SupplierPaymentRecord = {
   note: string;
 };
 
+export type Supplier = {
+  id: string;
+  name: string;
+  phone: string;
+  address: string;
+  email: string;
+  nif?: string;
+  nis?: string;
+  rc?: string;
+  ai?: string;
+  catalog: SupplierProduct[];
+  totalPurchased: number;
+  totalPaid: number;
+  totalOwed: number;
+  debtDueDate?: string;
+  status: 'active' | 'inactive';
+  purchases?: SupplierPurchase[];
+  payments?: SupplierPaymentRecord[];
+};
+
 export const _suppliers: Supplier[] = [
   {
     id: 'sup-0',
@@ -237,9 +268,9 @@ export const _suppliers: Supplier[] = [
     address: '22 Zone Industrielle, Rouiba, Algiers',
     email: 'contact@techzone-dz.com',
     catalog: [
-      { id: 'sp-0-0', name: 'Wireless Mouse', buyingPrice: 1500, category: 'Peripherals' },
-      { id: 'sp-0-1', name: 'Mechanical Keyboard', buyingPrice: 5200, category: 'Peripherals' },
-      { id: 'sp-0-2', name: 'USB-C Hub', buyingPrice: 3000, category: 'Accessories' },
+      { id: 'sp-0-0', name: 'Wireless Mouse', buyingPrice: 1500, category: 'Peripherals', purchaseDate: '2024-11-15' },
+      { id: 'sp-0-1', name: 'Mechanical Keyboard', buyingPrice: 5200, category: 'Peripherals', purchaseDate: '2024-11-15' },
+      { id: 'sp-0-2', name: 'USB-C Hub', buyingPrice: 3000, category: 'Accessories', purchaseDate: '2024-11-15' },
     ],
     totalPurchased: 505000,
     totalOwed: 125000,
@@ -253,9 +284,9 @@ export const _suppliers: Supplier[] = [
     address: '8 Rue des Frères Bouadou, Bir Mourad Raïs',
     email: 'orders@mediaplus.dz',
     catalog: [
-      { id: 'sp-1-0', name: 'Bluetooth Speaker', buyingPrice: 2200, category: 'Audio' },
-      { id: 'sp-1-1', name: 'Monitor Stand', buyingPrice: 1800, category: 'Accessories' },
-      { id: 'sp-1-2', name: 'Laptop Stand Pro', buyingPrice: 3800, category: 'Accessories' },
+      { id: 'sp-1-0', name: 'Bluetooth Speaker', buyingPrice: 2200, category: 'Audio', purchaseDate: '2024-10-20' },
+      { id: 'sp-1-1', name: 'Monitor Stand', buyingPrice: 1800, category: 'Accessories', purchaseDate: '2024-10-20' },
+      { id: 'sp-1-2', name: 'Laptop Stand Pro', buyingPrice: 3800, category: 'Accessories', purchaseDate: '2024-10-20' },
     ],
     totalPurchased: 283000,
     totalOwed: 68000,
@@ -269,9 +300,9 @@ export const _suppliers: Supplier[] = [
     address: '15 Blvd Mohamed V, Oran',
     email: 'info@infostar.dz',
     catalog: [
-      { id: 'sp-2-0', name: 'Webcam HD 1080p', buyingPrice: 2800, category: 'Peripherals' },
-      { id: 'sp-2-1', name: 'USB Flash Drive 64GB', buyingPrice: 600, category: 'Storage' },
-      { id: 'sp-2-2', name: 'External SSD 500GB', buyingPrice: 7500, category: 'Storage' },
+      { id: 'sp-2-0', name: 'Webcam HD 1080p', buyingPrice: 2800, category: 'Peripherals', purchaseDate: '2024-09-10' },
+      { id: 'sp-2-1', name: 'USB Flash Drive 64GB', buyingPrice: 600, category: 'Storage', purchaseDate: '2024-09-10' },
+      { id: 'sp-2-2', name: 'External SSD 500GB', buyingPrice: 7500, category: 'Storage', purchaseDate: '2024-09-10' },
     ],
     totalPurchased: 156000,
     totalOwed: 0,
@@ -285,9 +316,9 @@ export const _suppliers: Supplier[] = [
     address: '3 Cité des Affaires, Constantine',
     email: 'supply@electronet.dz',
     catalog: [
-      { id: 'sp-3-0', name: 'HDMI Cable 2m', buyingPrice: 350, category: 'Cables' },
-      { id: 'sp-3-1', name: 'Power Strip 6-Port', buyingPrice: 900, category: 'Accessories' },
-      { id: 'sp-3-2', name: 'Surge Protector', buyingPrice: 1400, category: 'Accessories' },
+      { id: 'sp-3-0', name: 'HDMI Cable 2m', buyingPrice: 350, category: 'Cables', purchaseDate: '2024-12-01' },
+      { id: 'sp-3-1', name: 'Power Strip 6-Port', buyingPrice: 900, category: 'Accessories', purchaseDate: '2024-12-01' },
+      { id: 'sp-3-2', name: 'Surge Protector', buyingPrice: 1400, category: 'Accessories', purchaseDate: '2024-12-01' },
     ],
     totalPurchased: 111500,
     totalOwed: 22500,
@@ -301,8 +332,8 @@ export const _suppliers: Supplier[] = [
     address: '41 Rue Hassiba Ben Bouali, Sétif',
     email: 'commande@globalmicro.dz',
     catalog: [
-      { id: 'sp-4-0', name: 'Wireless Headset', buyingPrice: 4200, category: 'Audio' },
-      { id: 'sp-4-1', name: 'Mouse Pad XL', buyingPrice: 800, category: 'Peripherals' },
+      { id: 'sp-4-0', name: 'Wireless Headset', buyingPrice: 4200, category: 'Audio', purchaseDate: '2024-08-05' },
+      { id: 'sp-4-1', name: 'Mouse Pad XL', buyingPrice: 800, category: 'Peripherals', purchaseDate: '2024-08-05' },
     ],
     totalPurchased: 62000,
     totalOwed: 0,
@@ -328,6 +359,16 @@ export const _supplierPayments: SupplierPaymentRecord[] = [
 // INVENTORY MOCK DATA
 // ======================================================================
 
+export type ProductUnit = 'pcs' | 'g' | 'kg' | 'mg' | 'ton' | 'quintar' | 'l' | 'ml' | 'm' | 'cm' | 'mm';
+
+export type StockBatch = {
+  id: string;
+  buyingPrice: number;
+  sellPrice: number;
+  quantity: number;
+  purchaseDate: string;
+};
+
 export type InventoryProduct = {
   id: string;
   sku: string;
@@ -339,7 +380,10 @@ export type InventoryProduct = {
   sellPrice: number;
   stock: number;
   minStock: number;
+  unit: ProductUnit;
+  expiryDate?: string;
   status: 'in-stock' | 'low-stock' | 'out-of-stock';
+  batches?: StockBatch[];
 };
 
 export type StockAdjustment = {
@@ -358,20 +402,20 @@ const computeStockStatus = (stock: number, minStock: number): InventoryProduct['
 };
 
 export const _inventory: InventoryProduct[] = [
-  { id: 'inv-0', sku: 'PRD-001', name: 'Wireless Mouse', category: 'Peripherals', supplierId: 'sup-0', supplierName: 'TechZone Algérie', buyingPrice: 1500, sellPrice: 2500, stock: 3, minStock: 20, status: 'low-stock' },
-  { id: 'inv-1', sku: 'PRD-002', name: 'Mechanical Keyboard', category: 'Peripherals', supplierId: 'sup-0', supplierName: 'TechZone Algérie', buyingPrice: 5200, sellPrice: 8500, stock: 1, minStock: 12, status: 'low-stock' },
-  { id: 'inv-2', sku: 'PRD-003', name: 'USB-C Hub', category: 'Accessories', supplierId: 'sup-0', supplierName: 'TechZone Algérie', buyingPrice: 3000, sellPrice: 4800, stock: 7, minStock: 15, status: 'low-stock' },
-  { id: 'inv-3', sku: 'PRD-004', name: 'Bluetooth Speaker', category: 'Audio', supplierId: 'sup-1', supplierName: 'MédiaPlus Distribution', buyingPrice: 2200, sellPrice: 3800, stock: 9, minStock: 20, status: 'low-stock' },
-  { id: 'inv-4', sku: 'PRD-005', name: 'Monitor Stand', category: 'Accessories', supplierId: 'sup-1', supplierName: 'MédiaPlus Distribution', buyingPrice: 1800, sellPrice: 3200, stock: 35, minStock: 10, status: 'in-stock' },
-  { id: 'inv-5', sku: 'PRD-006', name: 'Laptop Stand Pro', category: 'Accessories', supplierId: 'sup-1', supplierName: 'MédiaPlus Distribution', buyingPrice: 3800, sellPrice: 6200, stock: 2, minStock: 10, status: 'low-stock' },
-  { id: 'inv-6', sku: 'PRD-007', name: 'Webcam HD 1080p', category: 'Peripherals', supplierId: 'sup-2', supplierName: 'InfoStar SARL', buyingPrice: 2800, sellPrice: 4500, stock: 18, minStock: 8, status: 'in-stock' },
-  { id: 'inv-7', sku: 'PRD-008', name: 'USB Flash Drive 64GB', category: 'Storage', supplierId: 'sup-2', supplierName: 'InfoStar SARL', buyingPrice: 600, sellPrice: 1000, stock: 50, minStock: 30, status: 'in-stock' },
-  { id: 'inv-8', sku: 'PRD-009', name: 'External SSD 500GB', category: 'Storage', supplierId: 'sup-2', supplierName: 'InfoStar SARL', buyingPrice: 7500, sellPrice: 11500, stock: 0, minStock: 5, status: 'out-of-stock' },
-  { id: 'inv-9', sku: 'PRD-010', name: 'HDMI Cable 2m', category: 'Cables', supplierId: 'sup-3', supplierName: 'ElectroNet Import', buyingPrice: 350, sellPrice: 650, stock: 120, minStock: 40, status: 'in-stock' },
-  { id: 'inv-10', sku: 'PRD-011', name: 'Power Strip 6-Port', category: 'Accessories', supplierId: 'sup-3', supplierName: 'ElectroNet Import', buyingPrice: 900, sellPrice: 1500, stock: 25, minStock: 15, status: 'in-stock' },
-  { id: 'inv-11', sku: 'PRD-012', name: 'Surge Protector', category: 'Accessories', supplierId: 'sup-3', supplierName: 'ElectroNet Import', buyingPrice: 1400, sellPrice: 2300, stock: 0, minStock: 10, status: 'out-of-stock' },
-  { id: 'inv-12', sku: 'PRD-013', name: 'Wireless Headset', category: 'Audio', supplierId: 'sup-4', supplierName: 'Global Micro DZ', buyingPrice: 4200, sellPrice: 6800, stock: 14, minStock: 8, status: 'in-stock' },
-  { id: 'inv-13', sku: 'PRD-014', name: 'Mouse Pad XL', category: 'Peripherals', supplierId: 'sup-4', supplierName: 'Global Micro DZ', buyingPrice: 800, sellPrice: 1400, stock: 40, minStock: 20, status: 'in-stock' },
+  { id: 'inv-0', sku: 'PRD-001', name: 'Wireless Mouse', category: 'Peripherals', supplierId: 'sup-0', supplierName: 'TechZone Algérie', buyingPrice: 1500, sellPrice: 2500, stock: 3, minStock: 20, unit: 'pcs', status: 'low-stock' },
+  { id: 'inv-1', sku: 'PRD-002', name: 'Mechanical Keyboard', category: 'Peripherals', supplierId: 'sup-0', supplierName: 'TechZone Algérie', buyingPrice: 5200, sellPrice: 8500, stock: 1, minStock: 12, unit: 'pcs', status: 'low-stock' },
+  { id: 'inv-2', sku: 'PRD-003', name: 'USB-C Hub', category: 'Accessories', supplierId: 'sup-0', supplierName: 'TechZone Algérie', buyingPrice: 3000, sellPrice: 4800, stock: 7, minStock: 15, unit: 'pcs', status: 'low-stock' },
+  { id: 'inv-3', sku: 'PRD-004', name: 'Bluetooth Speaker', category: 'Audio', supplierId: 'sup-1', supplierName: 'MédiaPlus Distribution', buyingPrice: 2200, sellPrice: 3800, stock: 9, minStock: 20, unit: 'pcs', status: 'low-stock' },
+  { id: 'inv-4', sku: 'PRD-005', name: 'Monitor Stand', category: 'Accessories', supplierId: 'sup-1', supplierName: 'MédiaPlus Distribution', buyingPrice: 1800, sellPrice: 3200, stock: 35, minStock: 10, unit: 'pcs', status: 'in-stock' },
+  { id: 'inv-5', sku: 'PRD-006', name: 'Laptop Stand Pro', category: 'Accessories', supplierId: 'sup-1', supplierName: 'MédiaPlus Distribution', buyingPrice: 3800, sellPrice: 6200, stock: 2, minStock: 10, unit: 'pcs', status: 'low-stock' },
+  { id: 'inv-6', sku: 'PRD-007', name: 'Webcam HD 1080p', category: 'Peripherals', supplierId: 'sup-2', supplierName: 'InfoStar SARL', buyingPrice: 2800, sellPrice: 4500, stock: 18, minStock: 8, unit: 'pcs', status: 'in-stock' },
+  { id: 'inv-7', sku: 'PRD-008', name: 'USB Flash Drive 64GB', category: 'Storage', supplierId: 'sup-2', supplierName: 'InfoStar SARL', buyingPrice: 600, sellPrice: 1000, stock: 50, minStock: 30, unit: 'pcs', status: 'in-stock' },
+  { id: 'inv-8', sku: 'PRD-009', name: 'External SSD 500GB', category: 'Storage', supplierId: 'sup-2', supplierName: 'InfoStar SARL', buyingPrice: 7500, sellPrice: 11500, stock: 0, minStock: 5, unit: 'pcs', status: 'out-of-stock' },
+  { id: 'inv-9', sku: 'PRD-010', name: 'HDMI Cable 2m', category: 'Cables', supplierId: 'sup-3', supplierName: 'ElectroNet Import', buyingPrice: 350, sellPrice: 650, stock: 120, minStock: 40, unit: 'pcs', status: 'in-stock' },
+  { id: 'inv-10', sku: 'PRD-011', name: 'Power Strip 6-Port', category: 'Accessories', supplierId: 'sup-3', supplierName: 'ElectroNet Import', buyingPrice: 900, sellPrice: 1500, stock: 25, minStock: 15, unit: 'pcs', status: 'in-stock' },
+  { id: 'inv-11', sku: 'PRD-012', name: 'Surge Protector', category: 'Accessories', supplierId: 'sup-3', supplierName: 'ElectroNet Import', buyingPrice: 1400, sellPrice: 2300, stock: 0, minStock: 10, unit: 'pcs', status: 'out-of-stock' },
+  { id: 'inv-12', sku: 'PRD-013', name: 'Wireless Headset', category: 'Audio', supplierId: 'sup-4', supplierName: 'Global Micro DZ', buyingPrice: 4200, sellPrice: 6800, stock: 14, minStock: 8, unit: 'pcs', status: 'in-stock' },
+  { id: 'inv-13', sku: 'PRD-014', name: 'Mouse Pad XL', category: 'Peripherals', supplierId: 'sup-4', supplierName: 'Global Micro DZ', buyingPrice: 800, sellPrice: 1400, stock: 40, minStock: 20, unit: 'pcs', status: 'in-stock' },
 ];
 
 export const _stockAdjustments: StockAdjustment[] = [
@@ -384,7 +428,7 @@ export const _stockAdjustments: StockAdjustment[] = [
 
 export const _myAccount = {
   displayName: 'Jaydon Frankie',
-  email: 'demo@minimals.cc',
+  email: 'demo@stockflow.app',
   photoURL: '/assets/images/avatar/avatar-25.webp',
 };
 
@@ -586,45 +630,35 @@ export const _recentSales = [...Array(10)].map((_, index) => ({
 // EXPENSES MOCK DATA
 // ======================================================================
 
-export type ExpenseCategory = 'rent' | 'utilities' | 'transport' | 'salaries' | 'maintenance' | 'other';
 export type ExpenseRecurring = 'one-time' | 'monthly' | 'yearly';
 
 export type Expense = {
   id: string;
   description: string;
-  category: ExpenseCategory;
+  category: string;
   amount: number;
   date: string;
   recurring: ExpenseRecurring;
   note: string;
 };
 
-export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string; color: string }[] = [
-  { value: 'rent', label: 'Rent', color: '#FF6B6B' },
-  { value: 'utilities', label: 'Utilities', color: '#4ECDC4' },
-  { value: 'transport', label: 'Transport', color: '#45B7D1' },
-  { value: 'salaries', label: 'Salaries', color: '#96CEB4' },
-  { value: 'maintenance', label: 'Maintenance', color: '#FECA57' },
-  { value: 'other', label: 'Other', color: '#A29BFE' },
-];
-
 export const _expenses: Expense[] = [
-  { id: 'exp-1', description: 'Shop rent — February', category: 'rent', amount: 45000, date: '02/01/2026', recurring: 'monthly', note: '' },
-  { id: 'exp-2', description: 'Electricity bill — January', category: 'utilities', amount: 8500, date: '02/05/2026', recurring: 'monthly', note: 'Sonelgaz' },
-  { id: 'exp-3', description: 'Water bill — January', category: 'utilities', amount: 2200, date: '02/05/2026', recurring: 'monthly', note: '' },
-  { id: 'exp-4', description: 'Delivery van fuel', category: 'transport', amount: 12000, date: '02/10/2026', recurring: 'monthly', note: 'Estimated monthly fuel cost' },
-  { id: 'exp-5', description: 'Employee salary — Ahmed', category: 'salaries', amount: 35000, date: '02/01/2026', recurring: 'monthly', note: '' },
-  { id: 'exp-6', description: 'Employee salary — Karim', category: 'salaries', amount: 30000, date: '02/01/2026', recurring: 'monthly', note: '' },
-  { id: 'exp-7', description: 'AC unit repair', category: 'maintenance', amount: 15000, date: '02/12/2026', recurring: 'one-time', note: 'Technician came twice' },
-  { id: 'exp-8', description: 'Internet subscription', category: 'utilities', amount: 4500, date: '02/01/2026', recurring: 'monthly', note: 'Algérie Télécom fiber' },
-  { id: 'exp-9', description: 'Parking permit annual', category: 'transport', amount: 18000, date: '01/15/2026', recurring: 'yearly', note: 'Valid until Jan 2027' },
-  { id: 'exp-10', description: 'Shop rent — January', category: 'rent', amount: 45000, date: '01/01/2026', recurring: 'monthly', note: '' },
-  { id: 'exp-11', description: 'Electricity bill — December', category: 'utilities', amount: 7800, date: '01/06/2026', recurring: 'monthly', note: '' },
-  { id: 'exp-12', description: 'Delivery van fuel', category: 'transport', amount: 11500, date: '01/10/2026', recurring: 'monthly', note: '' },
-  { id: 'exp-13', description: 'Employee salary — Ahmed', category: 'salaries', amount: 35000, date: '01/01/2026', recurring: 'monthly', note: '' },
-  { id: 'exp-14', description: 'Employee salary — Karim', category: 'salaries', amount: 30000, date: '01/01/2026', recurring: 'monthly', note: '' },
-  { id: 'exp-15', description: 'Office supplies', category: 'other', amount: 3200, date: '01/18/2026', recurring: 'one-time', note: 'Printer paper, pens, folders' },
-  { id: 'exp-16', description: 'Signage update', category: 'maintenance', amount: 8000, date: '01/22/2026', recurring: 'one-time', note: 'New shop sign installed' },
-  { id: 'exp-17', description: 'Water bill — December', category: 'utilities', amount: 2000, date: '01/05/2026', recurring: 'monthly', note: '' },
-  { id: 'exp-18', description: 'Internet subscription', category: 'utilities', amount: 4500, date: '01/01/2026', recurring: 'monthly', note: '' },
+  { id: 'exp-1', description: 'Shop rent — February', category: 'Rent', amount: 45000, date: '02/01/2026', recurring: 'monthly', note: '' },
+  { id: 'exp-2', description: 'Electricity bill — January', category: 'Utilities', amount: 8500, date: '02/05/2026', recurring: 'monthly', note: 'Sonelgaz' },
+  { id: 'exp-3', description: 'Water bill — January', category: 'Utilities', amount: 2200, date: '02/05/2026', recurring: 'monthly', note: '' },
+  { id: 'exp-4', description: 'Delivery van fuel', category: 'Transport', amount: 12000, date: '02/10/2026', recurring: 'monthly', note: 'Estimated monthly fuel cost' },
+  { id: 'exp-5', description: 'Employee salary — Ahmed', category: 'Salaries', amount: 35000, date: '02/01/2026', recurring: 'monthly', note: '' },
+  { id: 'exp-6', description: 'Employee salary — Karim', category: 'Salaries', amount: 30000, date: '02/01/2026', recurring: 'monthly', note: '' },
+  { id: 'exp-7', description: 'AC unit repair', category: 'Maintenance', amount: 15000, date: '02/12/2026', recurring: 'one-time', note: 'Technician came twice' },
+  { id: 'exp-8', description: 'Internet subscription', category: 'Utilities', amount: 4500, date: '02/01/2026', recurring: 'monthly', note: 'Algérie Télécom fiber' },
+  { id: 'exp-9', description: 'Parking permit annual', category: 'Transport', amount: 18000, date: '01/15/2026', recurring: 'yearly', note: 'Valid until Jan 2027' },
+  { id: 'exp-10', description: 'Shop rent — January', category: 'Rent', amount: 45000, date: '01/01/2026', recurring: 'monthly', note: '' },
+  { id: 'exp-11', description: 'Electricity bill — December', category: 'Utilities', amount: 7800, date: '01/06/2026', recurring: 'monthly', note: '' },
+  { id: 'exp-12', description: 'Delivery van fuel', category: 'Transport', amount: 11500, date: '01/10/2026', recurring: 'monthly', note: '' },
+  { id: 'exp-13', description: 'Employee salary — Ahmed', category: 'Salaries', amount: 35000, date: '01/01/2026', recurring: 'monthly', note: '' },
+  { id: 'exp-14', description: 'Employee salary — Karim', category: 'Salaries', amount: 30000, date: '01/01/2026', recurring: 'monthly', note: '' },
+  { id: 'exp-15', description: 'Office supplies', category: 'Other', amount: 3200, date: '01/18/2026', recurring: 'one-time', note: 'Printer paper, pens, folders' },
+  { id: 'exp-16', description: 'Signage update', category: 'Maintenance', amount: 8000, date: '01/22/2026', recurring: 'one-time', note: 'New shop sign installed' },
+  { id: 'exp-17', description: 'Water bill — December', category: 'Utilities', amount: 2000, date: '01/05/2026', recurring: 'monthly', note: '' },
+  { id: 'exp-18', description: 'Internet subscription', category: 'Utilities', amount: 4500, date: '01/01/2026', recurring: 'monthly', note: '' },
 ];

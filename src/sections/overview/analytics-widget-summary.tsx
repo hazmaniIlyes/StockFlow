@@ -8,7 +8,7 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import { useTheme } from '@mui/material/styles';
 
-import { fNumber, fPercent, fShortenNumber } from 'src/utils/format-number';
+import { fCurrency, fNumber, fPercent } from 'src/utils/format-number';
 
 import { Iconify } from 'src/components/iconify';
 import { SvgColor } from 'src/components/svg-color';
@@ -22,6 +22,7 @@ type Props = CardProps & {
   percent: number;
   color?: PaletteColorKey;
   icon: React.ReactNode;
+  isCurrency?: boolean;
   chart: {
     series: number[];
     categories: string[];
@@ -37,6 +38,7 @@ export function AnalyticsWidgetSummary({
   chart,
   percent,
   color = 'primary',
+  isCurrency = false,
   ...other
 }: Props) {
   const theme = useTheme();
@@ -69,7 +71,7 @@ export function AnalyticsWidgetSummary({
       sx={{
         top: 16,
         gap: 0.5,
-        right: 16,
+        insetInlineEnd: 16,
         display: 'flex',
         position: 'absolute',
         alignItems: 'center',
@@ -86,14 +88,46 @@ export function AnalyticsWidgetSummary({
   return (
     <Card
       sx={[
-        (theme) => ({
-          p: 3,
-          boxShadow: theme.vars.customShadows.z4,
-          position: 'relative',
-          color: `${color}.darker`,
-          backgroundColor: 'common.white',
-          backgroundImage: `linear-gradient(135deg, ${varAlpha(theme.vars.palette[color].lighterChannel, 0.28)}, ${varAlpha(theme.vars.palette[color].lightChannel, 0.28)})`,
-        }),
+        (theme) => {
+          const isDark = theme.palette.mode === 'dark';
+          return {
+            p: 3,
+            height: '100%',
+            position: 'relative',
+            color: isDark ? `${color}.lighter` : `${color}.darker`,
+            backgroundColor: isDark ? theme.vars.palette.grey[900] : 'common.white',
+            backgroundImage: isDark
+              ? `linear-gradient(135deg, ${varAlpha(theme.vars.palette[color].darkerChannel, 0.72)}, ${varAlpha(theme.vars.palette[color].darkChannel, 0.48)})`
+              : `linear-gradient(135deg, ${varAlpha(theme.vars.palette[color].lighterChannel, 0.88)}, ${varAlpha(theme.vars.palette[color].lightChannel, 0.56)})`,
+            boxShadow: isDark
+              ? `inset 0 1px 0 0 rgba(255, 255, 255, 0.1), ${theme.vars.customShadows.z4}`
+              : `inset 0 1px 0 0 rgba(255, 255, 255, 0.9), ${theme.vars.customShadows.z4}`,
+            border: isDark
+              ? `1px solid ${varAlpha(theme.vars.palette[color].darkChannel, 0.32)}`
+              : `1px solid ${varAlpha(theme.vars.palette[color].lightChannel, 0.4)}`,
+            borderRadius: 3,
+            transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+            '&:hover': {
+              transform: 'translateY(-2px)',
+              boxShadow: isDark
+                ? `inset 0 1px 0 0 rgba(255, 255, 255, 0.18), ${theme.vars.customShadows.z8}`
+                : `inset 0 1px 0 0 rgba(255, 255, 255, 0.8), ${theme.vars.customShadows.z8}`,
+            },
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              backgroundImage: isDark
+                ? 'linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0) 40%)'
+                : 'linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 40%)',
+              pointerEvents: 'none',
+              borderRadius: 'inherit',
+            },
+          };
+        },
         ...(Array.isArray(sx) ? sx : [sx]),
       ]}
       {...other}
@@ -106,10 +140,18 @@ export function AnalyticsWidgetSummary({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          borderRadius: '12px',
-          color: `${color}.main`,
-          backgroundColor: varAlpha(theme.vars.palette[color].mainChannel, 0.12),
-          boxShadow: `0 4px 12px 0 ${varAlpha(theme.vars.palette[color].mainChannel, 0.12)}`,
+          borderRadius: '14px',
+          color: theme.palette.mode === 'dark' ? `${color}.light` : `${color}.dark`,
+          background: theme.palette.mode === 'dark'
+            ? `linear-gradient(135deg, ${varAlpha(theme.vars.palette[color].darkerChannel, 0.45)}, ${varAlpha(theme.vars.palette[color].darkChannel, 0.28)})`
+            : `linear-gradient(135deg, ${varAlpha(theme.vars.palette[color].lightChannel, 0.2)}, ${varAlpha(theme.vars.palette[color].mainChannel, 0.12)})`,
+          boxShadow: theme.palette.mode === 'dark'
+            ? `inset 0 1px 0 0 rgba(255,255,255,0.12), 0 2px 8px 0 ${varAlpha(theme.vars.palette[color].mainChannel, 0.25)}`
+            : `inset 0 1px 0 0 rgba(255,255,255,0.4), 0 2px 8px 0 ${varAlpha(theme.vars.palette[color].mainChannel, 0.1)}`,
+          backdropFilter: 'blur(2px)',
+          border: theme.palette.mode === 'dark'
+            ? `1px solid ${varAlpha(theme.vars.palette[color].darkChannel, 0.3)}`
+            : `1px solid ${varAlpha(theme.vars.palette.common.whiteChannel, 0.2)}`,
         }}
       >
         {icon}
@@ -120,22 +162,33 @@ export function AnalyticsWidgetSummary({
       <Box
         sx={{
           display: 'flex',
-          flexWrap: 'wrap',
+          flexWrap: 'nowrap',
           alignItems: 'flex-end',
           justifyContent: 'flex-end',
         }}
       >
-        <Box sx={{ flexGrow: 1, minWidth: 112 }}>
-          <Box sx={{ mb: 1, typography: 'h6' }}>{title}</Box>
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Box
+            sx={{
+              mb: 1,
+              typography: 'h6',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
+            {title}
+          </Box>
 
-          <Box sx={{ typography: 'h4' }}>{fShortenNumber(total)}</Box>
+          <Box sx={{ typography: 'h4' }}>{isCurrency ? fCurrency(total) : fNumber(total)}</Box>
         </Box>
 
         <Chart
           type="line"
           series={[{ data: chart.series }]}
           options={chartOptions}
-          sx={{ width: 84, height: 56 }}
+          sx={{ flexShrink: 0, width: 84, height: 56 }}
         />
       </Box>
 
@@ -143,7 +196,7 @@ export function AnalyticsWidgetSummary({
         src="/assets/background/shape-square.svg"
         sx={{
           top: 0,
-          left: -20,
+          insetInlineStart: -20,
           width: 240,
           zIndex: -1,
           height: 240,

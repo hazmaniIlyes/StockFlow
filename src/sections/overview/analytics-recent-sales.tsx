@@ -10,6 +10,8 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 
+import { useTranslation } from 'src/contexts';
+
 import { fCurrency } from 'src/utils/format-number';
 import { fDate } from 'src/utils/format-time';
 
@@ -32,12 +34,6 @@ type Props = CardProps & {
   list: SaleItem[];
 };
 
-const statusConfig = {
-  completed: { label: 'Completed', color: 'success' as const },
-  pending: { label: 'Pending', color: 'warning' as const },
-  shipped: { label: 'Shipped', color: 'info' as const },
-};
-
 export function AnalyticsRecentSales({
   title,
   subheader,
@@ -45,6 +41,14 @@ export function AnalyticsRecentSales({
   sx,
   ...other
 }: Props) {
+  const { t } = useTranslation();
+
+  const statusConfig = {
+    completed: { label: t('sales.paid'), color: 'success' as const },
+    pending: { label: t('sales.unpaid'), color: 'warning' as const },
+    shipped: { label: t('sales.partial'), color: 'info' as const },
+  };
+
   return (
     <Card sx={sx} {...other}>
       <CardHeader title={title} subheader={subheader} sx={{ mb: 1 }} />
@@ -53,11 +57,11 @@ export function AnalyticsRecentSales({
         <Table sx={{ minWidth: 680 }}>
           <TableHead>
             <TableRow>
-              <TableCell>Order #</TableCell>
-              <TableCell>Customer</TableCell>
-              <TableCell align="right">Amount</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell align="center">Status</TableCell>
+              <TableCell>{t('sales.invoiceNumber')}</TableCell>
+              <TableCell>{t('sales.client')}</TableCell>
+              <TableCell align="right">{t('common.amount')}</TableCell>
+              <TableCell>{t('common.date')}</TableCell>
+              <TableCell align="center">{t('common.status')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

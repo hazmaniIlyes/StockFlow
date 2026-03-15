@@ -8,7 +8,7 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import { useTheme } from '@mui/material/styles';
 
-import { fNumber, fPercent, fShortenNumber } from 'src/utils/format-number';
+import { fCurrency, fNumber, fPercent } from 'src/utils/format-number';
 
 import { Iconify } from 'src/components/iconify';
 import { Chart, useChart } from 'src/components/chart';
@@ -21,6 +21,7 @@ type Props = CardProps & {
   percent: number;
   color?: PaletteColorKey;
   icon: React.ReactNode;
+  isCurrency?: boolean;
   chart: {
     series: number[];
     categories: string[];
@@ -36,6 +37,7 @@ export function AnalyticsWidgetSecondary({
   chart,
   percent,
   color = 'primary',
+  isCurrency = false,
   ...other
 }: Props) {
   const theme = useTheme();
@@ -68,7 +70,7 @@ export function AnalyticsWidgetSecondary({
       sx={{
         top: 8,
         gap: 0.25,
-        right: 8,
+        insetInlineEnd: 8,
         display: 'flex',
         position: 'absolute',
         alignItems: 'center',
@@ -87,10 +89,11 @@ export function AnalyticsWidgetSecondary({
       sx={[
         (theme) => ({
           p: 1.5,
+          height: '100%',
           boxShadow: theme.vars.customShadows.z4,
           position: 'relative',
           color: 'text.secondary',
-          backgroundColor: 'common.white',
+          backgroundColor: 'background.paper',
           border: `1px solid ${theme.vars.palette.divider}`,
         }),
         ...(Array.isArray(sx) ? sx : [sx]),
@@ -106,24 +109,36 @@ export function AnalyticsWidgetSecondary({
       <Box
         sx={{
           display: 'flex',
-          flexWrap: 'wrap',
+          flexWrap: 'nowrap',
           alignItems: 'flex-end',
           justifyContent: 'flex-end',
         }}
       >
-        <Box sx={{ flexGrow: 1, minWidth: 80 }}>
-          <Box sx={{ mb: 0.25, typography: 'subtitle2', fontSize: '0.875rem', color: 'text.primary', fontWeight: 600 }}>
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Box
+            sx={{
+              mb: 0.25,
+              typography: 'subtitle2',
+              fontSize: '0.875rem',
+              color: 'text.primary',
+              fontWeight: 600,
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
             {title}
           </Box>
 
-          <Box sx={{ typography: 'body2', fontWeight: 600 }}>{fShortenNumber(total)}</Box>
+          <Box sx={{ typography: 'body2', fontWeight: 600 }}>{isCurrency ? fCurrency(total) : fNumber(total)}</Box>
         </Box>
 
         <Chart
           type="line"
           series={[{ data: chart.series }]}
           options={chartOptions}
-          sx={{ width: 50, height: 32 }}
+          sx={{ flexShrink: 0, width: 50, height: 32 }}
         />
       </Box>
     </Card>

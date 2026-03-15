@@ -1,10 +1,11 @@
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 
 import { fCurrency } from 'src/utils/format-number';
+import { useTranslation } from 'src/contexts';
 import { Iconify } from 'src/components/iconify';
 
 // ======================================================================
@@ -26,35 +27,36 @@ type Props = {
 
 export function ReportsSummaryCards({ revenue, totalExpenses, netProfit, outstandingBalance }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   const profitMargin = revenue > 0 ? ((netProfit / revenue) * 100).toFixed(1) : '0.0';
 
   const cards: CardItem[] = [
     {
-      title: 'Total Revenue',
+      title: t('reports.totalRevenue'),
       value: fCurrency(revenue),
-      subtitle: 'From all invoices',
+      subtitle: t('reports.fromAllInvoices'),
       icon: 'solar:wallet-money-bold-duotone',
       color: 'primary',
     },
     {
-      title: 'Total Expenses',
+      title: t('reports.totalExpenses'),
       value: fCurrency(totalExpenses),
-      subtitle: 'Suppliers + overhead',
+      subtitle: t('reports.suppliersOverhead'),
       icon: 'solar:card-send-bold-duotone',
       color: 'error',
     },
     {
-      title: 'Net Profit',
+      title: t('reports.netProfit'),
       value: fCurrency(netProfit),
-      subtitle: `${profitMargin}% margin`,
+      subtitle: `${profitMargin}% ${t('reports.margin')}`,
       icon: 'solar:chart-bold-duotone',
       color: netProfit >= 0 ? 'success' : 'error',
     },
     {
-      title: 'Outstanding Balance',
+      title: t('reports.outstandingBalance'),
       value: fCurrency(outstandingBalance),
-      subtitle: 'Client receivables − supplier payables',
+      subtitle: t('reports.receivablesPayables'),
       icon: 'solar:clock-circle-bold-duotone',
       color: 'warning',
     },
@@ -84,7 +86,7 @@ export function ReportsSummaryCards({ revenue, totalExpenses, netProfit, outstan
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: 1.5,
-                backgroundColor: `${card.color}.lighter`,
+                backgroundColor: alpha(theme.palette[card.color].main, 0.16),
                 color: `${card.color}.main`,
                 flexShrink: 0,
               }}

@@ -1,30 +1,42 @@
 import { useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
-import { _inventory } from 'src/_mock';
+import { useInventory, useTranslation } from 'src/contexts';
+
+import { ConfirmDialog } from 'src/components/confirm-dialog';
+import { Iconify } from 'src/components/iconify';
+import { useSnackbar } from 'src/components/snackbar';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { Iconify } from 'src/components/iconify';
 
 import { InventoryKpiCards } from '../inventory-kpi-cards';
 import { InventoryTable } from '../inventory-table';
 import { InventoryFormDialog } from '../inventory-form-dialog';
 import { InventoryStockDialog } from '../inventory-stock-dialog';
 
-import type { InventoryProduct } from 'src/_mock/_data';
+import type { InventoryProduct, ProductUnit } from 'src/_mock/_data';
 
 // ======================================================================
 
 export function InventoryView() {
-  const [products, setProducts] = useState<InventoryProduct[]>(_inventory);
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { showSuccess, showError } = useSnackbar();
+  const { products, addProduct, updateProduct, deleteProduct, adjustStock } = useInventory();
+
   const [formOpen, setFormOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<InventoryProduct | null>(null);
   const [stockProduct, setStockProduct] = useState<InventoryProduct | null>(null);
 
-  // KPI calculations
+  // Delete confirmation
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<InventoryProduct | null>(null);
+
+  // KPI calculations - now from shared context
   const kpis = useMemo(() => {
     const totalProducts = products.length;
     const stockValue = products.reduce((sum, p) => sum + p.sellPrice * p.stock, 0);
@@ -33,10 +45,8 @@ export function InventoryView() {
     return { totalProducts, stockValue, lowStockCount, outOfStockCount };
   }, [products]);
 
-  const computeStatus = (stock: number, minStock: number): InventoryProduct['status'] => {
-    if (stock === 0) return 'out-of-stock';
-    if (stock <= minStock) return 'low-stock';
-    return 'in-stock';
+  const handleView = (productId: string) => {
+    navigate(`/inventory/${productId}`);
   };
 
   const handleEdit = (product: InventoryProduct) => {
@@ -60,31 +70,27 @@ export function InventoryView() {
       sellPrice: number;
       stock: number;
       minStock: number;
+      unit: ProductUnit;
+      expiryDate?: string;
     }) => {
-      if (editProduct) {
-        // Update existing
-        setProducts((prev) =>
-          prev.map((p) => {
-            if (p.id !== editProduct.id) return p;
-            const newStock = data.stock;
-            return {
-              ...p,
-              ...data,
-              status: computeStatus(newStock, data.minStock),
-            };
-          })
-        );
-      } else {
-        // Add new
-        const newProduct: InventoryProduct = {
-          id: `inv-${Date.now()}`,
-          ...data,
-          status: computeStatus(data.stock, data.minStock),
-        };
-        setProducts((prev) => [newProduct, ...prev]);
+      try {
+        if (editProduct) {
+          updateProduct(editProduct.id, data);
+          showSuccess(t('inventory.productUpdated'));
+        } else {
+          const newProduct = addProduct(data);
+          showSuccess(t('inventory.productAdded'), {
+            label: t('common.view'),
+            onClick: () => navigate(`/inventory/${newProduct.id}`),
+          });
+        }
+        setFormOpen(false);
+        setEditProduct(null);
+      } catch (e) {
+        showError(t('inventory.failedToSave'));
       }
     },
-    [editProduct]
+    [editProduct, addProduct, updateProduct, navigate, showSuccess, showError, t]
   );
 
   const handleAdjustStock = (product: InventoryProduct) => {
@@ -93,36 +99,45 @@ export function InventoryView() {
 
   const handleStockSubmit = useCallback(
     (productId: string, type: 'add' | 'remove', quantity: number, _reason: string) => {
-      setProducts((prev) =>
-        prev.map((p) => {
-          if (p.id !== productId) return p;
-          const newStock = type === 'add' ? p.stock + quantity : Math.max(0, p.stock - quantity);
-          return {
-            ...p,
-            stock: newStock,
-            status: computeStatus(newStock, p.minStock),
-          };
-        })
-      );
+      const success = adjustStock(productId, quantity, type);
+      if (success) {
+        showSuccess(type === 'add' ? t('inventory.stockAddedSuccess') : t('inventory.stockRemovedSuccess'));
+      } else {
+        showError(t('inventory.insufficientStock'));
+      }
+      setStockProduct(null);
     },
-    []
+    [adjustStock, showSuccess, showError, t]
   );
 
-  const handleDelete = useCallback((productId: string) => {
-    setProducts((prev) => prev.filter((p) => p.id !== productId));
-  }, []);
+  const handleDeleteRequest = (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    if (product) {
+      setProductToDelete(product);
+      setDeleteDialogOpen(true);
+    }
+  };
+
+  const handleDeleteConfirm = () => {
+    if (productToDelete) {
+      deleteProduct(productToDelete.id);
+      showSuccess(t('inventory.productDeletedName', { name: productToDelete.name }));
+      setDeleteDialogOpen(false);
+      setProductToDelete(null);
+    }
+  };
 
   return (
     <DashboardContent maxWidth="xl">
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: { xs: 3, md: 5 } }}>
-        <Typography variant="h4">Inventory</Typography>
+        <Typography variant="h4">{t('inventory.title')}</Typography>
         <Button
           variant="contained"
           startIcon={<Iconify icon="solar:add-circle-bold-duotone" width={20} />}
           onClick={handleAdd}
         >
-          Add Product
+          {t('inventory.addProduct')}
         </Button>
       </Box>
 
@@ -139,9 +154,10 @@ export function InventoryView() {
       {/* Product Table */}
       <InventoryTable
         products={products}
+        onView={handleView}
         onEdit={handleEdit}
         onAdjustStock={handleAdjustStock}
-        onDelete={handleDelete}
+        onDelete={handleDeleteRequest}
       />
 
       {/* Form Dialog */}
@@ -163,6 +179,19 @@ export function InventoryView() {
         product={stockProduct}
         onClose={() => setStockProduct(null)}
         onSubmit={handleStockSubmit}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title={t('inventory.deleteProduct')}
+        content={t('inventory.confirmDeleteContent', { name: productToDelete?.name || '' })}
+        confirmLabel={t('common.delete')}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => {
+          setDeleteDialogOpen(false);
+          setProductToDelete(null);
+        }}
       />
     </DashboardContent>
   );

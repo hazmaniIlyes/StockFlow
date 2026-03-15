@@ -5,6 +5,7 @@ import Card from '@mui/material/Card';
 import { useTheme } from '@mui/material/styles';
 import CardHeader from '@mui/material/CardHeader';
 
+import { useTranslation } from 'src/contexts';
 import { Chart, useChart } from 'src/components/chart';
 
 // ======================================================================
@@ -21,6 +22,7 @@ type Props = CardProps & {
 
 export function ReportsProfitMarginChart({ title, subheader, chart, sx, ...other }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   const chartOptions = useChart({
     colors: [theme.palette.success.main],
@@ -53,7 +55,7 @@ export function ReportsProfitMarginChart({ title, subheader, chart, sx, ...other
       <CardHeader title={title} subheader={subheader} />
       <Chart
         type="area"
-        series={[{ name: 'Profit Margin', data: chart.series }]}
+        series={[{ name: t('reports.profitMargin'), data: chart.series }]}
         options={chartOptions}
         sx={{ py: 2.5, px: 1, height: 400 }}
       />

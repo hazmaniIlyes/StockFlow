@@ -18,9 +18,12 @@ import TextField from '@mui/material/TextField';
 
 import { fCurrency } from 'src/utils/format-number';
 
+import { useTranslation } from 'src/contexts';
+
 import { Iconify } from 'src/components/iconify';
 import { Label } from 'src/components/label';
 import { Scrollbar } from 'src/components/scrollbar';
+import { ExportButtons } from 'src/components/export-buttons';
 
 import type { Supplier } from 'src/_mock/_data';
 
@@ -34,13 +37,15 @@ type Props = {
   onRecordPayment: (supplier: Supplier) => void;
 };
 
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
-];
-
 export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPayment }: Props) {
+  const { t } = useTranslation();
+
+  const STATUS_OPTIONS = [
+    { value: 'all', label: t('common.all') },
+    { value: 'active', label: t('common.active') },
+    { value: 'inactive', label: t('common.inactive') },
+  ];
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
@@ -88,7 +93,7 @@ export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPa
       <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <TextField
           size="small"
-          placeholder="Search suppliers..."
+          placeholder={t('suppliers.searchSuppliers')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ flexGrow: 1, minWidth: 200 }}
@@ -116,6 +121,19 @@ export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPa
             </MenuItem>
           ))}
         </TextField>
+
+        <ExportButtons
+          data={filtered}
+          columns={[
+            { label: t('suppliers.companyName'), key: 'name' },
+            { label: t('suppliers.phone'), key: 'phone' },
+            { label: t('suppliers.email'), key: 'email' },
+            { label: t('suppliers.totalPurchased'), key: 'totalPurchased' },
+            { label: t('suppliers.totalOwed'), key: 'totalOwed' },
+            { label: t('common.status'), key: 'status' },
+          ]}
+          fileName="suppliers"
+        />
       </Box>
 
       {/* Table */}
@@ -124,15 +142,15 @@ export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPa
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Phone</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell align="center">Products</TableCell>
-                <TableCell align="right">Total Purchased</TableCell>
-                <TableCell align="right">Total Paid</TableCell>
-                <TableCell align="right">Remaining</TableCell>
-                <TableCell align="center">Credit Status</TableCell>
-                <TableCell align="center">Status</TableCell>
+                <TableCell>{t('common.name')}</TableCell>
+                <TableCell>{t('common.phone')}</TableCell>
+                <TableCell>{t('common.email')}</TableCell>
+                <TableCell align="center">{t('suppliers.products')}</TableCell>
+                <TableCell align="right">{t('suppliers.totalPurchased')}</TableCell>
+                <TableCell align="right">{t('suppliers.totalPaid')}</TableCell>
+                <TableCell align="right">{t('suppliers.remaining')}</TableCell>
+                <TableCell align="center">{t('suppliers.creditStatus')}</TableCell>
+                <TableCell align="center">{t('common.status')}</TableCell>
                 <TableCell align="center" sx={{ width: 60 }} />
               </TableRow>
             </TableHead>
@@ -140,7 +158,7 @@ export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPa
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={10} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                    No suppliers found
+                    {t('suppliers.noSuppliersFound')}
                   </TableCell>
                 </TableRow>
               )}
@@ -174,12 +192,12 @@ export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPa
                   </TableCell>
                   <TableCell align="center">
                     <Label color={supplier.totalOwed > 0 ? 'error' : 'success'}>
-                      {supplier.totalOwed > 0 ? 'Unpaid' : 'Paid'}
+                      {supplier.totalOwed > 0 ? t('suppliers.unpaid') : t('suppliers.paid')}
                     </Label>
                   </TableCell>
                   <TableCell align="center">
                     <Label color={supplier.status === 'active' ? 'success' : 'default'}>
-                      {supplier.status === 'active' ? 'Active' : 'Inactive'}
+                      {supplier.status === 'active' ? t('common.active') : t('common.inactive')}
                     </Label>
                   </TableCell>
                   <TableCell align="center">
@@ -205,17 +223,17 @@ export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPa
       >
         <MenuItem onClick={() => handleAction(onView)}>
           <ListItemIcon><Iconify icon="solar:eye-bold-duotone" width={20} /></ListItemIcon>
-          <ListItemText>View</ListItemText>
+          <ListItemText>{t('common.view')}</ListItemText>
         </MenuItem>
         {menuSupplier && menuSupplier.totalOwed > 0 && (
           <MenuItem onClick={() => handleAction(onRecordPayment)}>
             <ListItemIcon><Iconify icon="solar:wallet-money-bold-duotone" width={20} /></ListItemIcon>
-            <ListItemText>Record Payment</ListItemText>
+            <ListItemText>{t('suppliers.recordPayment')}</ListItemText>
           </MenuItem>
         )}
         <MenuItem onClick={() => handleAction(onEdit)}>
           <ListItemIcon><Iconify icon="solar:pen-bold-duotone" width={20} /></ListItemIcon>
-          <ListItemText>Edit</ListItemText>
+          <ListItemText>{t('common.edit')}</ListItemText>
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -227,7 +245,7 @@ export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPa
           <ListItemIcon>
             <Iconify icon="solar:trash-bin-trash-bold" width={20} sx={{ color: 'error.main' }} />
           </ListItemIcon>
-          <ListItemText>Delete</ListItemText>
+          <ListItemText>{t('common.delete')}</ListItemText>
         </MenuItem>
       </Menu>
     </Card>

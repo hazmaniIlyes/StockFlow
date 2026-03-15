@@ -7,6 +7,8 @@ import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import CardHeader from '@mui/material/CardHeader';
 
+import { useTranslation } from 'src/contexts';
+
 import { fCurrency } from 'src/utils/format-number';
 import { Chart, useChart } from 'src/components/chart';
 
@@ -25,6 +27,7 @@ type Props = CardProps & {
 
 export function AnalyticsCashFlow({ title, subheader, chart, sx, ...other }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   const totalIn = chart.moneyIn.reduce((s, v) => s + v, 0);
   const totalOut = chart.moneyOut.reduce((s, v) => s + v, 0);
@@ -59,7 +62,7 @@ export function AnalyticsCashFlow({ title, subheader, chart, sx, ...other }: Pro
         title={title}
         subheader={subheader}
         action={
-          <Box sx={{ textAlign: 'right', pr: 1 }}>
+          <Box sx={{ textAlign: 'end', paddingInlineEnd: 1 }}>
             <Typography
               variant="subtitle2"
               sx={{ color: netFlow >= 0 ? 'success.main' : 'error.main' }}
@@ -67,7 +70,7 @@ export function AnalyticsCashFlow({ title, subheader, chart, sx, ...other }: Pro
               Net: {fCurrency(netFlow)}
             </Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              In: {fCurrency(totalIn)} · Out: {fCurrency(totalOut)}
+              {t('dashboard.moneyIn')}: {fCurrency(totalIn)} · {t('dashboard.moneyOut')}: {fCurrency(totalOut)}
             </Typography>
           </Box>
         }
@@ -76,8 +79,8 @@ export function AnalyticsCashFlow({ title, subheader, chart, sx, ...other }: Pro
       <Chart
         type="bar"
         series={[
-          { name: 'Money In', data: chart.moneyIn },
-          { name: 'Money Out', data: chart.moneyOut },
+          { name: t('dashboard.moneyIn'), data: chart.moneyIn },
+          { name: t('dashboard.moneyOut'), data: chart.moneyOut },
         ]}
         options={chartOptions}
         sx={{ py: 2.5, px: 1, height: 400 }}

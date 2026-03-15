@@ -4,6 +4,9 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -20,6 +23,9 @@ import { fDate } from 'src/utils/format-time';
 import { Iconify } from 'src/components/iconify';
 import { Label } from 'src/components/label';
 import { Scrollbar } from 'src/components/scrollbar';
+import { ExportButtons } from 'src/components/export-buttons';
+
+import { useTranslation } from 'src/contexts';
 
 import type { Invoice } from 'src/_mock/_data';
 
@@ -31,18 +37,44 @@ type Props = {
   onEdit: (invoice: Invoice) => void;
   onDelete: (invoiceId: string) => void;
   onPrint: (invoice: Invoice) => void;
+  onRecordPayment: (invoice: Invoice) => void;
+  onMarkAsPaid: (invoice: Invoice) => void;
 };
 
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'paid', label: 'Paid' },
-  { value: 'partly-paid', label: 'Partly Paid' },
-  { value: 'unpaid', label: 'Unpaid' },
-];
-
-export function SalesInvoiceList({ invoices, onRowClick, onEdit, onDelete, onPrint }: Props) {
+export function SalesInvoiceList({
+  invoices,
+  onRowClick,
+  onEdit,
+  onDelete,
+  onPrint,
+  onRecordPayment,
+  onMarkAsPaid,
+}: Props) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  const STATUS_OPTIONS = [
+    { value: 'all', label: t('common.all') },
+    { value: 'paid', label: t('sales.paid') },
+    { value: 'partly-paid', label: t('sales.partial') },
+    { value: 'unpaid', label: t('sales.unpaid') },
+  ];
+
+  // Menu state
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [menuInvoice, setMenuInvoice] = useState<Invoice | null>(null);
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, invoice: Invoice) => {
+    event.stopPropagation();
+    setMenuAnchor(event.currentTarget);
+    setMenuInvoice(invoice);
+  };
+
+  const handleMenuClose = () => {
+    setMenuAnchor(null);
+    setMenuInvoice(null);
+  };
 
   const filtered = useMemo(() => {
     let result = invoices;
@@ -51,8 +83,7 @@ export function SalesInvoiceList({ invoices, onRowClick, onEdit, onDelete, onPri
       const q = search.toLowerCase();
       result = result.filter(
         (inv) =>
-          inv.invoiceNumber.toLowerCase().includes(q) ||
-          inv.client.name.toLowerCase().includes(q)
+          inv.invoiceNumber.toLowerCase().includes(q) || inv.client.name.toLowerCase().includes(q)
       );
     }
 
@@ -70,9 +101,9 @@ export function SalesInvoiceList({ invoices, onRowClick, onEdit, onDelete, onPri
   };
 
   const statusLabel = (status: Invoice['status']) => {
-    if (status === 'paid') return 'Paid';
-    if (status === 'partly-paid') return 'Partly Paid';
-    return 'Unpaid';
+    if (status === 'paid') return t('sales.paid');
+    if (status === 'partly-paid') return t('sales.partial');
+    return t('sales.unpaid');
   };
 
   return (
@@ -81,7 +112,7 @@ export function SalesInvoiceList({ invoices, onRowClick, onEdit, onDelete, onPri
       <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <TextField
           size="small"
-          placeholder="Search invoices..."
+          placeholder={t('common.search')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ flexGrow: 1, minWidth: 200 }}
@@ -89,7 +120,11 @@ export function SalesInvoiceList({ invoices, onRowClick, onEdit, onDelete, onPri
             input: {
               startAdornment: (
                 <InputAdornment position="start">
-                  <Iconify icon="solar:magnifer-bold-duotone" width={20} sx={{ color: 'text.disabled' }} />
+                  <Iconify
+                    icon="solar:magnifer-bold-duotone"
+                    width={20}
+                    sx={{ color: 'text.disabled' }}
+                  />
                 </InputAdornment>
               ),
             },
@@ -109,6 +144,20 @@ export function SalesInvoiceList({ invoices, onRowClick, onEdit, onDelete, onPri
             </MenuItem>
           ))}
         </TextField>
+
+        <ExportButtons
+          data={filtered}
+          columns={[
+            { label: t('sales.invoiceNumber'), key: 'invoiceNumber' },
+            { label: t('sales.clientName'), key: 'clientName' },
+            { label: t('sales.createdAt'), key: 'createdAt' },
+            { label: t('sales.total'), key: 'total' },
+            { label: t('sales.amountPaid'), key: 'amountPaid' },
+            { label: t('sales.amountDue'), key: 'amountDue' },
+            { label: t('common.status'), key: 'status' },
+          ]}
+          fileName="sales-invoices"
+        />
       </Box>
 
       {/* Table */}
@@ -117,21 +166,21 @@ export function SalesInvoiceList({ invoices, onRowClick, onEdit, onDelete, onPri
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Invoice #</TableCell>
-                <TableCell>Client</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell align="right">Total</TableCell>
-                <TableCell align="right">Paid</TableCell>
-                <TableCell align="right">Remaining</TableCell>
-                <TableCell align="center">Status</TableCell>
-                <TableCell align="center">Actions</TableCell>
+                <TableCell>{t('sales.invoiceNumber')}</TableCell>
+                <TableCell>{t('sales.client')}</TableCell>
+                <TableCell>{t('common.date')}</TableCell>
+                <TableCell align="right">{t('common.total')}</TableCell>
+                <TableCell align="right">{t('sales.paid')}</TableCell>
+                <TableCell align="right">{t('sales.amountDue')}</TableCell>
+                <TableCell align="center">{t('common.status')}</TableCell>
+                <TableCell align="center">{t('common.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                    No invoices found
+                    {t('sales.noInvoices')}
                   </TableCell>
                 </TableRow>
               )}
@@ -165,42 +214,14 @@ export function SalesInvoiceList({ invoices, onRowClick, onEdit, onDelete, onPri
                     <Label color={statusColor(invoice.status)}>{statusLabel(invoice.status)}</Label>
                   </TableCell>
                   <TableCell align="center">
-                    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                      <Tooltip title="Edit">
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(invoice);
-                          }}
-                        >
-                          <Iconify icon="solar:pen-bold-duotone" width={18} />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Print">
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onPrint(invoice);
-                          }}
-                        >
-                          <Iconify icon="solar:printer-bold-duotone" width={18} />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete">
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(invoice.id);
-                          }}
-                          sx={{ color: 'error.main' }}
-                        >
-                          <Iconify icon="solar:trash-bin-trash-bold" width={18} />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
+                    <Tooltip title="Actions">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleMenuOpen(e, invoice)}
+                      >
+                        <Iconify icon="solar:menu-dots-bold" width={20} />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))}
@@ -208,6 +229,80 @@ export function SalesInvoiceList({ invoices, onRowClick, onEdit, onDelete, onPri
           </Table>
         </TableContainer>
       </Scrollbar>
+
+      {/* Actions Menu */}
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={handleMenuClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem
+          onClick={() => {
+            if (menuInvoice) onEdit(menuInvoice);
+            handleMenuClose();
+          }}
+        >
+          <ListItemIcon>
+            <Iconify icon="solar:pen-bold-duotone" width={20} />
+          </ListItemIcon>
+          <ListItemText>{t('common.edit')}</ListItemText>
+        </MenuItem>
+
+        <MenuItem
+          onClick={() => {
+            if (menuInvoice) onPrint(menuInvoice);
+            handleMenuClose();
+          }}
+        >
+          <ListItemIcon>
+            <Iconify icon="solar:printer-bold-duotone" width={20} />
+          </ListItemIcon>
+          <ListItemText>{t('common.print')}</ListItemText>
+        </MenuItem>
+
+        {menuInvoice && menuInvoice.status !== 'paid' && (
+          <>
+            <MenuItem
+              onClick={() => {
+                onRecordPayment(menuInvoice);
+                handleMenuClose();
+              }}
+            >
+              <ListItemIcon>
+                <Iconify icon="solar:wallet-money-bold-duotone" width={20} sx={{ color: 'success.main' }} />
+              </ListItemIcon>
+              <ListItemText>{t('sales.recordPayment')}</ListItemText>
+            </MenuItem>
+
+            <MenuItem
+              onClick={() => {
+                onMarkAsPaid(menuInvoice);
+                handleMenuClose();
+              }}
+            >
+              <ListItemIcon>
+                <Iconify icon="solar:check-circle-bold-duotone" width={20} sx={{ color: 'success.main' }} />
+              </ListItemIcon>
+              <ListItemText>{t('sales.markAsPaid')}</ListItemText>
+            </MenuItem>
+          </>
+        )}
+
+        <MenuItem
+          onClick={() => {
+            if (menuInvoice) onDelete(menuInvoice.id);
+            handleMenuClose();
+          }}
+          sx={{ color: 'error.main' }}
+        >
+          <ListItemIcon>
+            <Iconify icon="solar:trash-bin-trash-bold" width={20} sx={{ color: 'error.main' }} />
+          </ListItemIcon>
+          <ListItemText>{t('common.delete')}</ListItemText>
+        </MenuItem>
+      </Menu>
     </Card>
   );
 }

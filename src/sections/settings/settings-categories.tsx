@@ -9,35 +9,19 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 
+import { useSettings, useTranslation } from 'src/contexts';
+
 import { Iconify } from 'src/components/iconify';
+import { useSnackbar } from 'src/components/snackbar';
 
 // ======================================================================
 
 type Category = { id: string; label: string; color: string };
-
-const INITIAL_PRODUCT_CATEGORIES: Category[] = [
-  { id: 'pc-1', label: 'Peripherals', color: '#1976D2' },
-  { id: 'pc-2', label: 'Accessories', color: '#9C27B0' },
-  { id: 'pc-3', label: 'Audio', color: '#ED6C02' },
-  { id: 'pc-4', label: 'Storage', color: '#2E7D32' },
-  { id: 'pc-5', label: 'Cables', color: '#0288D1' },
-  { id: 'pc-6', label: 'Other', color: '#757575' },
-];
-
-const INITIAL_EXPENSE_CATEGORIES: Category[] = [
-  { id: 'ec-1', label: 'Rent', color: '#FF6B6B' },
-  { id: 'ec-2', label: 'Utilities', color: '#4ECDC4' },
-  { id: 'ec-3', label: 'Transport', color: '#45B7D1' },
-  { id: 'ec-4', label: 'Salaries', color: '#96CEB4' },
-  { id: 'ec-5', label: 'Maintenance', color: '#FECA57' },
-  { id: 'ec-6', label: 'Other', color: '#A29BFE' },
-];
 
 // ======================================================================
 
@@ -46,11 +30,15 @@ function CategorySection({
   categories,
   onAdd,
   onDelete,
+  addLabel,
+  emptyText,
 }: {
   title: string;
   categories: Category[];
   onAdd: () => void;
   onDelete: (id: string) => void;
+  addLabel: string;
+  emptyText: string;
 }) {
   return (
     <Box>
@@ -61,7 +49,7 @@ function CategorySection({
           startIcon={<Iconify icon="solar:add-circle-bold-duotone" width={18} />}
           onClick={onAdd}
         >
-          Add
+          {addLabel}
         </Button>
       </Box>
 
@@ -72,14 +60,14 @@ function CategorySection({
             label={cat.label}
             onDelete={() => onDelete(cat.id)}
             sx={{
-              borderLeft: `4px solid ${cat.color}`,
+              borderInlineStart: `4px solid ${cat.color}`,
               fontWeight: 500,
             }}
           />
         ))}
         {categories.length === 0 && (
           <Typography variant="body2" sx={{ color: 'text.disabled' }}>
-            No categories yet.
+            {emptyText}
           </Typography>
         )}
       </Stack>
@@ -91,9 +79,16 @@ function CategorySection({
 
 export function SettingsCategories() {
   const theme = useTheme();
-
-  const [productCats, setProductCats] = useState<Category[]>(INITIAL_PRODUCT_CATEGORIES);
-  const [expenseCats, setExpenseCats] = useState<Category[]>(INITIAL_EXPENSE_CATEGORIES);
+  const { showSuccess } = useSnackbar();
+  const { t } = useTranslation();
+  const {
+    productCategories,
+    expenseCategories,
+    addProductCategory,
+    deleteProductCategory,
+    addExpenseCategory,
+    deleteExpenseCategory,
+  } = useSettings();
 
   // Add dialog
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -109,22 +104,27 @@ export function SettingsCategories() {
   };
 
   const handleSave = () => {
-    const newCat: Category = {
-      id: `cat-${Date.now()}`,
-      label: newLabel.trim(),
-      color: newColor,
-    };
+    const newCat = { label: newLabel.trim(), color: newColor };
 
     if (dialogType === 'product') {
-      setProductCats((prev) => [...prev, newCat]);
+      addProductCategory(newCat);
+      showSuccess(t('settings.productCategoryAdded', { name: newLabel }));
     } else {
-      setExpenseCats((prev) => [...prev, newCat]);
+      addExpenseCategory(newCat);
+      showSuccess(t('settings.expenseCategoryAdded', { name: newLabel }));
     }
     setDialogOpen(false);
   };
 
-  const handleDeleteProduct = (id: string) => setProductCats((prev) => prev.filter((c) => c.id !== id));
-  const handleDeleteExpense = (id: string) => setExpenseCats((prev) => prev.filter((c) => c.id !== id));
+  const handleDeleteProduct = (id: string) => {
+    deleteProductCategory(id);
+    showSuccess(t('settings.categoryDeleted'));
+  };
+
+  const handleDeleteExpense = (id: string) => {
+    deleteExpenseCategory(id);
+    showSuccess(t('settings.categoryDeleted'));
+  };
 
   return (
     <>
@@ -137,22 +137,26 @@ export function SettingsCategories() {
         }}
       >
         <Typography variant="h6" sx={{ mb: 3 }}>
-          Categories Management
+          {t('settings.categoriesManagement')}
         </Typography>
 
         <Stack spacing={3} divider={<Divider sx={{ borderStyle: 'dashed' }} />}>
           <CategorySection
-            title="Product Categories"
-            categories={productCats}
+            title={t('settings.productCategories')}
+            categories={productCategories}
             onAdd={() => handleOpenAdd('product')}
             onDelete={handleDeleteProduct}
+            addLabel={t('common.add')}
+            emptyText={t('settings.noCategoriesYet')}
           />
 
           <CategorySection
-            title="Expense Categories"
-            categories={expenseCats}
+            title={t('settings.expenseCategories')}
+            categories={expenseCategories}
             onAdd={() => handleOpenAdd('expense')}
             onDelete={handleDeleteExpense}
+            addLabel={t('common.add')}
+            emptyText={t('settings.noCategoriesYet')}
           />
         </Stack>
       </Card>
@@ -160,20 +164,20 @@ export function SettingsCategories() {
       {/* Add Category Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>
-          Add {dialogType === 'product' ? 'Product' : 'Expense'} Category
+          {dialogType === 'product' ? t('settings.addProductCategory') : t('settings.addExpenseCategory')}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
               fullWidth
-              label="Category Name"
+              label={t('settings.categoryName')}
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
               autoFocus
             />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                Color:
+                {t('settings.color')}:
               </Typography>
               <input
                 type="color"
@@ -182,16 +186,16 @@ export function SettingsCategories() {
                 style={{ width: 40, height: 32, border: 'none', cursor: 'pointer', borderRadius: 4 }}
               />
               <Chip
-                label={newLabel || 'Preview'}
-                sx={{ borderLeft: `4px solid ${newColor}`, fontWeight: 500 }}
+                label={newLabel || t('settings.preview')}
+                sx={{ borderInlineStart: `4px solid ${newColor}`, fontWeight: 500 }}
               />
             </Box>
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setDialogOpen(false)}>{t('common.cancel')}</Button>
           <Button variant="contained" disabled={!newLabel.trim()} onClick={handleSave}>
-            Add Category
+            {t('settings.addCategory')}
           </Button>
         </DialogActions>
       </Dialog>
