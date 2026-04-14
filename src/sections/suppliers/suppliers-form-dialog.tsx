@@ -16,7 +16,7 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
-import { useTranslation, useSettings, ALL_UNITS } from 'src/contexts';
+import { useTranslation, useSettings, ALL_UNITS, useGlobalScan } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -65,6 +65,12 @@ const emptyProduct: CatalogFormItem = {
 
 export function SuppliersFormDialog({ open, supplier, onClose, onSubmit }: Props) {
   const { t } = useTranslation();
+  const { setFormOpen } = useGlobalScan();
+
+  useEffect(() => {
+    setFormOpen(open);
+    return () => setFormOpen(false);
+  }, [open, setFormOpen]);
   const { preferences, productCategories } = useSettings();
   const enabledUnits = preferences.enabledUnits ?? ALL_UNITS;
   const isEdit = Boolean(supplier);

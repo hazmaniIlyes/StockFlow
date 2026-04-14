@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import { useTheme, alpha } from '@mui/material/styles';
 
@@ -16,7 +16,7 @@ import Typography from '@mui/material/Typography';
 
 import { fCurrency } from 'src/utils/format-number';
 
-import { useTranslation } from 'src/contexts';
+import { useTranslation, useGlobalScan } from 'src/contexts';
 
 import type { Client } from 'src/_mock/_data';
 
@@ -32,9 +32,15 @@ type Props = {
 export function ClientsPaymentDialog({ open, client, onClose, onSubmit }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
+  const { setFormOpen } = useGlobalScan();
   const [mode, setMode] = useState<'full' | 'partial'>('full');
   const [amount, setAmount] = useState(0);
   const [note, setNote] = useState('');
+
+  useEffect(() => {
+    setFormOpen(open);
+    return () => setFormOpen(false);
+  }, [open, setFormOpen]);
 
   if (!client) return null;
 

@@ -10,7 +10,7 @@ import Divider from '@mui/material/Divider';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
-import { useTranslation } from 'src/contexts';
+import { useTranslation, useGlobalScan } from 'src/contexts';
 
 import type { Client } from 'src/_mock/_data';
 
@@ -25,6 +25,12 @@ type Props = {
 
 export function ClientsNewDialog({ open, onClose, onSave, editClient }: Props) {
   const { t } = useTranslation();
+  const { setFormOpen } = useGlobalScan();
+
+  useEffect(() => {
+    setFormOpen(open);
+    return () => setFormOpen(false);
+  }, [open, setFormOpen]);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');

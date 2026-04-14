@@ -39,7 +39,7 @@ type Props = {
 
 export function InventoryTable({ products, onView, onEdit, onAdjustStock, onDelete }: Props) {
   const { t } = useTranslation();
-  const { role } = useSettings();
+  const { role, productCategories } = useSettings();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -55,11 +55,7 @@ export function InventoryTable({ products, onView, onEdit, onAdjustStock, onDele
 
   const CATEGORY_OPTIONS = [
     { value: 'all', label: t('inventory.allCategories') },
-    { value: 'Peripherals', label: 'Peripherals' },
-    { value: 'Accessories', label: 'Accessories' },
-    { value: 'Audio', label: 'Audio' },
-    { value: 'Storage', label: 'Storage' },
-    { value: 'Cables', label: 'Cables' },
+    ...productCategories.map((cat) => ({ value: cat.label, label: cat.label })),
   ];
 
   const filtered = useMemo(() => {
@@ -69,9 +65,8 @@ export function InventoryTable({ products, onView, onEdit, onAdjustStock, onDele
       const q = search.toLowerCase();
       result = result.filter(
         (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.sku.toLowerCase().includes(q) ||
-          p.supplierName.toLowerCase().includes(q)
+          p.name.toLowerCase().includes(q) || // search by product name
+          p.sku.toLowerCase().includes(q)     // search by SKU; supplierName removed — supplier filtering should be handled separately
       );
     }
 

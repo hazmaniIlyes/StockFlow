@@ -38,7 +38,7 @@ export function InventoryDetailView() {
   const navigate = useNavigate();
   const theme = useTheme();
   const { t } = useTranslation();
-  const { showSuccess } = useSnackbar();
+  const { showSuccess, showError } = useSnackbar();
   const { getProduct, adjustStock } = useInventory();
   const { getSupplier } = useSuppliers();
   const { invoices } = useInvoices();
@@ -79,9 +79,11 @@ export function InventoryDetailView() {
       const success = adjustStock(productId, quantity, type);
       if (success) {
         showSuccess(type === 'add' ? t('inventory.stockAddedSuccess') : t('inventory.stockRemovedSuccess'));
+      } else {
+        showError(t('inventory.insufficientStock'));
       }
     },
-    [adjustStock, showSuccess, t]
+    [adjustStock, showSuccess, showError, t]
   );
 
   if (!product) {

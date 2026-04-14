@@ -98,6 +98,19 @@ export function SalesView() {
             return;
           }
 
+          // added: apply FIFO-weighted prices to the invoice before updating it
+          if (stockResult.pricedItems && stockResult.pricedItems.length > 0) { // added: only patch when batch pricing data was returned
+            const patchedProducts = data.products.map((p) => { // added: rebuild the invoice product list with corrected prices
+              const fi = stockResult.pricedItems!.find((pi) => pi.name.toLowerCase() === p.name.toLowerCase()); // added: look up FIFO result for this line item
+              return fi ? { ...p, unitPrice: fi.unitPrice, total: fi.total } : p; // added: override price and total if FIFO data exists; otherwise leave unchanged
+            });
+            const newTotal = patchedProducts.reduce((sum, p) => sum + p.total, 0); // added: recompute invoice grand total from corrected line items
+            const newTvaAmount = newTotal * (data.tvaRate / 100); // added: recompute TVA proportionally
+            const newSubtotal = newTotal - newTvaAmount; // added: recompute HT subtotal
+            const newAmountPaid = data.status === 'paid' ? newTotal : Math.min(data.amountPaid, newTotal); // added: if fully paid keep amountPaid = new total; else cap at new total
+            data = { ...data, products: patchedProducts, total: newTotal, tvaAmount: newTvaAmount, subtotal: newSubtotal, amountPaid: newAmountPaid, amountDue: newTotal - newAmountPaid }; // added: replace data with fully patched invoice before saving
+          }
+
           updateInvoice(editingInvoice.id, data);
           savedInvoiceId = editingInvoice.id;
           showSuccess(t('sales.invoiceUpdated'));
@@ -107,6 +120,19 @@ export function SalesView() {
           if (!stockResult.success) {
             showError(`Stock error: ${stockResult.errors.join(', ')}`);
             return;
+          }
+
+          // added: apply FIFO-weighted prices to the invoice before persisting it
+          if (stockResult.pricedItems && stockResult.pricedItems.length > 0) { // added: only patch when batch pricing data was returned
+            const patchedProducts = data.products.map((p) => { // added: rebuild the invoice product list with corrected prices
+              const fi = stockResult.pricedItems!.find((pi) => pi.name.toLowerCase() === p.name.toLowerCase()); // added: look up FIFO result for this line item
+              return fi ? { ...p, unitPrice: fi.unitPrice, total: fi.total } : p; // added: override price and total if FIFO data exists; otherwise leave unchanged
+            });
+            const newTotal = patchedProducts.reduce((sum, p) => sum + p.total, 0); // added: recompute invoice grand total from corrected line items
+            const newTvaAmount = newTotal * (data.tvaRate / 100); // added: recompute TVA proportionally
+            const newSubtotal = newTotal - newTvaAmount; // added: recompute HT subtotal
+            const newAmountPaid = data.status === 'paid' ? newTotal : Math.min(data.amountPaid, newTotal); // added: if fully paid keep amountPaid = new total; else cap at new total
+            data = { ...data, products: patchedProducts, total: newTotal, tvaAmount: newTvaAmount, subtotal: newSubtotal, amountPaid: newAmountPaid, amountDue: newTotal - newAmountPaid }; // added: replace data with fully patched invoice before calling addInvoice
           }
 
           const newInvoice = addInvoice(data);

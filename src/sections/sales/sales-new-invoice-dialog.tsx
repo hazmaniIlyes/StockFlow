@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
@@ -23,11 +23,13 @@ import { fCurrency } from 'src/utils/format-number';
 
 import { alpha, useTheme } from '@mui/material/styles';
 
-import { useClients, useInventory, useTranslation, useSettings } from 'src/contexts';
+import { useClients, useInventory, useTranslation, useSettings, useGlobalScan } from 'src/contexts';
 
 import { useInvoices } from './context/invoice-context';
 
 import { Iconify } from 'src/components/iconify';
+import { ScanModal } from 'src/components/scan-modal';
+import { useSnackbar } from 'src/components/snackbar';
 
 import type { Invoice, InvoiceProduct, Client, InventoryProduct, ProductUnit } from 'src/_mock/_data';
 
@@ -74,7 +76,14 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
   const { products: inventoryProducts } = useInventory();
   const { getNextInvoiceNumber } = useInvoices();
   const { invoice: invoiceSettings } = useSettings();
+  const { showError } = useSnackbar();
+  const { setFormOpen } = useGlobalScan();
   const theme = useTheme();
+
+  useEffect(() => {
+    setFormOpen(open);
+    return () => setFormOpen(false);
+  }, [open, setFormOpen]);
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientName, setClientName] = useState('');
@@ -96,6 +105,12 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
   const [products, setProducts] = useState<ProductRow[]>([emptyProduct()]);
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState(false);
+
+  // SKU scan state
+  const [skuInput, setSkuInput] = useState('');
+  const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [lastFilledId, setLastFilledId] = useState<string | null>(null);
+  const quantityInputRef = useRef<HTMLInputElement>(null);
 
   // Reset form when dialog opens or editInvoice changes
   useEffect(() => {
@@ -169,6 +184,29 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
     }
   };
 
+  // added: pure helper — computes the FIFO-weighted sell price and a per-batch breakdown for display.
+  // This is READ-ONLY: it does not modify any state. The actual stock deduction still happens
+  // in deductStockForInvoice when the invoice is saved.
+  const computeFifoInfo = (invProduct: InventoryProduct, qty: number) => { // added
+    if (!invProduct.batches || invProduct.batches.length === 0) { // added: no FIFO batches — return flat sell price
+      return { weightedPrice: invProduct.sellPrice, breakdown: null as null | { qty: number; price: number }[] }; // added
+    }
+    let remaining = qty; // added: units still to be allocated across batches
+    let fifoTotal = 0; // added: running sell-price total across consumed batch slices
+    const slices: { qty: number; price: number }[] = []; // added: individual batch contributions
+    for (const batch of invProduct.batches) { // added: walk oldest-first (invariant guaranteed by addBatch)
+      if (remaining <= 0) break; // added: demand satisfied — stop early
+      const taken = Math.min(batch.quantity, remaining); // added: consume as many units as this batch holds
+      slices.push({ qty: taken, price: batch.sellPrice }); // added: record this slice for the breakdown note
+      fifoTotal += taken * batch.sellPrice; // added: accumulate revenue at this batch's sell price
+      remaining -= taken; // added: reduce remaining demand
+    }
+    return {
+      weightedPrice: qty > 0 ? fifoTotal / qty : invProduct.sellPrice, // added: blended unit price; falls back to sellPrice when qty is 0
+      breakdown: slices.length > 1 ? slices : null, // added: only expose when > 1 batch consumed (i.e. real FIFO splitting occurred)
+    };
+  }; // added
+
   const handleProductSelect = (rowId: string, product: InventoryProduct | null) => {
     setProducts((prev) =>
       prev.map((p) => {
@@ -179,7 +217,7 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
         return {
           ...p,
           name: product.name,
-          unitPrice: product.sellPrice,
+          unitPrice: computeFifoInfo(product, p.quantity).weightedPrice, // added: FIFO-weighted average for the current quantity; equals sellPrice when only one batch is consumed
           inventoryId: product.id,
           availableStock: product.stock,
           unit: product.unit,
@@ -210,6 +248,14 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
           }
         }
 
+        // added: when the user changes the quantity and the product has FIFO batches, recalculate the weighted price in real time
+        if (field === 'quantity' && updated.inventoryId) { // added: only applies to quantity edits on inventory-linked rows
+          const invProd = inventoryProducts.find((ip) => ip.id === updated.inventoryId); // added: look up the full product record for its batches
+          if (invProd) { // added: guard in case the product was removed from inventory since the row was added
+            updated.unitPrice = computeFifoInfo(invProd, Number(value)).weightedPrice; // added: replace unit price with live FIFO-weighted average
+          } // added
+        } // added
+
         return updated;
       })
     );
@@ -218,6 +264,54 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
   const handleAddProduct = () => {
     setProducts((prev) => [...prev, emptyProduct()]);
   };
+
+  // ── SKU lookup — shared by manual Enter key and scanner ─────────────
+  const handleSkuLookup = useCallback((rawSku: string) => {
+    const trimmed = rawSku.trim();
+    if (!trimmed) return;
+
+    const matched = inventoryProducts.find(
+      (ip) => ip.sku === trimmed
+    );
+
+    if (!matched) {
+      showError('Product not found');
+      setSkuInput('');
+      return;
+    }
+
+    // Find the first empty product row, or capture the index for a new append
+    setProducts((prev) => {
+      const emptyIdx = prev.findIndex((p) => !p.name.trim());
+      const isAppend = emptyIdx === -1;
+      const targetId = isAppend
+        ? `new-${Date.now()}-${Math.random()}`
+        : prev[emptyIdx].id;
+
+      const newRow: ProductRow = {
+        id: targetId,
+        name: matched.name,
+        quantity: 1,
+        unitPrice: matched.sellPrice,
+        inventoryId: matched.id,
+        availableStock: matched.stock,
+        unit: matched.unit,
+      };
+
+      // Record which row to focus BEFORE the state update resolves
+      // (We use a synchronous write so the next render attaches the ref correctly)
+      setLastFilledId(targetId);
+
+      return isAppend
+        ? [...prev, newRow]
+        : prev.map((p, i) => (i === emptyIdx ? newRow : p));
+    });
+
+    setSkuInput(trimmed);
+
+    // Focus the quantity field after React has re-rendered with the ref attached
+    setTimeout(() => quantityInputRef.current?.focus(), 50);
+  }, [inventoryProducts, showError]);
 
   const handleRemoveProduct = (id: string) => {
     if (products.length <= 1) return;
@@ -551,7 +645,14 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
                 error={
                   product.availableStock !== undefined && product.quantity > product.availableStock
                 }
-                slotProps={{ htmlInput: { min: product.unit === 'pcs' || !product.unit ? 1 : 0.001, step: product.unit === 'pcs' || !product.unit ? 1 : 0.001 } }}
+                slotProps={{
+                  htmlInput: {
+                    min: product.unit === 'pcs' || !product.unit ? 1 : 0.001,
+                    step: product.unit === 'pcs' || !product.unit ? 1 : 0.001,
+                    // Attach the focus ref directly to the quantity field that was just filled by a scan
+                    ...(product.id === lastFilledId ? { ref: quantityInputRef } : {}),
+                  },
+                }}
               />
             </Grid>
             <Grid size={{ xs: 6, sm: 3 }}>
@@ -581,8 +682,79 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
                 </IconButton>
               )}
             </Grid>
+            {/* added: FIFO breakdown note — rendered only when the ordered quantity spans more than one batch */}
+            {(() => { // added: IIFE keeps the breakdown logic self-contained without polluting the map callback
+              const invProdForNote = product.inventoryId // added: look up the inventory product for its batch data
+                ? inventoryProducts.find((ip) => ip.id === product.inventoryId) // added
+                : undefined; // added
+              if (!invProdForNote) return null; // added: product not linked to inventory — nothing to show
+              const fifoNoteInfo = computeFifoInfo(invProdForNote, product.quantity); // added: compute breakdown (read-only)
+              if (!fifoNoteInfo.breakdown) return null; // added: only one batch consumed — no split explanation needed
+              const parts = fifoNoteInfo.breakdown // added: build the human-readable breakdown string
+                .map((s) => `${s.qty} × ${fCurrency(s.price)}`) // added: format each slice as "qty × price"
+                .join(' + '); // added: join slices with a plus sign
+              return ( // added
+                <Grid size={{ xs: 12 }}> {/* added: full-width row so the note sits below all input columns */}
+                  <Typography // added
+                    variant="caption" // added: small unobtrusive text
+                    color="text.secondary" // added: muted colour — clearly secondary information
+                    sx={{ display: 'block', mt: -0.5, mb: 0.5 }} // added: tight spacing relative to the input row above
+                  >
+                    {`⚡ FIFO: ${parts} = ${fCurrency(fifoNoteInfo.weightedPrice)} avg`} {/* added: the readable FIFO breakdown note */}
+                  </Typography>
+                </Grid>
+              ); // added
+            })()} {/* added: end of IIFE */}
           </Grid>
         ))}
+
+        {/* SKU scan row */}
+        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mt: 1.5 }}>
+          <TextField
+            size="small"
+            fullWidth
+            label="SKU"
+            placeholder="Type or scan a SKU…"
+            value={skuInput}
+            onChange={(e) => setSkuInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSkuLookup(skuInput);
+              }
+            }}
+            slotProps={{ htmlInput: { maxLength: 64 } }}
+          />
+          <Button
+            variant="outlined"
+            onClick={(e) => {
+              e.currentTarget.blur();
+              setScanModalOpen(true);
+            }}
+            sx={{
+              height: 40,
+              minWidth: 90,
+              gap: 0.75,
+              flexShrink: 0,
+              borderColor: 'divider',
+              color: 'text.secondary',
+              '&:hover': { borderColor: 'primary.main', color: 'primary.main' },
+            }}
+          >
+            <Iconify icon="solar:scanner-bold-duotone" width={20} />
+            SCAN
+          </Button>
+        </Box>
+
+        <ScanModal
+          open={scanModalOpen}
+          onClose={useCallback(() => setScanModalOpen(false), [])}
+          onScan={useCallback((value: string) => {
+            setScanModalOpen(false);
+            handleSkuLookup(value);
+          }, [handleSkuLookup])}
+        />
+
 
         <Divider sx={{ my: 3 }} />
 

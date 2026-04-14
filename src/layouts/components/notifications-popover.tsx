@@ -1,6 +1,6 @@
 import type { IconButtonProps } from '@mui/material/IconButton';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import List from '@mui/material/List';
@@ -48,11 +48,35 @@ export function NotificationsPopover({ sx, ...other }: NotificationsPopoverProps
   const router = useRouter();
   const computed = useNotifications();
 
-  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [readIds, setReadIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem('notification_read_ids');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return new Set<string>(parsed);
+      }
+    } catch {
+      // ignore corrupt data
+    }
+    return new Set<string>();
+  });
+
+  // Persist readIds to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('notification_read_ids', JSON.stringify(Array.from(readIds)));
+    } catch {
+      // ignore write errors
+    }
+  }, [readIds]);
+
   const [openPopover, setOpenPopover] = useState<HTMLButtonElement | null>(null);
 
   const notifications = useMemo(
-    () => computed.map((n) => ({ ...n, isUnRead: !readIds.has(n.id) })),
+    () =>
+      computed
+        .filter((n) => !readIds.has(n.id))
+        .sort((a, b) => b.postedAt - a.postedAt),
     [computed, readIds]
   );
 

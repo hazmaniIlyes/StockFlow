@@ -11,7 +11,7 @@ import Typography from '@mui/material/Typography';
 
 import { fCurrency } from 'src/utils/format-number';
 
-import { useTranslation } from 'src/contexts';
+import { useTranslation, useGlobalScan } from 'src/contexts';
 
 import type { Invoice } from 'src/_mock/_data';
 
@@ -26,8 +26,14 @@ type Props = {
 
 export function SalesRecordPaymentDialog({ open, invoice, onClose, onSave }: Props) {
   const { t } = useTranslation();
+  const { setFormOpen } = useGlobalScan();
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    setFormOpen(open);
+    return () => setFormOpen(false);
+  }, [open, setFormOpen]);
 
   const maxAmount = invoice?.amountDue ?? 0;
 

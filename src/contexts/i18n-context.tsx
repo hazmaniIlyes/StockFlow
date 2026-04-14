@@ -1172,6 +1172,13 @@ const translations: Record<Language, Translations> = {
       db_search4: 'Results respect your role',
       db_search4d: 'Workers only see Products, Clients, and Sales results.',
     },
+    scanModal: {
+      dialogTitle: 'Scan Barcode',
+      title: 'Ready to Scan',
+      subtitle: 'Point your scanner at the barcode. The field will be filled automatically.',
+      waiting: 'Waiting for scanner input...',
+      cancel: 'Cancel',
+    },
   },
   fr: {
     // Navigation
@@ -2308,6 +2315,13 @@ const translations: Record<Language, Translations> = {
       db_search4: 'Les résultats respectent votre rôle',
       db_search4d: 'Les employés voient uniquement les résultats Produits, Clients et Ventes.',
     },
+    scanModal: {
+      dialogTitle: 'Scanner le code-barres',
+      title: 'Prêt à scanner',
+      subtitle: 'Pointez le scanner vers le code-barres. Le champ sera rempli automatiquement.',
+      waiting: 'En attente du scanner...',
+      cancel: 'Annuler',
+    },
   },
   ar: {
     // Navigation
@@ -3443,6 +3457,13 @@ const translations: Record<Language, Translations> = {
       db_search3d: 'يأخذك إلى صفحة التفاصيل المقابلة.',
       db_search4: 'النتائج تحترم دورك',
       db_search4d: 'الموظفون يرون فقط نتائج المنتجات والعملاء والمبيعات.',
+    },
+    scanModal: {
+      dialogTitle: 'مسح الباركود',
+      title: 'جاهز للمسح',
+      subtitle: 'وجّه الماسح نحو الباركود. سيتم ملء الحقل تلقائياً.',
+      waiting: 'في انتظار إدخال الماسح الضوئي...',
+      cancel: 'إلغاء',
     },
   },
 };

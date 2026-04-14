@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -31,6 +31,15 @@ export function InventoryView() {
   const [formOpen, setFormOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<InventoryProduct | null>(null);
   const [stockProduct, setStockProduct] = useState<InventoryProduct | null>(null);
+
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.state?.addSku) {
+      setEditProduct(null);
+      setFormOpen(true);
+    }
+  }, [location.state?.addSku]);
 
   // Delete confirmation
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -78,11 +87,65 @@ export function InventoryView() {
           updateProduct(editProduct.id, data);
           showSuccess(t('inventory.productUpdated'));
         } else {
-          const newProduct = addProduct(data);
-          showSuccess(t('inventory.productAdded'), {
-            label: t('common.view'),
-            onClick: () => navigate(`/inventory/${newProduct.id}`),
-          });
+          // ── Identity check ───────────────────────────────────────────────
+          // A product is considered the same when all three match:
+          //   name (case-insensitive, trimmed)
+          //   category (case-insensitive, trimmed)
+          //   supplierId (exact, both coerced to '' when absent)
+          const existingProduct = products.find(
+            (p) =>
+              p.name.trim().toLowerCase() === data.name.trim().toLowerCase() &&
+              p.category.trim().toLowerCase() === data.category.trim().toLowerCase() &&
+              (p.supplierId ?? '') === (data.supplierId ?? '')
+          );
+
+          if (!existingProduct) {
+            // ── No match: create a brand-new product ────────────────────
+            const newProduct = addProduct(data);
+            showSuccess(t('inventory.productAdded'), {
+              label: t('common.view'),
+              onClick: () => navigate(`/inventory/${newProduct.id}`),
+            });
+          } else {
+            // ── Match found: apply changes in priority order ─────────────
+            const priceChanged =
+              data.buyingPrice !== existingProduct.buyingPrice ||
+              data.sellPrice !== existingProduct.sellPrice;
+
+            const skuChanged =
+              data.sku.trim() !== '' &&
+              data.sku.trim() !== existingProduct.sku;
+
+            const stockAdded = data.stock > 0;
+
+            if (priceChanged) {
+              // Priority 1 — Price conflict.
+              // The form's own hasPriceConflict guard handles this and shows the
+              // FIFO/price-conflict dialog. This branch is only reached in the
+              // stale-closure edge-case where that guard was bypassed.
+              // Do nothing: no duplicate is created. The form closes via its own
+              // onClose() call, and the user can retry (hasPriceConflict will be
+              // correct on the next render).
+            } else if (skuChanged && stockAdded) {
+              // Priority 2a — SKU changed AND stock added: apply both at once.
+              updateProduct(existingProduct.id, {
+                sku: data.sku.trim(),
+                stock: existingProduct.stock + data.stock,
+              });
+              showSuccess(t('inventory.productUpdated'));
+            } else if (skuChanged) {
+              // Priority 2b — SKU changed only.
+              updateProduct(existingProduct.id, { sku: data.sku.trim() });
+              showSuccess(t('inventory.productUpdated'));
+            } else if (stockAdded) {
+              // Priority 3 — Stock added only.
+              updateProduct(existingProduct.id, {
+                stock: existingProduct.stock + data.stock,
+              });
+              showSuccess(t('inventory.stockUpdated'));
+            }
+            // else: nothing meaningful changed — no-op.
+          }
         }
         setFormOpen(false);
         setEditProduct(null);
@@ -90,7 +153,7 @@ export function InventoryView() {
         showError(t('inventory.failedToSave'));
       }
     },
-    [editProduct, addProduct, updateProduct, navigate, showSuccess, showError, t]
+    [editProduct, products, addProduct, updateProduct, navigate, showSuccess, showError, t]
   );
 
   const handleAdjustStock = (product: InventoryProduct) => {

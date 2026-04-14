@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
@@ -19,7 +19,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import { useI18n, useBusiness, useSettings } from 'src/contexts';
 import type { Language } from 'src/contexts';
 import { Iconify } from 'src/components/iconify';
-import { ADMIN_PASSWORD_KEY } from 'src/sections/settings/settings-account';
+import { settingsDB, isElectron } from 'src/services/db'; // Import SQLite interface
 
 // ──────────────────────────────────────────────────────────────────────
 // Types
@@ -302,6 +302,26 @@ export function OnboardingView({ onComplete }: Props) {
   const [tvaMode, setTvaMode] = useState<'standard' | 'custom' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Interrogate SQLite automatically when Onboarding View spins up.
+  // If we detect onboarding was already completed in the DB, we cache it and abort the wizard.
+  // This fulfills the requirement of migrating existing inventory.db seamlessly to a new PC.
+  useEffect(() => {
+    async function checkPreexistingDB() {
+      if (isElectron()) {
+        try {
+          const isDone = await settingsDB.get(ONBOARDING_KEY);
+          if (isDone === 'true') {
+            localStorage.setItem(ONBOARDING_KEY, 'true'); // Hydrate our synchronous browser cache
+            onComplete(); // Skip wizard immediately
+          }
+        } catch (e) {
+          console.error('Failed to probe DB for onboarding signal:', e);
+        }
+      }
+    }
+    checkPreexistingDB();
+  }, [onComplete]);
+
   // When language changes, refresh default categories if user hasn't edited them
   const handleLanguageChange = (lang: Language) => {
     setLanguage(lang);
@@ -360,12 +380,23 @@ export function OnboardingView({ onComplete }: Props) {
     setData((prev) => ({ ...prev, expenseCategories: prev.expenseCategories.filter((_, i) => i !== idx) }));
   };
 
-  const handleComplete = () => {
-    // 1. Save admin credentials
-    localStorage.setItem('user_profile', JSON.stringify({ displayName: data.displayName }));
-    localStorage.setItem(ADMIN_PASSWORD_KEY, data.password);
+  const handleComplete = async () => {
+    // 1. Save unified account credentials to SQLite natively
+    const accountStr = JSON.stringify({
+      password: data.password,
+      displayName: data.displayName,
+      role: 'admin',
+      workerModeEnabled: false
+    });
+    
+    if (isElectron()) {
+      await settingsDB.set('account', accountStr); // Save unified row natively
+    }
+    
+    // Transparently hydrate local cache synchronously
+    localStorage.setItem('account', accountStr); 
 
-    // 2. Save business info
+    // 2. Save business info (This delegates to context which auto-syncs to SQLite)
     updateBusinessInfo({
       businessName: data.businessName,
       phone: data.phone,
@@ -377,10 +408,10 @@ export function OnboardingView({ onComplete }: Props) {
       logo: data.logo || undefined,
     });
 
-    // 3. TVA setting
+    // 3. TVA setting (Delegates to Settings context)
     updateInvoiceSettings({ tvaRate: data.tvaRate ?? 0 });
 
-    // 4. Preferences
+    // 4. Preferences (Delegates to Settings context)
     updatePreferences({
       colorMode: data.colorMode,
       lowStockThreshold: data.lowStockThreshold,
@@ -404,10 +435,13 @@ export function OnboardingView({ onComplete }: Props) {
       });
     }
 
-    // 7. Mark onboarding complete
-    localStorage.setItem(ONBOARDING_KEY, 'true');
+    // 7. Mark onboarding complete in SQLite safely so it survives PC transfers
+    if (isElectron()) {
+      await settingsDB.set(ONBOARDING_KEY, 'true');
+    }
+    localStorage.setItem(ONBOARDING_KEY, 'true'); // Hydrate synchronous browser cache
 
-    onComplete();
+    onComplete(); // Advance router securely
   };
 
   // ────────── Layout shell ──────────

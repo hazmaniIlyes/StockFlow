@@ -10,12 +10,13 @@ import { usePathname } from 'src/routes/hooks';
 
 import { SnackbarProvider } from 'src/components/snackbar';
 
-import { BusinessProvider, ClientsProvider, ExpensesProvider, I18nProvider, InventoryProvider, SettingsProvider, SuppliersProvider } from 'src/contexts';
+import { BusinessProvider, ClientsProvider, ExpensesProvider, I18nProvider, InventoryProvider, SettingsProvider, SuppliersProvider, GlobalScanProvider } from 'src/contexts';
 
 import { InvoiceProvider } from 'src/sections/sales/context';
 
 import { ThemeProvider } from 'src/theme/theme-provider';
 import { isOnboardingComplete } from 'src/sections/onboarding/onboarding-view';
+import { GlobalBarcodeScanListener } from 'src/hooks/use-global-barcode-scan';
 
 // ----------------------------------------------------------------------
 
@@ -53,9 +54,12 @@ export default function App({ children }: AppProps) {
                   <ExpensesProvider>
                     <InventoryProvider>
                       <InvoiceProvider>
-                        <OnboardingGuard>
-                          {children}
-                        </OnboardingGuard>
+                        <GlobalScanProvider>
+                          <OnboardingGuard>
+                            <GlobalBarcodeScanListener />
+                            {children}
+                          </OnboardingGuard>
+                        </GlobalScanProvider>
                       </InvoiceProvider>
                     </InventoryProvider>
                   </ExpensesProvider>

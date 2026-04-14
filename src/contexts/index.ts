@@ -8,3 +8,4 @@ export { InventoryProvider, useInventory } from './inventory-context';
 export { SettingsProvider, useSettings, ALL_UNITS } from './settings-context';
 export type { ColorMode, AppRole } from './settings-context';
 export { SuppliersProvider, useSuppliers } from './suppliers-context';
+export { GlobalScanProvider, useGlobalScan } from './global-scan-context';

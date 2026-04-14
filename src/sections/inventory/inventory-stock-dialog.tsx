@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -12,7 +12,7 @@ import RadioGroup from '@mui/material/RadioGroup';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
-import { useTranslation } from 'src/contexts';
+import { useTranslation, useGlobalScan } from 'src/contexts';
 
 import type { InventoryProduct } from 'src/_mock/_data';
 
@@ -27,9 +27,15 @@ type Props = {
 
 export function InventoryStockDialog({ open, product, onClose, onSubmit }: Props) {
   const { t } = useTranslation();
+  const { setFormOpen } = useGlobalScan();
   const [type, setType] = useState<'add' | 'remove'>('add');
   const [quantity, setQuantity] = useState(0);
   const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    setFormOpen(open);
+    return () => setFormOpen(false);
+  }, [open, setFormOpen]);
 
   if (!product) return null;
 

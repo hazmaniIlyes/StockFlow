@@ -17,15 +17,34 @@ import { useTheme } from '@mui/material/styles';
 import { useTranslation, useSettings } from 'src/contexts';
 import { Iconify } from 'src/components/iconify';
 import { useSnackbar } from 'src/components/snackbar';
+import { settingsDB, isElectron } from 'src/services/db'; // Import our new database service
 
 // ======================================================================
 
-const PROFILE_STORAGE_KEY = 'user_profile';
-export const ADMIN_PASSWORD_KEY = 'admin_password';
+export const ACCOUNT_STORAGE_KEY = 'account'; // New unified JSON string
 const DEFAULT_ADMIN_PASSWORD = 'admin';
 
+// Top-level IIFE bootstrapper dynamically caches the unified payload synchronously for password validation
+if (isElectron()) {
+  settingsDB.get(ACCOUNT_STORAGE_KEY).then((accStr) => {
+    if (accStr) {
+       localStorage.setItem(ACCOUNT_STORAGE_KEY, accStr); // Caches unified JSON map
+    }
+  }).catch(console.error);
+}
+
+// Synchronous function remains for UI compatibility, parsing directly from the populated unified cache
 export function getAdminPassword(): string {
-  return localStorage.getItem(ADMIN_PASSWORD_KEY) ?? DEFAULT_ADMIN_PASSWORD;
+  try {
+    const accStr = localStorage.getItem(ACCOUNT_STORAGE_KEY);
+    if (accStr) {
+      const acc = JSON.parse(accStr);
+      if (acc.password) return String(acc.password);
+    }
+  } catch {
+    // ignore parsing errors
+  }
+  return DEFAULT_ADMIN_PASSWORD;
 }
 
 export function SettingsAccount() {
@@ -38,8 +57,11 @@ export function SettingsAccount() {
 
   const [profile, setProfile] = useState(() => {
     try {
-      const stored = localStorage.getItem(PROFILE_STORAGE_KEY);
-      if (stored) return JSON.parse(stored);
+      const stored = localStorage.getItem(ACCOUNT_STORAGE_KEY); // Read directly from unified cache
+      if (stored) {
+        const acc = JSON.parse(stored);
+        if (acc.displayName) return { displayName: String(acc.displayName) };
+      }
     } catch {
       // Ignore
     }
@@ -52,6 +74,23 @@ export function SettingsAccount() {
     confirm: '',
   });
 
+  // Re-hydrate the UI specifically when the user opens the settings page
+  useEffect(() => {
+    if (!isElectron()) return;
+    async function loadData() {
+      try {
+        const accStr = await settingsDB.get(ACCOUNT_STORAGE_KEY); // Fetch new unified object natively
+        if (accStr) {
+          const acc = JSON.parse(accStr);
+          if (acc.displayName) setProfile({ displayName: acc.displayName }); // Hydrate explicit property correctly
+        }
+      } catch (e) {
+        console.error('Failed to reload profile from DB:', e);
+      }
+    }
+    loadData();
+  }, []);
+
   const handleProfileChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setProfile((prev: typeof profile) => ({ ...prev, [field]: e.target.value }));
   };
@@ -60,18 +99,60 @@ export function SettingsAccount() {
     setPasswords((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
-  const handleSaveProfile = () => {
-    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+  const handleSaveProfile = async () => { 
+    let accountObj: Record<string, any> = {};
+
+    // 1. Safely retrieve the existing unified block directly to prevent overwriting parallel configurations
+    if (isElectron()) {
+      const existingStr = await settingsDB.get(ACCOUNT_STORAGE_KEY);
+      if (existingStr) accountObj = JSON.parse(existingStr);
+    } else {
+      const existingStr = localStorage.getItem(ACCOUNT_STORAGE_KEY);
+      if (existingStr) accountObj = JSON.parse(existingStr);
+    }
+    
+    // 2. Commit the explicitly changed state variable cleanly 
+    accountObj.displayName = profile.displayName;
+    const unifiedJsonStr = JSON.stringify(accountObj);
+    
+    // 3. Write unified package payload natively to SQLite 
+    if (isElectron()) await settingsDB.set(ACCOUNT_STORAGE_KEY, unifiedJsonStr);
+    else localStorage.setItem(ACCOUNT_STORAGE_KEY, unifiedJsonStr);
+
+    // 4. Update the centralized local cache
+    localStorage.setItem(ACCOUNT_STORAGE_KEY, unifiedJsonStr); // Instant visual cache sync
+    
     showSuccess(t('settings.profileSaved'));
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => { 
     const storedPassword = getAdminPassword();
     if (passwords.current !== storedPassword) {
       showError(t('settings.wrongCurrentPassword'));
       return;
     }
-    localStorage.setItem(ADMIN_PASSWORD_KEY, passwords.newPass);
+    
+    // 1. Request existing unified SQLite block efficiently
+    let accountObj: Record<string, any> = {};
+    if (isElectron()) {
+      const existingStr = await settingsDB.get(ACCOUNT_STORAGE_KEY);
+      if (existingStr) accountObj = JSON.parse(existingStr);
+    } else {
+      const existingStr = localStorage.getItem(ACCOUNT_STORAGE_KEY);
+      if (existingStr) accountObj = JSON.parse(existingStr);
+    }
+    
+    // 2. Re-assign newly parsed password logic seamlessly
+    accountObj.password = passwords.newPass;
+    const unifiedJsonStr = JSON.stringify(accountObj);
+
+    // 3. Commit isolated block directly into the new key sequence
+    if (isElectron()) await settingsDB.set(ACCOUNT_STORAGE_KEY, unifiedJsonStr);
+    else localStorage.setItem(ACCOUNT_STORAGE_KEY, unifiedJsonStr);
+    
+    // 4. Update overarching cache payload
+    localStorage.setItem(ACCOUNT_STORAGE_KEY, unifiedJsonStr);
+    
     showSuccess(t('settings.passwordUpdated'));
     setPasswords({ current: '', newPass: '', confirm: '' });
   };

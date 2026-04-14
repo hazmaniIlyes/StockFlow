@@ -28,7 +28,7 @@ import { useTranslation } from 'src/contexts';
 import { getAdminPassword } from 'src/sections/settings/settings-account';
 
 import { Iconify } from 'src/components/iconify';
-import { _myAccount } from 'src/_mock';
+import { settingsDB, isElectron } from 'src/services/db'; // Import SQLite DB wrapper
 
 // ----------------------------------------------------------------------
 
@@ -59,21 +59,56 @@ export function AccountPopover({ data = [], sx, ...other }: AccountPopoverProps)
 
   const [adminProfile, setAdminProfile] = useState(() => {
     try {
-      const stored = localStorage.getItem('user_profile');
-      if (stored) return JSON.parse(stored) as { displayName: string };
+      const stored = localStorage.getItem('account'); // New unified JSON property priority
+      if (stored) {
+        const acc = JSON.parse(stored);
+        if (acc.displayName) return { displayName: acc.displayName, photoURL: acc.photoURL };
+      }
     } catch { /* ignore */ }
-    return { displayName: 'Admin' };
+    return { displayName: 'Admin', photoURL: undefined };
   });
 
-  // Refresh profile whenever the popover opens
+  // Pull authentic SQLite values on mount to overwrite any stale cache seamlessly
   useEffect(() => {
-    if (openPopover) {
-      try {
-        const stored = localStorage.getItem('user_profile');
-        if (stored) setAdminProfile(JSON.parse(stored));
-      } catch { /* ignore */ }
+    async function loadDBProfile() {
+      if (isElectron()) {
+        try {
+          const stored = await settingsDB.get('account');
+          if (stored) {
+            const acc = JSON.parse(stored);
+            if (acc.displayName) setAdminProfile({ displayName: acc.displayName, photoURL: acc.photoURL });
+          }
+        } catch (e) {
+          console.error('Failed to load profile from DB:', e);
+        }
+      }
     }
-  }, [openPopover]);
+    loadDBProfile(); // Trigger SQLite hydration
+  }, []);
+
+  // Poll exactly every 1000ms carefully checking the unified object
+  useEffect(() => {
+    const checkProfileCache = () => {
+      let dName: string | undefined;
+      let pUrl: string | undefined;
+
+      const accStr = localStorage.getItem('account');
+      if (accStr) {
+        const acc = JSON.parse(accStr);
+        dName = acc.displayName;
+        pUrl = acc.photoURL;
+      }
+
+      if (dName) {
+        setAdminProfile((prev) => 
+          prev.displayName !== dName || prev.photoURL !== pUrl 
+            ? { displayName: dName, photoURL: pUrl } : prev
+        );
+      }
+    };
+    const intervalId = setInterval(checkProfileCache, 1000); // Polling sync
+    return () => clearInterval(intervalId); // Cleanup on unmount
+  }, []);
 
   const handleOpenPopover = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     setOpenPopover(event.currentTarget);
@@ -131,7 +166,7 @@ export function AccountPopover({ data = [], sx, ...other }: AccountPopoverProps)
         }}
         {...other}
       >
-        <Avatar src={_myAccount.photoURL} alt={adminProfile.displayName} sx={{ width: 1, height: 1 }}>
+        <Avatar src={adminProfile.photoURL} alt={adminProfile.displayName} sx={{ width: 1, height: 1 }}>
           {adminProfile.displayName.charAt(0).toUpperCase()}
         </Avatar>
       </IconButton>

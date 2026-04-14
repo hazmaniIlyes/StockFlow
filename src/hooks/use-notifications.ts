@@ -61,12 +61,21 @@ export function useNotifications(): AppNotification[] {
     today.setHours(0, 0, 0, 0);
     const result: AppNotification[] = [];
 
+    // Max notifications generated per type — keeps total well under 50
+    const MAX_PER_TYPE = 10;
+
     // 1. Overdue payments
-    invoices.forEach((inv) => {
-      if (inv.status === 'paid') return;
-      const due = parseDate(inv.dueDate);
-      due.setHours(0, 0, 0, 0);
-      if (due < today) {
+    invoices
+      .filter((inv) => {
+        if (inv.status === 'paid') return false;
+        const due = parseDate(inv.dueDate);
+        due.setHours(0, 0, 0, 0);
+        return due < today;
+      })
+      .slice(0, MAX_PER_TYPE)
+      .forEach((inv) => {
+        const due = parseDate(inv.dueDate);
+        due.setHours(0, 0, 0, 0);
         const days = Math.floor((today.getTime() - due.getTime()) / 86_400_000);
         const id = `overdue-${inv.id}`;
         const description = t('layout.notifOverdueDesc', {
@@ -85,16 +94,22 @@ export function useNotifications(): AppNotification[] {
           postedAt: resolvePostedAt(id, description),
           href: `/sales/${inv.id}`,
         });
-      }
-    });
+      });
 
     // 2. Upcoming due dates (within 3 days)
-    invoices.forEach((inv) => {
-      if (inv.status === 'paid') return;
-      const due = parseDate(inv.dueDate);
-      due.setHours(0, 0, 0, 0);
-      const diffDays = Math.ceil((due.getTime() - today.getTime()) / 86_400_000);
-      if (diffDays >= 0 && diffDays <= 3) {
+    invoices
+      .filter((inv) => {
+        if (inv.status === 'paid') return false;
+        const due = parseDate(inv.dueDate);
+        due.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((due.getTime() - today.getTime()) / 86_400_000);
+        return diffDays >= 0 && diffDays <= 3;
+      })
+      .slice(0, MAX_PER_TYPE)
+      .forEach((inv) => {
+        const due = parseDate(inv.dueDate);
+        due.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((due.getTime() - today.getTime()) / 86_400_000);
         const whenLabel =
           diffDays === 0
             ? t('layout.today')
@@ -118,12 +133,13 @@ export function useNotifications(): AppNotification[] {
           postedAt: resolvePostedAt(id, description),
           href: `/sales/${inv.id}`,
         });
-      }
-    });
+      });
 
     // 3. Out of stock
-    products.forEach((p) => {
-      if (p.status === 'out-of-stock') {
+    products
+      .filter((p) => p.status === 'out-of-stock')
+      .slice(0, MAX_PER_TYPE)
+      .forEach((p) => {
         const id = `out-stock-${p.id}`;
         const description = t('layout.notifOutOfStockDesc', { name: p.name });
         result.push({
@@ -136,12 +152,13 @@ export function useNotifications(): AppNotification[] {
           postedAt: resolvePostedAt(id, description),
           href: `/inventory/${p.id}`,
         });
-      }
-    });
+      });
 
     // 4. Low stock
-    products.forEach((p) => {
-      if (p.status === 'low-stock') {
+    products
+      .filter((p) => p.status === 'low-stock')
+      .slice(0, MAX_PER_TYPE)
+      .forEach((p) => {
         const id = `low-stock-${p.id}`;
         const description = t('layout.notifLowStockDesc', { name: p.name, count: p.stock });
         result.push({
@@ -154,16 +171,22 @@ export function useNotifications(): AppNotification[] {
           postedAt: resolvePostedAt(id, description),
           href: `/inventory/${p.id}`,
         });
-      }
-    });
+      });
 
     // 5. Product expiry (within 14 days)
-    products.forEach((p) => {
-      if (!p.expiryDate) return;
-      const expiry = parseDate(p.expiryDate);
-      expiry.setHours(0, 0, 0, 0);
-      const diffDays = Math.ceil((expiry.getTime() - today.getTime()) / 86_400_000);
-      if (diffDays >= 0 && diffDays <= 14) {
+    products
+      .filter((p) => {
+        if (!p.expiryDate) return false;
+        const expiry = parseDate(p.expiryDate);
+        expiry.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((expiry.getTime() - today.getTime()) / 86_400_000);
+        return diffDays >= 0 && diffDays <= 14;
+      })
+      .slice(0, MAX_PER_TYPE)
+      .forEach((p) => {
+        const expiry = parseDate(p.expiryDate!);
+        expiry.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((expiry.getTime() - today.getTime()) / 86_400_000);
         const id = `expiry-${p.id}`;
         const description = t('layout.notifExpiryDesc', { name: p.name, days: diffDays });
         result.push({
@@ -176,12 +199,13 @@ export function useNotifications(): AppNotification[] {
           postedAt: resolvePostedAt(id, description),
           href: `/inventory/${p.id}`,
         });
-      }
-    });
+      });
 
     // 6. Supplier balance owed
-    suppliers.forEach((s) => {
-      if (s.totalOwed > 0) {
+    suppliers
+      .filter((s) => s.totalOwed > 0)
+      .slice(0, MAX_PER_TYPE)
+      .forEach((s) => {
         const id = `supplier-due-${s.id}`;
         const description = t('layout.notifSupplierDueDesc', {
           supplier: s.name,
@@ -197,15 +221,17 @@ export function useNotifications(): AppNotification[] {
           postedAt: resolvePostedAt(id, description),
           href: `/suppliers/${s.id}`,
         });
-      }
-    });
+      });
 
     // 7. Recent purchases (within 7 days)
     suppliers.forEach((s) => {
-      (s.purchases ?? []).forEach((purchase) => {
-        const purchaseDate = parseDate(purchase.date);
-        const diffDays = Math.floor((now - purchaseDate.getTime()) / 86_400_000);
-        if (diffDays <= 7) {
+      (s.purchases ?? [])
+        .filter((purchase) => {
+          const diffDays = Math.floor((now - parseDate(purchase.date).getTime()) / 86_400_000);
+          return diffDays <= 7;
+        })
+        .slice(0, MAX_PER_TYPE)
+        .forEach((purchase) => {
           const id = `purchase-${purchase.id}`;
           const description = t('layout.notifNewPurchaseDesc', {
             supplier: s.name,
@@ -221,16 +247,18 @@ export function useNotifications(): AppNotification[] {
             postedAt: resolvePostedAt(id, description),
             href: `/suppliers/${s.id}`,
           });
-        }
-      });
+        });
     });
 
     // 8. Payment received — invoices fully paid within last 7 days
-    invoices.forEach((inv) => {
-      if (inv.status !== 'paid' || inv.amountPaid <= 0) return;
-      const created = parseDate(inv.createdAt);
-      const diffDays = Math.floor((now - created.getTime()) / 86_400_000);
-      if (diffDays <= 7) {
+    invoices
+      .filter((inv) => {
+        if (inv.status !== 'paid' || inv.amountPaid <= 0) return false;
+        const diffDays = Math.floor((now - parseDate(inv.createdAt).getTime()) / 86_400_000);
+        return diffDays <= 7;
+      })
+      .slice(0, MAX_PER_TYPE)
+      .forEach((inv) => {
         const id = `paid-${inv.id}`;
         const description = t('layout.notifPaymentReceivedDesc', {
           number: inv.invoiceNumber,
@@ -247,14 +275,16 @@ export function useNotifications(): AppNotification[] {
           postedAt: resolvePostedAt(id, description),
           href: `/sales/${inv.id}`,
         });
-      }
-    });
+      });
 
     // 9. Recent expenses (within 7 days)
-    expenses.forEach((exp) => {
-      const expDate = parseDate(exp.date);
-      const diffDays = Math.floor((now - expDate.getTime()) / 86_400_000);
-      if (diffDays <= 7) {
+    expenses
+      .filter((exp) => {
+        const diffDays = Math.floor((now - parseDate(exp.date).getTime()) / 86_400_000);
+        return diffDays <= 7;
+      })
+      .slice(0, MAX_PER_TYPE)
+      .forEach((exp) => {
         const id = `expense-${exp.id}`;
         const description = t('layout.notifExpenseDesc', {
           desc: exp.description,
@@ -270,8 +300,7 @@ export function useNotifications(): AppNotification[] {
           postedAt: resolvePostedAt(id, description),
           href: '/expenses',
         });
-      }
-    });
+      });
 
     // Sort: most recent first
     return result.sort((a, b) => b.postedAt - a.postedAt);

@@ -8,7 +8,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 
-import { useSettings, useTranslation } from 'src/contexts';
+import { useSettings, useTranslation, useGlobalScan } from 'src/contexts';
 
 import type { Expense } from 'src/_mock/_data';
 
@@ -24,6 +24,12 @@ type Props = {
 export function ExpensesFormDialog({ open, expense, onClose, onSubmit }: Props) {
   const { expenseCategories } = useSettings();
   const { t } = useTranslation();
+  const { setFormOpen } = useGlobalScan();
+
+  useEffect(() => {
+    setFormOpen(open);
+    return () => setFormOpen(false);
+  }, [open, setFormOpen]);
 
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Other');

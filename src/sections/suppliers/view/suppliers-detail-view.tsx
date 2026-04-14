@@ -72,10 +72,14 @@ export function SuppliersDetailView() {
       items.forEach((item) => {
         const existingProduct = inventoryProducts.find((p) => p.name === item.productName);
         if (existingProduct) {
-          // Update existing product stock
+          // Update stock only — do NOT update buyingPrice here.
+          // Price is already handled upstream by the pricing conflict dialog in
+          // suppliers-purchase-dialog.tsx: "Update All" calls updateProduct with the new
+          // price, and "FIFO" calls addBatch which preserves the original price via the
+          // oldest-batch rule. Overwriting buyingPrice here would silently undo the FIFO
+          // path and display the new batch price on the KPI card instead of the original.
           updateProduct(existingProduct.id, {
             stock: existingProduct.stock + item.quantity,
-            buyingPrice: item.unitPrice, // Update buying price to latest
           });
         } else {
           // Add new product to inventory

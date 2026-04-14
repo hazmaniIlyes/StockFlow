@@ -1,6 +1,6 @@
 import type { CardProps } from '@mui/material/Card';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -19,6 +19,7 @@ import { useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 import { Scrollbar } from 'src/components/scrollbar';
+import { actionItemsDB, isElectron } from 'src/services/db'; // Import our new database endpoint
 
 // ----------------------------------------------------------------------
 
@@ -45,6 +46,15 @@ export function AnalyticsTodoList({
   const [todos, setTodos] = useState<TodoItem[]>(list);
   const [input, setInput] = useState('');
 
+  // Load persistent note records statically on mount
+  useEffect(() => {
+    if (isElectron()) {
+      actionItemsDB.getAll().then((items) => {
+        if (items) setTodos(items);
+      }).catch(console.error);
+    }
+  }, []);
+
   const handleAddTodo = () => {
     if (input.trim()) {
       const newTodo: TodoItem = {
@@ -52,16 +62,32 @@ export function AnalyticsTodoList({
         title: input,
         completed: false,
       };
+
+      // Native SQLite append
+      if (isElectron()) {
+        actionItemsDB.add(newTodo).catch(console.error);
+      }
+
       setTodos([...todos, newTodo]);
       setInput('');
     }
   };
 
   const handleToggleTodo = (id: string) => {
+    // Native SQLite toggle
+    if (isElectron()) {
+      actionItemsDB.toggle(id).catch(console.error);
+    }
+    
     setTodos(todos.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)));
   };
 
   const handleDeleteTodo = (id: string) => {
+    // Native SQLite deletion
+    if (isElectron()) {
+      actionItemsDB.delete(id).catch(console.error);
+    }
+    
     setTodos(todos.filter((todo) => todo.id !== id));
   };
 

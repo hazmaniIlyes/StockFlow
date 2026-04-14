@@ -66,15 +66,16 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
     ...expenseCategories.map((c) => ({ value: c.label, label: c.label })),
   ], [expenseCategories, t]);
 
+  // categoryLabelMap removed — category is no longer part of the search bar filter;
+  // category filtering is handled exclusively by the dropdown filter below.
+
   const filtered = useMemo(() => {
     let result = expenses;
 
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(
-        (e) =>
-          e.description.toLowerCase().includes(q) ||
-          getCategoryLabel(e.category).toLowerCase().includes(q)
+        (e) => e.description.toLowerCase().includes(q) // search by description only; category is filtered via the dropdown
       );
     }
 
