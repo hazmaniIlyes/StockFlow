@@ -13,6 +13,7 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
+import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -24,7 +25,6 @@ import { useSettings, useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 import { Label } from 'src/components/label';
-import { Scrollbar } from 'src/components/scrollbar';
 import { ExportButtons } from 'src/components/export-buttons';
 
 import type { Client, Invoice } from 'src/_mock/_data';
@@ -42,12 +42,16 @@ type Props = {
 };
 
 export function ClientsTable({ clients, invoices, onView, onViewInvoices, onRecordPayment, onEdit, onDelete }: Props) {
-  const { t } = useTranslation();
+  const { t, dir, language } = useTranslation();
+  const numLocale = language === 'ar' ? 'ar-DZ' : 'fr-DZ';
+  const fmtCurrency = (v: any) => `${Number(v).toLocaleString(numLocale)} ${language === 'ar' ? 'دج' : 'DA'}`;
   const { role } = useSettings();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuClient, setMenuClient] = useState<Client | null>(null);
+  const [page, setPage] = useState(0);
+  const rowsPerPage = 20;
 
   const statusOptions = useMemo(() => [
     { value: 'all', label: t('common.all') },
@@ -77,12 +81,10 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
     });
   }, [clients, search, statusFilter]);
 
-  const handleOpenMenu = (event: React.MouseEvent<HTMLElement>, client: Client) => {
-    event.stopPropagation();
-    setMenuAnchor(event.currentTarget);
-    setMenuClient(client);
-  };
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(0); };
+  const handleStatusChange = (e: React.ChangeEvent<HTMLInputElement>) => { setStatusFilter(e.target.value); setPage(0); };
 
+  const paginated = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
   const handleCloseMenu = () => {
     setMenuAnchor(null);
     setMenuClient(null);
@@ -110,14 +112,14 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
   };
 
   return (
-    <Card>
+    <Card sx={{ display: 'flex', flexDirection: 'column', alignSelf: 'flex-start', width: '100%' }}>
       {/* Toolbar */}
       <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <TextField
           size="small"
           placeholder={t('clients.searchClients')}
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={handleSearchChange}
           sx={{ flexGrow: 1, minWidth: 200 }}
           slotProps={{
             input: {
@@ -134,7 +136,7 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
           select
           size="small"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={handleStatusChange}
           sx={{ minWidth: 130 }}
         >
           {statusOptions.map((option) => (
@@ -147,21 +149,20 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
         <ExportButtons
           data={filtered}
           columns={[
-            { label: t('clients.name'), key: 'name' },
-            { label: t('clients.phone'), key: 'phone' },
-            { label: t('clients.totalPurchases'), key: 'totalPurchases' },
-            { label: t('clients.totalPaid'), key: 'totalPaid' },
-            ...(role !== 'worker' ? [{ label: t('clients.remainingBalance'), key: 'remainingBalance' }] : []),
-            { label: t('clients.lastInvoiceDate'), key: 'lastInvoiceDate' },
-            { label: t('common.status'), key: 'status' },
+            { label: t('clients.clientName'), key: 'name' },
+            { label: t('common.phone'), key: 'phone' },
+            { label: t('clients.totalPurchases'), key: 'totalPurchases', format: fmtCurrency },
+            { label: t('clients.totalPaid'), key: 'totalPaid', format: fmtCurrency },
+            ...(role !== 'worker' ? [{ label: t('clients.remaining'), key: 'remainingBalance', format: fmtCurrency }] : []),
+            { label: t('clients.lastInvoice'), key: 'lastInvoiceDate' },
+            { label: t('common.status'), key: 'status', format: (v) => v === 'paid' ? t('sales.paid') : t('sales.unpaid') },
           ]}
           fileName="clients"
         />
       </Box>
 
       {/* Table */}
-      <Scrollbar>
-        <TableContainer sx={{ minWidth: 900 }}>
+      <TableContainer sx={{ minWidth: 900 }}>
           <Table>
             <TableHead>
               <TableRow>
@@ -184,7 +185,7 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
                   </TableCell>
                 </TableRow>
               )}
-              {filtered.map((client) => (
+              {paginated.map((client) => (
                 <TableRow
                   key={client.id}
                   hover
@@ -253,7 +254,18 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
             </TableBody>
           </Table>
         </TableContainer>
-      </Scrollbar>
+
+      <TablePagination
+        component="div"
+        count={filtered.length}
+        page={page}
+        onPageChange={(_e, newPage) => setPage(newPage)}
+        rowsPerPage={rowsPerPage}
+        rowsPerPageOptions={[20]}
+        labelRowsPerPage={t('common.rowsPerPage')}
+        labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('common.of')} ${count}`}
+        dir={dir}
+      />
 
       {/* Kebab Menu */}
       <Menu

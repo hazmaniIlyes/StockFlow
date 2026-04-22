@@ -29,7 +29,7 @@ export function ClientsView() {
   const { t } = useTranslation();
   const { showSuccess, showError } = useSnackbar();
   const { clients, addClient, updateClient, deleteClient, recordPayment } = useClients();
-  const { invoices } = useInvoices();
+  const { invoices, recordPayment: recordInvoicePayment } = useInvoices();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -105,9 +105,23 @@ export function ClientsView() {
   const handlePaymentSubmit = useCallback(
     (clientId: string, amount: number, _note: string) => {
       recordPayment(clientId, amount);
+      // Distribute payment across the client's unpaid invoices (oldest first)
+      const clientName = clients.find((c) => c.id === clientId)?.name;
+      if (clientName) {
+        const unpaid = invoices
+          .filter((inv) => inv.client.name === clientName && inv.amountDue > 0)
+          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        let remaining = amount;
+        for (const inv of unpaid) {
+          if (remaining <= 0) break;
+          const toApply = Math.min(remaining, inv.amountDue);
+          recordInvoicePayment(inv.id, toApply);
+          remaining -= toApply;
+        }
+      }
       showSuccess(t('clients.paymentRecorded', { amount: amount.toLocaleString() }));
     },
-    [recordPayment, showSuccess, t]
+    [recordPayment, recordInvoicePayment, clients, invoices, showSuccess, t]
   );
 
   const handleDeleteRequest = (clientId: string) => {

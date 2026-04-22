@@ -1,5 +1,7 @@
 import type { CardProps } from '@mui/material/Card';
 
+import { useState } from 'react';
+
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardHeader from '@mui/material/CardHeader';
@@ -7,15 +9,15 @@ import Chip from '@mui/material/Chip';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
+import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 
 import { useTranslation } from 'src/contexts';
 
 import { fCurrency } from 'src/utils/format-number';
 import { fDate } from 'src/utils/format-time';
-
-import { Scrollbar } from 'src/components/scrollbar';
 
 // ----------------------------------------------------------------------
 
@@ -41,7 +43,9 @@ export function AnalyticsRecentSales({
   sx,
   ...other
 }: Props) {
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
+  const [page, setPage] = useState(0);
+  const rowsPerPage = 10;
 
   const statusConfig = {
     completed: { label: t('sales.paid'), color: 'success' as const },
@@ -49,12 +53,14 @@ export function AnalyticsRecentSales({
     shipped: { label: t('sales.partial'), color: 'info' as const },
   };
 
+  const paginated = list.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
   return (
-    <Card sx={sx} {...other}>
+    <Card sx={{ display: 'flex', flexDirection: 'column', alignSelf: 'flex-start', width: '100%', ...sx }} {...other}>
       <CardHeader title={title} subheader={subheader} sx={{ mb: 1 }} />
 
-      <Scrollbar>
-        <Table sx={{ minWidth: 680 }}>
+      <TableContainer sx={{ minWidth: 680 }}>
+        <Table>
           <TableHead>
             <TableRow>
               <TableCell>{t('sales.invoiceNumber')}</TableCell>
@@ -65,7 +71,14 @@ export function AnalyticsRecentSales({
             </TableRow>
           </TableHead>
           <TableBody>
-            {list.map((row) => (
+            {list.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  {t('sales.noInvoices')}
+                </TableCell>
+              </TableRow>
+            )}
+            {paginated.map((row) => (
               <TableRow key={row.id}>
                 <TableCell>
                   <Box sx={{ typography: 'subtitle2' }}>{row.orderNumber}</Box>
@@ -86,7 +99,19 @@ export function AnalyticsRecentSales({
             ))}
           </TableBody>
         </Table>
-      </Scrollbar>
+      </TableContainer>
+
+      <TablePagination
+        component="div"
+        count={list.length}
+        page={page}
+        onPageChange={(_e, newPage) => setPage(newPage)}
+        rowsPerPage={rowsPerPage}
+        rowsPerPageOptions={[rowsPerPage]}
+        labelRowsPerPage={t('common.rowsPerPage')}
+        labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('common.of')} ${count}`}
+        dir={dir}
+      />
     </Card>
   );
 }

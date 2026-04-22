@@ -13,6 +13,7 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
+import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 
@@ -22,7 +23,6 @@ import { useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 import { Label } from 'src/components/label';
-import { Scrollbar } from 'src/components/scrollbar';
 import { ExportButtons } from 'src/components/export-buttons';
 
 import type { Supplier } from 'src/_mock/_data';
@@ -38,7 +38,9 @@ type Props = {
 };
 
 export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPayment }: Props) {
-  const { t } = useTranslation();
+  const { t, dir, language } = useTranslation();
+  const numLocale = language === 'ar' ? 'ar-DZ' : 'fr-DZ';
+  const fmtCurrency = (v: any) => `${Number(v).toLocaleString(numLocale)} ${language === 'ar' ? 'دج' : 'DA'}`;
 
   const STATUS_OPTIONS = [
     { value: 'all', label: t('common.all') },
@@ -50,6 +52,8 @@ export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPa
   const [statusFilter, setStatusFilter] = useState('all');
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuSupplier, setMenuSupplier] = useState<Supplier | null>(null);
+  const [page, setPage] = useState(0);
+  const rowsPerPage = 20;
 
   const filtered = useMemo(() => {
     let result = suppliers;
@@ -71,6 +75,11 @@ export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPa
     return result;
   }, [suppliers, search, statusFilter]);
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(0); };
+  const handleStatusChange = (e: React.ChangeEvent<HTMLInputElement>) => { setStatusFilter(e.target.value); setPage(0); };
+
+  const paginated = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>, supplier: Supplier) => {
     event.stopPropagation();
     setMenuAnchor(event.currentTarget);
@@ -88,14 +97,14 @@ export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPa
   };
 
   return (
-    <Card>
+    <Card sx={{ display: 'flex', flexDirection: 'column', alignSelf: 'flex-start', width: '100%' }}>
       {/* Toolbar */}
       <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <TextField
           size="small"
           placeholder={t('suppliers.searchSuppliers')}
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={handleSearchChange}
           sx={{ flexGrow: 1, minWidth: 200 }}
           slotProps={{
             input: {
@@ -112,7 +121,7 @@ export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPa
           select
           size="small"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={handleStatusChange}
           sx={{ minWidth: 130 }}
         >
           {STATUS_OPTIONS.map((option) => (
@@ -126,19 +135,18 @@ export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPa
           data={filtered}
           columns={[
             { label: t('suppliers.companyName'), key: 'name' },
-            { label: t('suppliers.phone'), key: 'phone' },
-            { label: t('suppliers.email'), key: 'email' },
-            { label: t('suppliers.totalPurchased'), key: 'totalPurchased' },
-            { label: t('suppliers.totalOwed'), key: 'totalOwed' },
-            { label: t('common.status'), key: 'status' },
+            { label: t('common.phone'), key: 'phone' },
+            { label: t('common.email'), key: 'email' },
+            { label: t('suppliers.totalPurchased'), key: 'totalPurchased', format: fmtCurrency },
+            { label: t('suppliers.totalOwed'), key: 'totalOwed', format: fmtCurrency },
+            { label: t('common.status'), key: 'status', format: (v) => v === 'active' ? t('common.active') : t('common.inactive') },
           ]}
           fileName="suppliers"
         />
       </Box>
 
       {/* Table */}
-      <Scrollbar>
-        <TableContainer sx={{ minWidth: 900 }}>
+      <TableContainer sx={{ minWidth: 900 }}>
           <Table>
             <TableHead>
               <TableRow>
@@ -162,7 +170,7 @@ export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPa
                   </TableCell>
                 </TableRow>
               )}
-              {filtered.map((supplier) => (
+              {paginated.map((supplier) => (
                 <TableRow
                   key={supplier.id}
                   hover
@@ -210,7 +218,18 @@ export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPa
             </TableBody>
           </Table>
         </TableContainer>
-      </Scrollbar>
+
+      <TablePagination
+        component="div"
+        count={filtered.length}
+        page={page}
+        onPageChange={(_e, newPage) => setPage(newPage)}
+        rowsPerPage={rowsPerPage}
+        rowsPerPageOptions={[20]}
+        labelRowsPerPage={t('common.rowsPerPage')}
+        labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('common.of')} ${count}`}
+        dir={dir}
+      />
 
       {/* Kebab Menu */}
       <Menu

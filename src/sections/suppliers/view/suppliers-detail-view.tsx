@@ -11,7 +11,9 @@ import Grid from '@mui/material/Grid';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
+import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import { useTheme, alpha } from '@mui/material/styles';
@@ -23,7 +25,6 @@ import { useSuppliers, useInventory, useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 import { Label } from 'src/components/label';
-import { Scrollbar } from 'src/components/scrollbar';
 import { useSnackbar } from 'src/components/snackbar';
 
 import { SuppliersPaymentDialog } from '../suppliers-payment-dialog';
@@ -37,7 +38,7 @@ export function SuppliersDetailView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showSuccess } = useSnackbar();
   const { getSupplier, recordPayment, recordPurchase } = useSuppliers();
   const { products, updateProduct, addProduct } = useInventory();
@@ -45,6 +46,9 @@ export function SuppliersDetailView() {
   const supplier = getSupplier(id || '');
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
+  const [purchasesPage, setPurchasesPage] = useState(0);
+  const [inventoryPage, setInventoryPage] = useState(0);
+  const detailRowsPerPage = 10;
 
   const inventoryProducts = useMemo(
     () => products.filter((p) => p.supplierId === id),
@@ -361,7 +365,7 @@ export function SuppliersDetailView() {
                 )
               }
             />
-            <Scrollbar>
+            <TableContainer>
               <Table sx={{ minWidth: 600 }}>
                 <TableHead>
                   <TableRow>
@@ -380,7 +384,7 @@ export function SuppliersDetailView() {
                       </TableCell>
                     </TableRow>
                   )}
-                  {purchases.map((purchase) => (
+                  {purchases.slice(purchasesPage * detailRowsPerPage, (purchasesPage + 1) * detailRowsPerPage).map((purchase) => (
                     <TableRow key={purchase.id}>
                       <TableCell>
                         <Typography variant="body2">{fDate(purchase.date)}</Typography>
@@ -424,7 +428,18 @@ export function SuppliersDetailView() {
                   ))}
                 </TableBody>
               </Table>
-            </Scrollbar>
+            </TableContainer>
+            <TablePagination
+              component="div"
+              count={purchases.length}
+              page={purchasesPage}
+              onPageChange={(_e, newPage) => setPurchasesPage(newPage)}
+              rowsPerPage={detailRowsPerPage}
+              rowsPerPageOptions={[10]}
+              labelRowsPerPage={t('common.rowsPerPage')}
+              labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('common.of')} ${count}`}
+              dir={dir}
+            />
           </Card>
 
           {/* Linked Inventory Products */}
@@ -458,7 +473,7 @@ export function SuppliersDetailView() {
                 </Button>
               }
             />
-            <Scrollbar>
+            <TableContainer>
               <Table sx={{ minWidth: 560 }}>
                 <TableHead>
                   <TableRow>
@@ -478,7 +493,7 @@ export function SuppliersDetailView() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    inventoryProducts.map((p) => (
+                    inventoryProducts.slice(inventoryPage * detailRowsPerPage, (inventoryPage + 1) * detailRowsPerPage).map((p) => (
                       <TableRow key={p.id} hover>
                         <TableCell>
                           <Typography variant="body2" fontWeight={600}>{p.name}</Typography>
@@ -518,7 +533,18 @@ export function SuppliersDetailView() {
                   )}
                 </TableBody>
               </Table>
-            </Scrollbar>
+            </TableContainer>
+            <TablePagination
+              component="div"
+              count={inventoryProducts.length}
+              page={inventoryPage}
+              onPageChange={(_e, newPage) => setInventoryPage(newPage)}
+              rowsPerPage={detailRowsPerPage}
+              rowsPerPageOptions={[10]}
+              labelRowsPerPage={t('common.rowsPerPage')}
+              labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('common.of')} ${count}`}
+              dir={dir}
+            />
           </Card>
         </Grid>
 

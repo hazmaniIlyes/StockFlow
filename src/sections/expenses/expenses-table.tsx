@@ -14,6 +14,7 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
+import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 
@@ -24,7 +25,6 @@ import { useSettings, useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 import { Label } from 'src/components/label';
-import { Scrollbar } from 'src/components/scrollbar';
 import { ExportButtons } from 'src/components/export-buttons';
 
 import type { Expense } from 'src/_mock/_data';
@@ -39,7 +39,9 @@ type Props = {
 
 export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
   const { expenseCategories } = useSettings();
-  const { t } = useTranslation();
+  const { t, dir, language } = useTranslation();
+  const numLocale = language === 'ar' ? 'ar-DZ' : 'fr-DZ';
+  const fmtCurrency = (v: any) => `${Number(v).toLocaleString(numLocale)} ${language === 'ar' ? 'دج' : 'DA'}`;
 
   const DATE_FILTER_OPTIONS = [
     { value: 'all', label: t('expenses.allTime') },
@@ -53,6 +55,8 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
   const [dateFilter, setDateFilter] = useState('all');
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuExpense, setMenuExpense] = useState<Expense | null>(null);
+  const [page, setPage] = useState(0);
+  const rowsPerPage = 20;
 
   // Helper functions to get category info from settings
   const getCategoryColor = (category: string): string => 
@@ -104,6 +108,12 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
     return result;
   }, [expenses, search, categoryFilter, dateFilter]);
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(0); };
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLInputElement>) => { setCategoryFilter(e.target.value); setPage(0); };
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => { setDateFilter(e.target.value); setPage(0); };
+
+  const paginated = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>, expense: Expense) => {
     event.stopPropagation();
     setMenuAnchor(event.currentTarget);
@@ -116,14 +126,14 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
   };
 
   return (
-    <Card>
+    <Card sx={{ display: 'flex', flexDirection: 'column', alignSelf: 'flex-start', width: '100%' }}>
       {/* Toolbar */}
       <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <TextField
           size="small"
           placeholder={t('expenses.searchExpenses')}
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={handleSearchChange}
           sx={{ flexGrow: 1, minWidth: 200 }}
           slotProps={{
             input: {
@@ -140,7 +150,7 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
           select
           size="small"
           value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
+          onChange={handleCategoryChange}
           sx={{ minWidth: 160 }}
         >
           {categoryOptions.map((option) => (
@@ -154,7 +164,7 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
           select
           size="small"
           value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
+          onChange={handleDateChange}
           sx={{ minWidth: 140 }}
         >
           {DATE_FILTER_OPTIONS.map((option) => (
@@ -167,18 +177,17 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
         <ExportButtons
           data={filtered}
           columns={[
-            { label: t('expenses.date'), key: 'date' },
+            { label: t('common.date'), key: 'date' },
             { label: t('expenses.description'), key: 'description' },
             { label: t('expenses.category'), key: 'category' },
-            { label: t('expenses.amount'), key: 'amount' },
+            { label: t('expenses.amount'), key: 'amount', format: fmtCurrency },
           ]}
           fileName="expenses"
         />
       </Box>
 
       {/* Table */}
-      <Scrollbar>
-        <TableContainer sx={{ minWidth: 700 }}>
+      <TableContainer sx={{ minWidth: 700 }}>
           <Table>
             <TableHead>
               <TableRow>
@@ -198,7 +207,7 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
                   </TableCell>
                 </TableRow>
               )}
-              {filtered.map((expense) => (
+              {paginated.map((expense) => (
                 <TableRow key={expense.id} hover>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{fDate(expense.date)}</TableCell>
                   <TableCell>
@@ -250,7 +259,18 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
             </TableBody>
           </Table>
         </TableContainer>
-      </Scrollbar>
+
+      <TablePagination
+        component="div"
+        count={filtered.length}
+        page={page}
+        onPageChange={(_e, newPage) => setPage(newPage)}
+        rowsPerPage={rowsPerPage}
+        rowsPerPageOptions={[20]}
+        labelRowsPerPage={t('common.rowsPerPage')}
+        labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('common.of')} ${count}`}
+        dir={dir}
+      />
 
       {/* Kebab Menu */}
       <Menu

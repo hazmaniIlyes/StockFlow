@@ -13,6 +13,7 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
+import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 
@@ -22,7 +23,6 @@ import { useSettings, useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 import { Label } from 'src/components/label';
-import { Scrollbar } from 'src/components/scrollbar';
 import { ExportButtons } from 'src/components/export-buttons';
 
 import type { InventoryProduct } from 'src/_mock/_data';
@@ -38,13 +38,17 @@ type Props = {
 };
 
 export function InventoryTable({ products, onView, onEdit, onAdjustStock, onDelete }: Props) {
-  const { t } = useTranslation();
+  const { t, dir, language } = useTranslation();
+  const numLocale = language === 'ar' ? 'ar-DZ' : 'fr-DZ';
+  const fmtCurrency = (v: any) => `${Number(v).toLocaleString(numLocale)} ${language === 'ar' ? 'دج' : 'DA'}`;
   const { role, productCategories } = useSettings();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuProduct, setMenuProduct] = useState<InventoryProduct | null>(null);
+  const [page, setPage] = useState(0);
+  const rowsPerPage = 20;
 
   const STATUS_OPTIONS = [
     { value: 'all', label: t('common.all') },
@@ -81,6 +85,13 @@ export function InventoryTable({ products, onView, onEdit, onAdjustStock, onDele
     return result;
   }, [products, search, statusFilter, categoryFilter]);
 
+  // Reset to first page when filters change
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(0); };
+  const handleStatusChange = (e: React.ChangeEvent<HTMLInputElement>) => { setStatusFilter(e.target.value); setPage(0); };
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLInputElement>) => { setCategoryFilter(e.target.value); setPage(0); };
+
+  const paginated = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>, product: InventoryProduct) => {
     event.stopPropagation();
     setMenuAnchor(event.currentTarget);
@@ -98,14 +109,14 @@ export function InventoryTable({ products, onView, onEdit, onAdjustStock, onDele
   };
 
   return (
-    <Card>
+    <Card sx={{ display: 'flex', flexDirection: 'column', alignSelf: 'flex-start', width: '100%' }}>
       {/* Toolbar */}
       <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <TextField
           size="small"
           placeholder={t('inventory.searchProducts')}
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={handleSearchChange}
           sx={{ flexGrow: 1, minWidth: 200 }}
           slotProps={{
             input: {
@@ -122,7 +133,7 @@ export function InventoryTable({ products, onView, onEdit, onAdjustStock, onDele
           select
           size="small"
           value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
+          onChange={handleCategoryChange}
           sx={{ minWidth: 150 }}
         >
           {CATEGORY_OPTIONS.map((option) => (
@@ -136,7 +147,7 @@ export function InventoryTable({ products, onView, onEdit, onAdjustStock, onDele
           select
           size="small"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={handleStatusChange}
           sx={{ minWidth: 130 }}
         >
           {STATUS_OPTIONS.map((option) => (
@@ -153,19 +164,18 @@ export function InventoryTable({ products, onView, onEdit, onAdjustStock, onDele
             { label: t('inventory.productName'), key: 'name' },
             { label: t('inventory.category'), key: 'category' },
             { label: t('inventory.supplier'), key: 'supplierName' },
-            ...(role !== 'worker' ? [{ label: t('inventory.buyingPrice'), key: 'buyingPrice' }] : []),
-            { label: t('inventory.sellPrice'), key: 'sellPrice' },
-            { label: t('inventory.stock'), key: 'stock' },
+            ...(role !== 'worker' ? [{ label: t('inventory.buyingPrice'), key: 'buyingPrice', format: fmtCurrency }] : []),
+            { label: t('inventory.sellPrice'), key: 'sellPrice', format: fmtCurrency },
+            { label: t('common.stock'), key: 'stock' },
             { label: t('inventory.minStock'), key: 'minStock' },
-            { label: t('common.status'), key: 'status' },
+            { label: t('common.status'), key: 'status', format: (v) => v === 'in-stock' ? t('inventory.inStock') : v === 'low-stock' ? t('inventory.lowStock') : t('inventory.outOfStock') },
           ]}
           fileName="inventory"
         />
       </Box>
 
       {/* Table */}
-      <Scrollbar>
-        <TableContainer sx={{ minWidth: 1000 }}>
+      <TableContainer sx={{ minWidth: 1000 }}>
           <Table>
             <TableHead>
               <TableRow>
@@ -190,7 +200,7 @@ export function InventoryTable({ products, onView, onEdit, onAdjustStock, onDele
                   </TableCell>
                 </TableRow>
               )}
-              {filtered.map((product) => {
+              {paginated.map((product) => {
                 const margin =
                   product.buyingPrice > 0
                     ? ((product.sellPrice - product.buyingPrice) / product.buyingPrice) * 100
@@ -285,7 +295,18 @@ export function InventoryTable({ products, onView, onEdit, onAdjustStock, onDele
             </TableBody>
           </Table>
         </TableContainer>
-      </Scrollbar>
+
+      <TablePagination
+        component="div"
+        count={filtered.length}
+        page={page}
+        onPageChange={(_e, newPage) => setPage(newPage)}
+        rowsPerPage={rowsPerPage}
+        rowsPerPageOptions={[20]}
+        labelRowsPerPage={t('common.rowsPerPage')}
+        labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('common.of')} ${count}`}
+        dir={dir}
+      />
 
       {/* Kebab Menu */}
       <Menu

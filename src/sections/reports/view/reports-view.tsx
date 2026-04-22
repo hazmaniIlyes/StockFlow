@@ -79,9 +79,13 @@ export function ReportsView() {
   // Summary metrics
   const summary = useMemo(() => {
     const revenue = filteredInvoices.reduce((s, i) => s + i.total, 0);
-    const supplierCosts = suppliers.reduce((s, sp) => s + (sp.totalPurchased || 0), 0);
+    const supplierCosts = suppliers.reduce((s, sp) => {
+      if (dateRange === 'all') return s + (sp.totalPurchased || 0);
+      const filteredPurchases = filterByDateRange(sp.purchases || [], (p) => p.date, dateRange);
+      return s + filteredPurchases.reduce((sum, p) => sum + p.total, 0);
+    }, 0);
     const overheadExpenses = filteredExpenses.reduce((s, e) => s + e.amount, 0);
-    const totalExpenses = dateRange === 'all' ? supplierCosts + overheadExpenses : overheadExpenses;
+    const totalExpenses = supplierCosts + overheadExpenses;
     const netProfit = revenue - totalExpenses;
     const clientReceivables = clients.reduce((s, c) => s + (c.remainingBalance || 0), 0);
     const supplierPayables = suppliers.reduce((s, sp) => s + (sp.totalOwed || 0), 0);
@@ -95,17 +99,26 @@ export function ReportsView() {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const revenueByMonth = new Array(12).fill(0);
     const expensesByMonth = new Array(12).fill(0);
+    const currentYear = new Date().getFullYear();
 
     invoices.forEach((inv) => {
       const d = new Date(inv.createdAt);
-      const m = d.getMonth();
-      revenueByMonth[m] += inv.total;
+      if (d.getFullYear() !== currentYear) return;
+      revenueByMonth[d.getMonth()] += inv.total;
     });
 
     expenses.forEach((exp) => {
       const d = new Date(exp.date);
-      const m = d.getMonth();
-      expensesByMonth[m] += exp.amount;
+      if (d.getFullYear() !== currentYear) return;
+      expensesByMonth[d.getMonth()] += exp.amount;
+    });
+
+    suppliers.forEach((sp) => {
+      (sp.purchases || []).forEach((p) => {
+        const d = new Date(p.date);
+        if (d.getFullYear() !== currentYear) return;
+        expensesByMonth[d.getMonth()] += p.total;
+      });
     });
 
     // Profit margin per month
@@ -120,12 +133,16 @@ export function ReportsView() {
       expensesSeries: expensesByMonth,
       profitMargin,
     };
-  }, [invoices, expenses]);
+  }, [invoices, expenses, suppliers]);
 
   // ── PDF Preview (opens in new tab → browser prints to PDF) ──────────────
-  const handleExportPdf = useCallback(() => {
+  const buildReportHtml = useCallback(() => {
     const isRTL = dir === 'rtl';
-    const fmt = (n: number) => `${Math.round(n).toLocaleString('fr-DZ')} DA`;
+    const numLocale = language === 'ar' ? 'ar-DZ' : 'fr-DZ';
+    const dateLocale = language === 'ar' ? 'ar-DZ' : language === 'fr' ? 'fr-FR' : 'en-GB';
+    const fmt = (n: number) => `${Math.round(n).toLocaleString(numLocale)} DA`;
+    const fmtDate = (dateStr: string) => { const d = new Date(dateStr); return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString(dateLocale); };
+    const localizedMonths = Array.from({ length: 12 }, (_, i) => new Intl.DateTimeFormat(dateLocale, { month: 'short' }).format(new Date(2000, i, 1)));
     const pct = (n: number, of: number) => (of > 0 ? `${((n / of) * 100).toFixed(1)}%` : '0%');
 
     const statusBadge = (cls: string, label: string) =>
@@ -135,7 +152,7 @@ export function ReportsView() {
       .map(
         (inv) =>
           `<tr>
-            <td>${inv.invoiceNumber}</td><td>${inv.client.name}</td><td>${inv.createdAt}</td>
+            <td>${inv.invoiceNumber}</td><td>${inv.client.name}</td><td>${fmtDate(inv.createdAt)}</td>
             <td class="num">${fmt(inv.total)}</td><td class="num">${fmt(inv.amountPaid)}</td>
             <td class="num">${fmt(inv.amountDue)}</td>
             <td class="ctr">${statusBadge(inv.status === 'paid' ? 'paid' : inv.status === 'partly-paid' ? 'partial' : 'unpaid', inv.status === 'paid' ? t('reports.paid') : inv.status === 'partly-paid' ? t('reports.partial') : t('reports.unpaid'))}</td>
@@ -215,7 +232,7 @@ export function ReportsView() {
       .map(([cat, v]) => `<tr><td>${cat}</td><td class="ctr">${v.items}</td><td class="ctr">${v.stock}</td><td class="num">${fmt(v.cost)}</td><td class="num">${fmt(v.retail)}</td><td class="num">${fmt(v.retail - v.cost)}</td></tr>`)
       .join('');
 
-    const monthRows = monthlyData.categories
+    const monthRows = localizedMonths
       .map((m, i) => `<tr><td>${m}</td><td class="num">${fmt(monthlyData.revenueSeries[i])}</td><td class="num">${fmt(monthlyData.expensesSeries[i])}</td><td class="num">${fmt(monthlyData.revenueSeries[i] - monthlyData.expensesSeries[i])}</td></tr>`)
       .join('');
 
@@ -272,6 +289,7 @@ export function ReportsView() {
     .btn{padding:10px 24px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600}
     .btn-primary{background:#1565c0;color:#fff}
     .btn-secondary{background:#f5f5f5;color:#637381;border:1px solid #e0e0e0}
+    .btn-outline{background:#fff;color:#1565c0;border:1px solid #1565c0}
     @media print{
       body{background:#fff;padding-bottom:0}
       .page{box-shadow:none;margin:0;border-radius:0;max-width:100%}
@@ -291,7 +309,7 @@ export function ReportsView() {
       <p>${dateRangeLabels[dateRange]}</p>
     </div>
     <div class="meta">
-      <p>${t('common.date')}: ${new Date().toLocaleDateString()}</p>
+      <p>${t('common.date')}: ${new Date().toLocaleDateString(dateLocale)}</p>
     </div>
   </div>
   <div class="content">
@@ -305,7 +323,7 @@ export function ReportsView() {
       </div>`
     )}
     ${section(t('reports.revenueVsExpenses'), table(
-      th('Month') + th(t('reports.revenue'), 'num') + th(t('reports.expenses'), 'num') + th(t('reports.netProfit'), 'num'),
+      th(t('common.month')) + th(t('reports.revenue'), 'num') + th(t('reports.expenses'), 'num') + th(t('reports.netProfit'), 'num'),
       monthRows
     ))}
     ${section(t('reports.salesReport'), table(
@@ -335,18 +353,36 @@ export function ReportsView() {
     ), true)}
   </div>
 </div>
-<div class="print-bar">
-  <button class="btn btn-secondary" onclick="window.close()">${t('common.cancel')}</button>
-  <button class="btn btn-primary" onclick="window.print()">${t('common.print')} / Save as PDF</button>
-</div>
 </body>
 </html>`;
 
+    return html;
+  }, [t, language, dir, dateRange, dateRangeLabels, summary, monthlyData, filteredInvoices, filteredExpenses, clients, suppliers, products]);
+
+  const handlePrintPdf = useCallback(() => {
+    const printBar = `<div class="print-bar">
+  <button class="btn btn-secondary" onclick="window.close()">${t('common.cancel')}</button>
+  <button class="btn btn-primary" onclick="window.print()">${t('common.print')}</button>
+</div>`;
     const win = window.open('', '_blank');
     if (!win) return;
-    win.document.write(html);
+    win.document.write(buildReportHtml().replace('</body>', printBar + '</body>'));
     win.document.close();
-  }, [t, language, dir, dateRange, dateRangeLabels, summary, monthlyData, filteredInvoices, filteredExpenses, clients, suppliers, products]);
+  }, [buildReportHtml, t]);
+
+  const handleSavePdf = useCallback(() => {
+    const html = buildReportHtml();
+    const db = (window as any).database;
+    if (db?.savePdf) {
+      db.savePdf(html, 'reports');
+    } else {
+      const win = window.open('', '_blank');
+      if (!win) return;
+      win.document.write(html);
+      win.document.close();
+      win.print();
+    }
+  }, [buildReportHtml]);
 
   return (
     <DashboardContent maxWidth="xl">
@@ -379,11 +415,18 @@ export function ReportsView() {
           </TextField>
 
           <Button
+            variant="outlined"
+            startIcon={<Iconify icon="solar:printer-bold-duotone" width={20} />}
+            onClick={handlePrintPdf}
+          >
+            {t('common.print')}
+          </Button>
+          <Button
             variant="contained"
             startIcon={<Iconify icon="solar:document-bold-duotone" width={20} />}
-            onClick={handleExportPdf}
+            onClick={handleSavePdf}
           >
-            {t('reports.exportPdf')}
+            {t('common.saveAsPdf')}
           </Button>
         </Box>
       </Box>

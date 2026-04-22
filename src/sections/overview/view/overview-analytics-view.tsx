@@ -323,7 +323,6 @@ export function OverviewAnalyticsView() {
     return invoices
       .slice()
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 10)
       .map((inv) => ({
         id: inv.id,
         orderNumber: inv.invoiceNumber,

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
+﻿import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
 // ======================================================================
@@ -90,6 +90,13 @@ const translations: Record<Language, Translations> = {
       net: 'Net',
       update: 'Update',
       optional: 'Optional',
+      rowsPerPage: 'Rows per page:',
+      of: 'of',
+      month: 'Month',
+      exportToExcel: 'Export to Excel',
+      exportToPdf: 'Export to PDF',
+      printSaveAsPdf: 'Print / Save as PDF',
+      saveAsPdf: 'Save as PDF',
     },
     // Dashboard
     dashboard: {
@@ -1243,6 +1250,13 @@ const translations: Record<Language, Translations> = {
       net: 'Net',
       update: 'Mettre à jour',
       optional: 'Optionnel',
+      rowsPerPage: 'Lignes par page :',
+      of: 'sur',
+      month: 'Mois',
+      exportToExcel: 'Exporter vers Excel',
+      exportToPdf: 'Exporter en PDF',
+      printSaveAsPdf: 'Imprimer / Enregistrer en PDF',
+      saveAsPdf: 'Enregistrer en PDF',
     },
     // Dashboard
     dashboard: {
@@ -2386,6 +2400,13 @@ const translations: Record<Language, Translations> = {
       net: 'صافي',
       update: 'تحديث',
       optional: 'اختياري',
+      rowsPerPage: 'صفوف لكل صفحة:',
+      of: 'من',
+      month: 'الشهر',
+      exportToExcel: 'تصدير إلى Excel',
+      exportToPdf: 'تصدير إلى PDF',
+      printSaveAsPdf: 'طباعة / حفظ كـ PDF',
+      saveAsPdf: 'حفظ كـ PDF',
     },
     // Dashboard
     dashboard: {

@@ -14,7 +14,6 @@ import { useTranslation } from 'src/contexts';
 
 import { fNumber } from 'src/utils/format-number';
 
-import { Scrollbar } from 'src/components/scrollbar';
 import { Label } from 'src/components/label';
 
 // ----------------------------------------------------------------------
@@ -60,7 +59,7 @@ export function AnalyticsLowStock({
         subheader={subheader || `${criticalCount} ${t('common.critical')} · ${list.length} ${t('common.total')}`}
       />
 
-      <Scrollbar sx={{ flex: 1 }}>
+      <Box sx={{ overflowY: 'auto', flex: 1 }}>
         <Table sx={{ minWidth: 360 }}>
           <TableHead>
             <TableRow>
@@ -114,7 +113,7 @@ export function AnalyticsLowStock({
             })}
           </TableBody>
         </Table>
-      </Scrollbar>
+      </Box>
     </Card>
   );
 }

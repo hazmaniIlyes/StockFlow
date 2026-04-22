@@ -11,7 +11,9 @@ import Grid from '@mui/material/Grid';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
+import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import { useTheme, alpha } from '@mui/material/styles';
@@ -24,7 +26,6 @@ import { useInvoices } from 'src/sections/sales/context';
 
 import { Iconify } from 'src/components/iconify';
 import { Label } from 'src/components/label';
-import { Scrollbar } from 'src/components/scrollbar';
 import { useSnackbar } from 'src/components/snackbar';
 
 import { InventoryStockDialog } from '../inventory-stock-dialog';
@@ -37,7 +38,7 @@ export function InventoryDetailView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showSuccess, showError } = useSnackbar();
   const { getProduct, adjustStock } = useInventory();
   const { getSupplier } = useSuppliers();
@@ -47,6 +48,8 @@ export function InventoryDetailView() {
   const supplier = product ? getSupplier(product.supplierId) : undefined;
 
   const [stockDialogOpen, setStockDialogOpen] = useState(false);
+  const [salesPage, setSalesPage] = useState(0);
+  const salesRowsPerPage = 10;
 
   // Find invoices containing this product
   const productInvoices = useMemo(() => {
@@ -364,7 +367,7 @@ export function InventoryDetailView() {
                 </Box>
               }
             />
-            <Scrollbar>
+            <TableContainer>
               <Table sx={{ minWidth: 500 }}>
                 <TableHead>
                   <TableRow>
@@ -384,7 +387,7 @@ export function InventoryDetailView() {
                       </TableCell>
                     </TableRow>
                   )}
-                  {productInvoices.map((invoice) => {
+                  {productInvoices.slice(salesPage * salesRowsPerPage, (salesPage + 1) * salesRowsPerPage).map((invoice) => {
                     const item = invoice.products.find(
                       (i) => i.name.toLowerCase() === product.name.toLowerCase()
                     );
@@ -420,7 +423,18 @@ export function InventoryDetailView() {
                   })}
                 </TableBody>
               </Table>
-            </Scrollbar>
+            </TableContainer>
+            <TablePagination
+              component="div"
+              count={productInvoices.length}
+              page={salesPage}
+              onPageChange={(_e, newPage) => setSalesPage(newPage)}
+              rowsPerPage={salesRowsPerPage}
+              rowsPerPageOptions={[10]}
+              labelRowsPerPage={t('common.rowsPerPage')}
+              labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('common.of')} ${count}`}
+              dir={dir}
+            />
           </Card>
 
           {/* Performance Summary */}

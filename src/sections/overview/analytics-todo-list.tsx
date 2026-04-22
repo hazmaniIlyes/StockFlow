@@ -18,7 +18,6 @@ import TextField from '@mui/material/TextField';
 import { useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
-import { Scrollbar } from 'src/components/scrollbar';
 import { actionItemsDB, isElectron } from 'src/services/db'; // Import our new database endpoint
 
 // ----------------------------------------------------------------------
@@ -100,9 +99,9 @@ export function AnalyticsTodoList({
         subheader={`${completedCount} / ${todos.length}`}
       />
 
-      <Scrollbar sx={{ flex: 1 }}>
+      <Box sx={{ overflowY: 'auto', maxHeight: 210 }}>
         <List sx={{ minWidth: 360 }}>
-          {todos.map((todo) => (
+          {[...todos].reverse().map((todo) => (
             <ListItemButton
               key={todo.id}
               sx={{
@@ -138,7 +137,7 @@ export function AnalyticsTodoList({
             </ListItemButton>
           ))}
         </List>
-      </Scrollbar>
+      </Box>
 
       <Box sx={{ p: 2.5, gap: 1, display: 'flex' }}>
         <TextField

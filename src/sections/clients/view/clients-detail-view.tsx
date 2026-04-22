@@ -16,8 +16,9 @@ import { fDate } from 'src/utils/format-time';
 import { useClients, useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
+import TablePagination from '@mui/material/TablePagination';
+
 import { Label } from 'src/components/label';
-import { Scrollbar } from 'src/components/scrollbar';
 import { useSnackbar } from 'src/components/snackbar';
 
 import { useInvoices } from 'src/sections/sales/context';
@@ -43,13 +44,15 @@ export function ClientsDetailView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
   const { showSuccess } = useSnackbar();
   const { getClient, recordPayment } = useClients();
-  const { invoices } = useInvoices();
+  const { invoices, recordPayment: recordInvoicePayment } = useInvoices();
 
   const clientData = getClient(id || '');
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [activityPage, setActivityPage] = useState(0);
+  const activityRowsPerPage = 10;
 
   const clientInvoices = useMemo(
     () => (clientData ? invoices.filter((inv) => inv.client.name === clientData.name) : []),
@@ -127,9 +130,22 @@ export function ClientsDetailView() {
   const handlePaymentSubmit = useCallback(
     (clientId: string, amount: number, _note: string) => {
       recordPayment(clientId, amount);
+      // Distribute payment across the client's unpaid invoices (oldest first)
+      if (clientData) {
+        const unpaid = clientInvoices
+          .filter((inv) => inv.amountDue > 0)
+          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        let remaining = amount;
+        for (const inv of unpaid) {
+          if (remaining <= 0) break;
+          const toApply = Math.min(remaining, inv.amountDue);
+          recordInvoicePayment(inv.id, toApply);
+          remaining -= toApply;
+        }
+      }
       showSuccess(t('clients.paymentRecorded', { amount: amount.toLocaleString() }));
     },
-    [recordPayment, showSuccess, t]
+    [recordPayment, recordInvoicePayment, clientData, clientInvoices, showSuccess, t]
   );
 
   const handleClearBalance = () => {
@@ -352,7 +368,7 @@ export function ClientsDetailView() {
                 </Box>
               }
             />
-            <Scrollbar sx={{ maxHeight: 500 }}>
+            <>
               <Box sx={{ p: 3, pt: 0 }}>
                 {activityTimeline.length === 0 ? (
                   <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
@@ -373,7 +389,7 @@ export function ClientsDetailView() {
                       }}
                     />
 
-                    {activityTimeline.map((activity) => (
+                    {activityTimeline.slice(activityPage * activityRowsPerPage, (activityPage + 1) * activityRowsPerPage).map((activity) => (
                       <Box
                         key={activity.id}
                         sx={{
@@ -495,7 +511,18 @@ export function ClientsDetailView() {
                   </Box>
                 )}
               </Box>
-            </Scrollbar>
+            </>
+            <TablePagination
+              component="div"
+              count={activityTimeline.length}
+              page={activityPage}
+              onPageChange={(_e, newPage) => setActivityPage(newPage)}
+              rowsPerPage={activityRowsPerPage}
+              rowsPerPageOptions={[10]}
+              labelRowsPerPage={t('common.rowsPerPage')}
+              labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('common.of')} ${count}`}
+              dir={dir}
+            />
           </Card>
         </Grid>
 

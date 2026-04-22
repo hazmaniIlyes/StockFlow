@@ -68,6 +68,16 @@ export function fDateTime(date: DatePickerFormat, template?: string): string {
 // ----------------------------------------------------------------------
 
 /**
+ * @output Locale-aware date — e.g. "17 avril 2022" in French, "17 أبريل 2022" in Arabic
+ */
+export function fDateLocale(date: DatePickerFormat, locale?: string): string {
+  if (!isValidDate(date)) return 'Invalid date';
+  return new Intl.DateTimeFormat(locale ?? 'en', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(date as string | number | Date));
+}
+
+// ----------------------------------------------------------------------
+
+/**
  * @output 17 Apr 2022
  */
 export function fDate(date: DatePickerFormat, template?: string): string {

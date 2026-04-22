@@ -9,6 +9,7 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
+import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import { useTheme } from '@mui/material/styles';
 
@@ -79,12 +80,16 @@ export function ReportsBreakdownTabs({ invoices, clients, suppliers, expenses, i
 // ======================================================================
 
 function SalesReport({ invoices }: { invoices: Invoice[] }) {
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
+  const [page, setPage] = useState(0);
+  const rowsPerPage = 20;
   const totalRevenue = invoices.reduce((s, i) => s + i.total, 0);
   const totalCollected = invoices.reduce((s, i) => s + i.amountPaid, 0);
   const totalPending = invoices.reduce((s, i) => s + i.amountDue, 0);
+  const paginated = invoices.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
+    <>
     <TableContainer>
       <Table size="small">
         <TableHead>
@@ -99,7 +104,7 @@ function SalesReport({ invoices }: { invoices: Invoice[] }) {
           </TableRow>
         </TableHead>
         <TableBody>
-          {invoices.map((inv) => (
+          {paginated.map((inv) => (
             <TableRow key={inv.id} hover>
               <TableCell>{inv.invoiceNumber}</TableCell>
               <TableCell>{inv.client.name}</TableCell>
@@ -130,6 +135,18 @@ function SalesReport({ invoices }: { invoices: Invoice[] }) {
         </TableBody>
       </Table>
     </TableContainer>
+    <TablePagination
+      component="div"
+      count={invoices.length}
+      page={page}
+      onPageChange={(_e, newPage) => setPage(newPage)}
+      rowsPerPage={rowsPerPage}
+      rowsPerPageOptions={[20]}
+      labelRowsPerPage={t('common.rowsPerPage')}
+      labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('common.of')} ${count}`}
+      dir={dir}
+    />
+    </>
   );
 }
 
@@ -138,13 +155,17 @@ function SalesReport({ invoices }: { invoices: Invoice[] }) {
 // ======================================================================
 
 function ClientBalances({ clients }: { clients: Client[] }) {
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
+  const [page, setPage] = useState(0);
+  const rowsPerPage = 20;
   const sorted = [...clients].sort((a, b) => b.remainingBalance - a.remainingBalance);
   const totalPurchases = clients.reduce((s, c) => s + c.totalPurchases, 0);
   const totalPaid = clients.reduce((s, c) => s + c.totalPaid, 0);
   const totalRemaining = clients.reduce((s, c) => s + c.remainingBalance, 0);
+  const paginated = sorted.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
+    <>
     <TableContainer>
       <Table size="small">
         <TableHead>
@@ -158,7 +179,7 @@ function ClientBalances({ clients }: { clients: Client[] }) {
           </TableRow>
         </TableHead>
         <TableBody>
-          {sorted.map((c) => (
+          {paginated.map((c) => (
             <TableRow key={c.id} hover>
               <TableCell>{c.name}</TableCell>
               <TableCell>{c.phone}</TableCell>
@@ -183,6 +204,18 @@ function ClientBalances({ clients }: { clients: Client[] }) {
         </TableBody>
       </Table>
     </TableContainer>
+    <TablePagination
+      component="div"
+      count={clients.length}
+      page={page}
+      onPageChange={(_e, newPage) => setPage(newPage)}
+      rowsPerPage={rowsPerPage}
+      rowsPerPageOptions={[20]}
+      labelRowsPerPage={t('common.rowsPerPage')}
+      labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('common.of')} ${count}`}
+      dir={dir}
+    />
+    </>
   );
 }
 
@@ -191,13 +224,17 @@ function ClientBalances({ clients }: { clients: Client[] }) {
 // ======================================================================
 
 function SupplierBalances({ suppliers }: { suppliers: Supplier[] }) {
-  const { t } = useTranslation();
+  const { t, dir } = useTranslation();
+  const [page, setPage] = useState(0);
+  const rowsPerPage = 20;
   const sorted = [...suppliers].sort((a, b) => b.totalOwed - a.totalOwed);
   const totalPurchased = suppliers.reduce((s, sp) => s + sp.totalPurchased, 0);
   const totalPaid = suppliers.reduce((s, sp) => s + sp.totalPaid, 0);
   const totalOwed = suppliers.reduce((s, sp) => s + sp.totalOwed, 0);
+  const paginated = sorted.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
+    <>
     <TableContainer>
       <Table size="small">
         <TableHead>
@@ -211,7 +248,7 @@ function SupplierBalances({ suppliers }: { suppliers: Supplier[] }) {
           </TableRow>
         </TableHead>
         <TableBody>
-          {sorted.map((sp) => (
+          {paginated.map((sp) => (
             <TableRow key={sp.id} hover>
               <TableCell>{sp.name}</TableCell>
               <TableCell>{sp.email}</TableCell>
@@ -236,6 +273,18 @@ function SupplierBalances({ suppliers }: { suppliers: Supplier[] }) {
         </TableBody>
       </Table>
     </TableContainer>
+    <TablePagination
+      component="div"
+      count={suppliers.length}
+      page={page}
+      onPageChange={(_e, newPage) => setPage(newPage)}
+      rowsPerPage={rowsPerPage}
+      rowsPerPageOptions={[20]}
+      labelRowsPerPage={t('common.rowsPerPage')}
+      labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('common.of')} ${count}`}
+      dir={dir}
+    />
+    </>
   );
 }
 

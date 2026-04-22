@@ -48,7 +48,7 @@ export function InventoryView() {
   // KPI calculations - now from shared context
   const kpis = useMemo(() => {
     const totalProducts = products.length;
-    const stockValue = products.reduce((sum, p) => sum + p.sellPrice * p.stock, 0);
+    const stockValue = products.reduce((sum, p) => sum + p.buyingPrice * p.stock, 0);
     const lowStockCount = products.filter((p) => p.status === 'low-stock').length;
     const outOfStockCount = products.filter((p) => p.status === 'out-of-stock').length;
     return { totalProducts, stockValue, lowStockCount, outOfStockCount };

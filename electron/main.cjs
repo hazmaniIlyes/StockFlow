@@ -1,5 +1,7 @@
-const { app, BrowserWindow, ipcMain } = require('electron'); // Core Electron modules for app lifecycle, window creation, and IPC
+const { app, BrowserWindow, ipcMain, screen, dialog } = require('electron'); // Core Electron modules for app lifecycle, window creation, and IPC
 const path = require('path');                                  // Node path module for resolving file paths cross-platform
+const fs = require('fs');                                      // Node fs module for writing temp print files
+const os = require('os');                                      // Node os module for temp directory path
 const { initDatabase } = require('./database/init.cjs');       // Our custom function to initialize SQLite and create tables
 const { registerAllHandlers } = require('./database/ipc-handlers.cjs'); // Registers all IPC handlers for CRUD operations
 
@@ -28,7 +30,11 @@ function createWindow() {
   });
 
   // Show the window maximized once the renderer has finished its first paint
+  // Also apply a zoom factor based on the screen height so all content fits without clipping
   mainWindow.once('ready-to-show', () => {
+    const { height } = screen.getPrimaryDisplay().workAreaSize; // Get usable screen height (excludes taskbar)
+    const zoom = Math.min(1.0, height / 900); // 900px is the design baseline; clamp to 1.0 so we never zoom in
+    mainWindow.webContents.setZoomFactor(zoom);
     mainWindow.maximize();
     mainWindow.show();
   });
@@ -51,6 +57,58 @@ function createWindow() {
 // ======================================================================
 // App lifecycle events
 // ======================================================================
+
+// ── Save-as-PDF handler — renders HTML silently and saves to a user-chosen file ──
+ipcMain.handle('save-pdf', async (_event, htmlContent, suggestedName) => {
+  const { filePath, canceled } = await dialog.showSaveDialog({
+    title: 'Save as PDF',
+    defaultPath: (suggestedName || 'export') + '.pdf',
+    filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
+  });
+  if (canceled || !filePath) return { success: false, canceled: true };
+
+  const tmpFile = path.join(os.tmpdir(), `stockflow-pdf-${Date.now()}.html`);
+  fs.writeFileSync(tmpFile, htmlContent, 'utf-8');
+
+  const pdfWin = new BrowserWindow({
+    show: false,
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+  });
+  await pdfWin.loadFile(tmpFile);
+
+  try {
+    const pdfData = await pdfWin.webContents.printToPDF({ printBackground: true });
+    fs.writeFileSync(filePath, pdfData);
+    pdfWin.close();
+    try { fs.unlinkSync(tmpFile); } catch {}
+    return { success: true };
+  } catch (err) {
+    pdfWin.close();
+    try { fs.unlinkSync(tmpFile); } catch {}
+    return { success: false, error: String(err) };
+  }
+});
+
+// ── Print handler — loads HTML in a hidden window and opens the system print dialog ──
+ipcMain.handle('print-html', async (_event, htmlContent) => {
+  const tmpFile = path.join(os.tmpdir(), `stockflow-print-${Date.now()}.html`);
+  fs.writeFileSync(tmpFile, htmlContent, 'utf-8');
+
+  const printWin = new BrowserWindow({
+    show: false,
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+  });
+
+  await printWin.loadFile(tmpFile);
+
+  return new Promise((resolve) => {
+    printWin.webContents.print({ silent: false, printBackground: true }, (success) => {
+      printWin.close();
+      try { fs.unlinkSync(tmpFile); } catch {}
+      resolve(success);
+    });
+  });
+});
 
 app.whenReady().then(() => {
   // Initialize SQLite database — creates the .db file and all tables on first launch

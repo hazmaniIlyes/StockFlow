@@ -13,6 +13,7 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
+import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
@@ -22,7 +23,6 @@ import { fDate } from 'src/utils/format-time';
 
 import { Iconify } from 'src/components/iconify';
 import { Label } from 'src/components/label';
-import { Scrollbar } from 'src/components/scrollbar';
 import { ExportButtons } from 'src/components/export-buttons';
 
 import { useTranslation } from 'src/contexts';
@@ -50,7 +50,9 @@ export function SalesInvoiceList({
   onRecordPayment,
   onMarkAsPaid,
 }: Props) {
-  const { t } = useTranslation();
+  const { t, dir, language } = useTranslation();
+  const numLocale = language === 'ar' ? 'ar-DZ' : 'fr-DZ';
+  const fmtCurrency = (v: any) => `${Number(v).toLocaleString(numLocale)} ${language === 'ar' ? 'دج' : 'DA'}`;
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -64,6 +66,8 @@ export function SalesInvoiceList({
   // Menu state
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuInvoice, setMenuInvoice] = useState<Invoice | null>(null);
+  const [page, setPage] = useState(0);
+  const rowsPerPage = 20;
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, invoice: Invoice) => {
     event.stopPropagation();
@@ -94,6 +98,11 @@ export function SalesInvoiceList({
     return result;
   }, [invoices, search, statusFilter]);
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(0); };
+  const handleStatusChange = (e: React.ChangeEvent<HTMLInputElement>) => { setStatusFilter(e.target.value); setPage(0); };
+
+  const paginated = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
   const statusColor = (status: Invoice['status']) => {
     if (status === 'paid') return 'success';
     if (status === 'partly-paid') return 'warning';
@@ -107,14 +116,14 @@ export function SalesInvoiceList({
   };
 
   return (
-    <Card>
+    <Card sx={{ display: 'flex', flexDirection: 'column', alignSelf: 'flex-start', width: '100%' }}>
       {/* Toolbar */}
       <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <TextField
           size="small"
           placeholder={t('common.search')}
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={handleSearchChange}
           sx={{ flexGrow: 1, minWidth: 200 }}
           slotProps={{
             input: {
@@ -135,7 +144,7 @@ export function SalesInvoiceList({
           select
           size="small"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={handleStatusChange}
           sx={{ minWidth: 140 }}
         >
           {STATUS_OPTIONS.map((option) => (
@@ -149,20 +158,19 @@ export function SalesInvoiceList({
           data={filtered}
           columns={[
             { label: t('sales.invoiceNumber'), key: 'invoiceNumber' },
-            { label: t('sales.clientName'), key: 'clientName' },
-            { label: t('sales.createdAt'), key: 'createdAt' },
-            { label: t('sales.total'), key: 'total' },
-            { label: t('sales.amountPaid'), key: 'amountPaid' },
-            { label: t('sales.amountDue'), key: 'amountDue' },
-            { label: t('common.status'), key: 'status' },
+            { label: t('sales.client'), key: 'client', format: (v) => v?.name ?? '' },
+            { label: t('common.date'), key: 'createdAt' },
+            { label: t('common.total'), key: 'total', format: fmtCurrency },
+            { label: t('sales.amountPaid'), key: 'amountPaid', format: fmtCurrency },
+            { label: t('sales.amountDue'), key: 'amountDue', format: fmtCurrency },
+            { label: t('common.status'), key: 'status', format: (v) => v === 'paid' ? t('sales.paid') : v === 'partly-paid' ? t('sales.partial') : t('sales.unpaid') },
           ]}
           fileName="sales-invoices"
         />
       </Box>
 
       {/* Table */}
-      <Scrollbar>
-        <TableContainer sx={{ minWidth: 720 }}>
+      <TableContainer sx={{ minWidth: 720 }}>
           <Table>
             <TableHead>
               <TableRow>
@@ -184,7 +192,7 @@ export function SalesInvoiceList({
                   </TableCell>
                 </TableRow>
               )}
-              {filtered.map((invoice) => (
+              {paginated.map((invoice) => (
                 <TableRow
                   key={invoice.id}
                   hover
@@ -228,7 +236,18 @@ export function SalesInvoiceList({
             </TableBody>
           </Table>
         </TableContainer>
-      </Scrollbar>
+
+      <TablePagination
+        component="div"
+        count={filtered.length}
+        page={page}
+        onPageChange={(_e, newPage) => setPage(newPage)}
+        rowsPerPage={rowsPerPage}
+        rowsPerPageOptions={[20]}
+        labelRowsPerPage={t('common.rowsPerPage')}
+        labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('common.of')} ${count}`}
+        dir={dir}
+      />
 
       {/* Actions Menu */}
       <Menu

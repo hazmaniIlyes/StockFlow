@@ -109,4 +109,9 @@ contextBridge.exposeInMainWorld('database', {
   toggleActionItem: (id) => ipcRenderer.invoke('db:actionItems:toggle', id),
   deleteActionItem: (id) => ipcRenderer.invoke('db:actionItems:delete', id),
 
+  // ── Printing ─────────────────────────────────────────────────────────
+
+  printHtml: (html) => ipcRenderer.invoke('print-html', html), // Print HTML content via a hidden BrowserWindow (Electron-native)
+  savePdf: (html, name) => ipcRenderer.invoke('save-pdf', html, name), // Save HTML as PDF via printToPDF with a Save dialog
+
 });
