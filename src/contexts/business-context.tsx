@@ -58,7 +58,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
           setBusinessInfo({ ...defaultBusinessInfo, ...JSON.parse(stored) }); // Parse and load the data into state
         }
       } catch (err) {
-        console.error('Failed to load business info:', err);
+        window.appLog?.error('Failed to load business info:', err);
       } finally {
         setIsInitialized(true); // Mark as loaded so we can safely save future changes
       }
@@ -80,7 +80,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
           localStorage.setItem(STORAGE_KEY, jsonStr); // Fallback to browser storage
         }
       } catch (err) {
-        console.error('Failed to save business info:', err);
+        window.appLog?.error('Failed to save business info:', err);
       }
     }
 

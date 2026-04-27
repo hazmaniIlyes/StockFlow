@@ -78,9 +78,10 @@ export function ReportsView() {
 
   // Summary metrics
   const summary = useMemo(() => {
-    const revenue = filteredInvoices.reduce((s, i) => s + i.total, 0);
+    // Use amountPaid (actual cash received) instead of total to exclude unpaid invoices from revenue
+    const revenue = filteredInvoices.reduce((s, i) => s + i.amountPaid, 0);
     const supplierCosts = suppliers.reduce((s, sp) => {
-      if (dateRange === 'all') return s + (sp.totalPurchased || 0);
+      // Always re-sum from the purchases array — single consistent path for all date ranges
       const filteredPurchases = filterByDateRange(sp.purchases || [], (p) => p.date, dateRange);
       return s + filteredPurchases.reduce((sum, p) => sum + p.total, 0);
     }, 0);
@@ -94,29 +95,26 @@ export function ReportsView() {
     return { revenue, totalExpenses, netProfit, outstandingBalance };
   }, [filteredInvoices, filteredExpenses, dateRange, suppliers, clients]);
 
-  // Monthly data for charts — always show all 12 months for this year
+  // Monthly data for charts — uses the filtered invoices/expenses so the chart
+  // responds to the date range selector
   const monthlyData = useMemo(() => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const revenueByMonth = new Array(12).fill(0);
     const expensesByMonth = new Array(12).fill(0);
-    const currentYear = new Date().getFullYear();
 
-    invoices.forEach((inv) => {
+    filteredInvoices.forEach((inv) => {
       const d = new Date(inv.createdAt);
-      if (d.getFullYear() !== currentYear) return;
       revenueByMonth[d.getMonth()] += inv.total;
     });
 
-    expenses.forEach((exp) => {
+    filteredExpenses.forEach((exp) => {
       const d = new Date(exp.date);
-      if (d.getFullYear() !== currentYear) return;
       expensesByMonth[d.getMonth()] += exp.amount;
     });
 
     suppliers.forEach((sp) => {
-      (sp.purchases || []).forEach((p) => {
+      filterByDateRange(sp.purchases || [], (p) => p.date, dateRange).forEach((p) => {
         const d = new Date(p.date);
-        if (d.getFullYear() !== currentYear) return;
         expensesByMonth[d.getMonth()] += p.total;
       });
     });
@@ -133,7 +131,7 @@ export function ReportsView() {
       expensesSeries: expensesByMonth,
       profitMargin,
     };
-  }, [invoices, expenses, suppliers]);
+  }, [filteredInvoices, filteredExpenses, suppliers, dateRange]);
 
   // ── PDF Preview (opens in new tab → browser prints to PDF) ──────────────
   const buildReportHtml = useCallback(() => {

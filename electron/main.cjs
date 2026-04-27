@@ -1,9 +1,34 @@
-const { app, BrowserWindow, ipcMain, screen, dialog } = require('electron'); // Core Electron modules for app lifecycle, window creation, and IPC
+const { app, BrowserWindow, ipcMain, screen, dialog, shell } = require('electron'); // Core Electron modules for app lifecycle, window creation, and IPC
 const path = require('path');                                  // Node path module for resolving file paths cross-platform
 const fs = require('fs');                                      // Node fs module for writing temp print files
 const os = require('os');                                      // Node os module for temp directory path
+const log = require('electron-log');                           // Persistent file logger — writes to AppData/Roaming/StockFlow/logs/main.log
 const { initDatabase } = require('./database/init.cjs');       // Our custom function to initialize SQLite and create tables
 const { registerAllHandlers } = require('./database/ipc-handlers.cjs'); // Registers all IPC handlers for CRUD operations
+
+// ── Logging setup ──────────────────────────────────────────────────────
+// Route all console output through electron-log so errors are visible in
+// production builds (packaged .exe) where DevTools is not open.
+// Log file location: %AppData%\Roaming\StockFlow\logs\main.log
+log.transports.file.level = 'info';
+console.log  = log.info.bind(log);
+console.error = log.error.bind(log);
+console.warn  = log.warn.bind(log);
+log.info('[StockFlow] ── App process starting ──');
+
+// ── IPC log channels — lets the renderer (React) write to the same file ─
+ipcMain.on('log:error', (_e, msg, ...args) => log.error('[renderer]', msg, ...args));
+ipcMain.on('log:warn',  (_e, msg, ...args) => log.warn('[renderer]',  msg, ...args));
+ipcMain.on('log:info',  (_e, msg, ...args) => log.info('[renderer]',  msg, ...args));
+
+// ── Open logs folder in File Explorer ────────────────────────────────
+// Registered at module level but only *called* after app is ready (user click),
+// so app.getPath('userData') is safe here.
+ipcMain.handle('app:openLogsFolder', () => {
+  const logsDir = path.join(app.getPath('userData'), 'logs');
+  fs.mkdirSync(logsDir, { recursive: true }); // Ensure folder exists before opening
+  shell.openPath(logsDir); // Opens the logs folder in File Explorer
+});
 
 // ======================================================================
 

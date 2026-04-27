@@ -199,8 +199,8 @@ export function SuppliersTable({ suppliers, onView, onEdit, onDelete, onRecordPa
                     </Box>
                   </TableCell>
                   <TableCell align="center">
-                    <Label color={supplier.totalOwed > 0 ? 'error' : 'success'}>
-                      {supplier.totalOwed > 0 ? t('suppliers.unpaid') : t('suppliers.paid')}
+                    <Label color={supplier.totalOwed <= 0 ? 'success' : supplier.totalPaid > 0 ? 'warning' : 'error'}>
+                      {supplier.totalOwed <= 0 ? t('suppliers.paid') : supplier.totalPaid > 0 ? t('sales.partial') : t('suppliers.unpaid')}
                     </Label>
                   </TableCell>
                   <TableCell align="center">

@@ -318,11 +318,10 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
     setProducts((prev) => prev.filter((p) => p.id !== id));
   };
 
-  // TVA is taken directly from the price (19% of total)
-  const totalTTC = products.reduce((sum, p) => sum + p.quantity * p.unitPrice, 0);
-  const tvaAmount = totalTTC * (tvaRate / 100);
-  const subtotalHT = totalTTC - tvaAmount;
-  const total = totalTTC; // The price entered is the final total
+  // Price entered is HT (before tax); TVA is added on top
+  const subtotalHT = products.reduce((sum, p) => sum + p.quantity * p.unitPrice, 0);
+  const tvaAmount = subtotalHT * (tvaRate / 100);
+  const total = subtotalHT + tvaAmount; // TTC = HT + TVA
 
   const validate = (): boolean => {
     const newErrors: FormErrors = {};
@@ -394,8 +393,8 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
         amountPaid: finalAmountPaid,
         amountDue: total - finalAmountPaid,
         status: paymentStatus,
-        createdAt: editInvoice?.createdAt ?? new Date().toLocaleDateString('en-US'),
-        dueDate: dueDate ? new Date(dueDate).toLocaleDateString('en-US') : (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toLocaleDateString('en-US'); })(),
+        createdAt: editInvoice?.createdAt ?? new Date().toISOString().split('T')[0],
+        dueDate: dueDate ? new Date(dueDate).toISOString().split('T')[0] : (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().split('T')[0]; })(),
       },
       { isEdit, originalProducts: editInvoice?.products, printMode }
     );

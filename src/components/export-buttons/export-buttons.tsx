@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import * as XLSX from 'xlsx';
 
 import Box from '@mui/material/Box';
@@ -49,7 +49,7 @@ export function ExportButtons({ data, columns, fileName }: ExportButtonsProps) {
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
       XLSX.writeFile(workbook, `${fileName}.xlsx`);
     } catch (error) {
-      console.error('Excel export failed:', error);
+      window.appLog?.error('Excel export failed:', error);
     }
     handleClose();
   };
@@ -111,7 +111,7 @@ export function ExportButtons({ data, columns, fileName }: ExportButtonsProps) {
 </body>`));
       win.document.close();
     } catch (error) {
-      console.error('Print failed:', error);
+      window.appLog?.error('Print failed:', error);
     }
     handleClose();
   };
@@ -131,7 +131,7 @@ export function ExportButtons({ data, columns, fileName }: ExportButtonsProps) {
         win.print();
       }
     } catch (error) {
-      console.error('PDF save failed:', error);
+      window.appLog?.error('PDF save failed:', error);
     }
     handleClose();
   };

@@ -42,7 +42,7 @@ export function ClientsView() {
   // KPI calculations - now dynamic from actual data
   const kpis = useMemo(() => {
     const totalClients = clients.length;
-    const unpaidClients = clients.filter((c) => c.status === 'unpaid').length;
+    const unpaidClients = clients.filter((c) => c.status === 'unpaid' || c.status === 'partly-paid').length;
     const totalCredit = clients.reduce((sum, c) => sum + c.remainingBalance, 0);
 
     // Overdue = unpaid invoices past their due date

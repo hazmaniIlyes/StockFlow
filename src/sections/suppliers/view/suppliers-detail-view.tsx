@@ -156,15 +156,15 @@ export function SuppliersDetailView() {
               {supplier.status === 'active' ? t('common.active') : t('common.inactive')}
             </Label>
             <Label
-              color={supplier.totalOwed > 0 ? 'error' : 'success'}
+              color={supplier.totalOwed <= 0 ? 'success' : supplier.totalPaid > 0 ? 'warning' : 'error'}
               startIcon={
                 <Iconify
-                  icon={supplier.totalOwed > 0 ? 'solar:clock-circle-bold' : 'solar:check-circle-bold'}
+                  icon={supplier.totalOwed <= 0 ? 'solar:check-circle-bold' : supplier.totalPaid > 0 ? 'solar:clock-circle-bold' : 'solar:danger-circle-bold'}
                   width={14}
                 />
               }
             >
-              {supplier.totalOwed > 0 ? t('suppliers.unpaid') : t('suppliers.paid')}
+              {supplier.totalOwed <= 0 ? t('suppliers.paid') : supplier.totalPaid > 0 ? t('sales.partial') : t('suppliers.unpaid')}
             </Label>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, color: 'text.secondary', flexWrap: 'wrap' }}>
@@ -481,7 +481,7 @@ export function SuppliersDetailView() {
                     <TableCell>{t('common.category')}</TableCell>
                     <TableCell align="right">{t('inventory.buyingPrice')}</TableCell>
                     <TableCell align="right">{t('inventory.sellPrice')}</TableCell>
-                    <TableCell align="right">{t('inventory.stock')}</TableCell>
+                    <TableCell align="right">{t('inventory.currentStock')}</TableCell>
                     <TableCell align="center">{t('common.status')}</TableCell>
                   </TableRow>
                 </TableHead>

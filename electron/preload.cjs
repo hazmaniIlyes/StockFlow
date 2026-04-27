@@ -115,3 +115,23 @@ contextBridge.exposeInMainWorld('database', {
   savePdf: (html, name) => ipcRenderer.invoke('save-pdf', html, name), // Save HTML as PDF via printToPDF with a Save dialog
 
 });
+
+// ======================================================================
+// Expose a safe 'appLog' API so the React renderer can write to the
+// persistent electron-log file (visible in production builds).
+// Usage: window.appLog?.error('Something failed', err)
+// ======================================================================
+
+contextBridge.exposeInMainWorld('appLog', {
+  error: (msg, ...args) => ipcRenderer.send('log:error', msg, ...args),
+  warn:  (msg, ...args) => ipcRenderer.send('log:warn',  msg, ...args),
+  info:  (msg, ...args) => ipcRenderer.send('log:info',  msg, ...args),
+});
+
+// ======================================================================
+// Expose 'appShell' — OS-level actions like opening the logs folder
+// ======================================================================
+
+contextBridge.exposeInMainWorld('appShell', {
+  openLogsFolder: () => ipcRenderer.invoke('app:openLogsFolder'),
+});

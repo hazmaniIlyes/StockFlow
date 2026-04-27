@@ -37,7 +37,7 @@ export function SalesView() {
     markAsPaid,
     getSummary,
   } = useInvoices();
-  const { updateClientFromInvoice, recordPayment: recordClientPayment, getClientByName } = useClients();
+  const { updateClientFromInvoice, recordPayment: recordClientPayment, getClientByName, updateClient } = useClients();
   const { deductStockForInvoice, restoreStockForInvoice } = useInventory();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -104,15 +104,29 @@ export function SalesView() {
               const fi = stockResult.pricedItems!.find((pi) => pi.name.toLowerCase() === p.name.toLowerCase()); // added: look up FIFO result for this line item
               return fi ? { ...p, unitPrice: fi.unitPrice, total: fi.total } : p; // added: override price and total if FIFO data exists; otherwise leave unchanged
             });
-            const newTotal = patchedProducts.reduce((sum, p) => sum + p.total, 0); // added: recompute invoice grand total from corrected line items
-            const newTvaAmount = newTotal * (data.tvaRate / 100); // added: recompute TVA proportionally
-            const newSubtotal = newTotal - newTvaAmount; // added: recompute HT subtotal
+            const newSubtotal = patchedProducts.reduce((sum, p) => sum + p.total, 0); // HT subtotal = sum of FIFO-priced lines
+            const newTvaAmount = newSubtotal * (data.tvaRate / 100); // TVA on top of HT
+            const newTotal = newSubtotal + newTvaAmount; // TTC = HT + TVA
             const newAmountPaid = data.status === 'paid' ? newTotal : Math.min(data.amountPaid, newTotal); // added: if fully paid keep amountPaid = new total; else cap at new total
             data = { ...data, products: patchedProducts, total: newTotal, tvaAmount: newTvaAmount, subtotal: newSubtotal, amountPaid: newAmountPaid, amountDue: newTotal - newAmountPaid }; // added: replace data with fully patched invoice before saving
           }
 
           updateInvoice(editingInvoice.id, data);
           savedInvoiceId = editingInvoice.id;
+          // Sync client balance when payment amounts changed by edit
+          const paidDelta = data.amountPaid - editingInvoice.amountPaid;
+          const dueDelta = data.amountDue - editingInvoice.amountDue;
+          if (paidDelta !== 0 || dueDelta !== 0) {
+            const client = getClientByName(data.client.name);
+            if (client) {
+              const newRemainingBalance = Math.max(0, client.remainingBalance + dueDelta);
+              updateClient(client.id, {
+                totalPaid: client.totalPaid + paidDelta,
+                remainingBalance: newRemainingBalance,
+                status: newRemainingBalance <= 0 ? 'paid' : 'unpaid',
+              });
+            }
+          }
           showSuccess(t('sales.invoiceUpdated'));
         } else {
           // New invoice - deduct stock
@@ -128,9 +142,9 @@ export function SalesView() {
               const fi = stockResult.pricedItems!.find((pi) => pi.name.toLowerCase() === p.name.toLowerCase()); // added: look up FIFO result for this line item
               return fi ? { ...p, unitPrice: fi.unitPrice, total: fi.total } : p; // added: override price and total if FIFO data exists; otherwise leave unchanged
             });
-            const newTotal = patchedProducts.reduce((sum, p) => sum + p.total, 0); // added: recompute invoice grand total from corrected line items
-            const newTvaAmount = newTotal * (data.tvaRate / 100); // added: recompute TVA proportionally
-            const newSubtotal = newTotal - newTvaAmount; // added: recompute HT subtotal
+            const newSubtotal = patchedProducts.reduce((sum, p) => sum + p.total, 0); // HT subtotal = sum of FIFO-priced lines
+            const newTvaAmount = newSubtotal * (data.tvaRate / 100); // TVA on top of HT
+            const newTotal = newSubtotal + newTvaAmount; // TTC = HT + TVA
             const newAmountPaid = data.status === 'paid' ? newTotal : Math.min(data.amountPaid, newTotal); // added: if fully paid keep amountPaid = new total; else cap at new total
             data = { ...data, products: patchedProducts, total: newTotal, tvaAmount: newTvaAmount, subtotal: newSubtotal, amountPaid: newAmountPaid, amountDue: newTotal - newAmountPaid }; // added: replace data with fully patched invoice before calling addInvoice
           }
@@ -170,6 +184,8 @@ export function SalesView() {
       addInvoice,
       updateInvoice,
       updateClientFromInvoice,
+      getClientByName,
+      updateClient,
       deductStockForInvoice,
       restoreStockForInvoice,
       showSuccess,

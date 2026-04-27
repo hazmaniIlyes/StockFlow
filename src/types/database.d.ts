@@ -93,10 +93,24 @@ interface DatabaseAPI {
   deleteActionItem: (id: string) => Promise<void>;
 }
 
-// Augment the global Window interface so TypeScript knows about window.database
+/** Shell/OS actions exposed on window.appShell by the Electron preload script */
+interface AppShellAPI {
+  openLogsFolder: () => Promise<void>;
+}
+
+/** Logger API exposed on window.appLog by the Electron preload script */
+interface AppLogAPI {
+  error: (msg: string, ...args: unknown[]) => void;
+  warn:  (msg: string, ...args: unknown[]) => void;
+  info:  (msg: string, ...args: unknown[]) => void;
+}
+
+// Augment the global Window interface so TypeScript knows about window.database and window.appLog
 declare global {
   interface Window {
     database?: DatabaseAPI; // Optional because it only exists in Electron, not in browser
+    appLog?: AppLogAPI;     // Optional persistent logger — writes to AppData/Roaming/StockFlow/logs/main.log
+    appShell?: AppShellAPI; // Optional OS actions (open folders, etc.)
   }
 }
 

@@ -1,4 +1,4 @@
-import type { IconButtonProps } from '@mui/material/IconButton';
+﻿import type { IconButtonProps } from '@mui/material/IconButton';
 
 import { useState, useCallback, useEffect } from 'react';
 
@@ -79,7 +79,7 @@ export function AccountPopover({ data = [], sx, ...other }: AccountPopoverProps)
             if (acc.displayName) setAdminProfile({ displayName: acc.displayName, photoURL: acc.photoURL });
           }
         } catch (e) {
-          console.error('Failed to load profile from DB:', e);
+          window.appLog?.error('Failed to load profile from DB:', e);
         }
       }
     }

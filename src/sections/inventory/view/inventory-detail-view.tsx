@@ -21,7 +21,7 @@ import { useTheme, alpha } from '@mui/material/styles';
 import { fCurrency } from 'src/utils/format-number';
 import { fDate } from 'src/utils/format-time';
 
-import { useInventory, useSuppliers, useTranslation } from 'src/contexts';
+import { useInventory, useSuppliers, useTranslation, useSettings } from 'src/contexts';
 import { useInvoices } from 'src/sections/sales/context';
 
 import { Iconify } from 'src/components/iconify';
@@ -43,6 +43,7 @@ export function InventoryDetailView() {
   const { getProduct, adjustStock } = useInventory();
   const { getSupplier } = useSuppliers();
   const { invoices } = useInvoices();
+  const { invoice: invoiceSettings } = useSettings();
 
   const product = getProduct(id || '');
   const supplier = product ? getSupplier(product.supplierId) : undefined;
@@ -68,12 +69,14 @@ export function InventoryDetailView() {
     }, 0);
   }, [productInvoices, product]);
 
-  // Calculate total revenue from this product
+  // Calculate total revenue from this product (TTC — what customers actually paid)
   const totalRevenue = useMemo(() => {
     if (!product) return 0;
     return productInvoices.reduce((sum, inv) => {
       const item = inv.products.find((i) => i.name.toLowerCase() === product.name.toLowerCase());
-      return sum + (item ? item.quantity * item.unitPrice : 0);
+      if (!item) return sum;
+      const ttcUnitPrice = item.unitPrice * (1 + (inv.tvaRate ?? 0) / 100);
+      return sum + item.quantity * ttcUnitPrice;
     }, 0);
   }, [productInvoices, product]);
 
@@ -244,6 +247,11 @@ export function InventoryDetailView() {
                 {t('inventory.sellingPrice')}
               </Typography>
               <Typography variant="h5">{fCurrency(product.sellPrice)}</Typography>
+              {invoiceSettings.tvaRate > 0 && (
+                <Typography variant="caption" color="text.secondary">
+                  TVA ({invoiceSettings.tvaRate}%): {fCurrency(product.sellPrice * (1 + invoiceSettings.tvaRate / 100))} TTC
+                </Typography>
+              )}
             </Box>
           </Card>
         </Grid>

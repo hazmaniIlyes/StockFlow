@@ -42,7 +42,7 @@ export function ExpensesProvider({ children }: ProviderProps) {
         console.log('[ExpensesContext] Loaded expenses from SQLite:', dbExpenses.length);
         setExpenses(dbExpenses); // Populate React state with database data
       }).catch((err) => {
-        console.error('[ExpensesContext] Failed to load expenses from SQLite:', err);
+        window.appLog?.error('[ExpensesContext] Failed to load expenses from SQLite:', err);
       });
     }
   }, []); // Empty deps = run once on mount
@@ -58,7 +58,7 @@ export function ExpensesProvider({ children }: ProviderProps) {
     // ── Persist new expense to SQLite ─────────────────────────────────
     if (isElectron()) {
       expensesDB.add(newExpense).catch((err) => {
-        console.error('[ExpensesContext] Failed to add expense to SQLite:', err);
+        window.appLog?.error('[ExpensesContext] Failed to add expense to SQLite:', err);
       });
     }
 
@@ -70,7 +70,7 @@ export function ExpensesProvider({ children }: ProviderProps) {
     // ── Persist expense update to SQLite ──────────────────────────────
     if (isElectron()) {
       expensesDB.update(id, data).catch((err) => {
-        console.error('[ExpensesContext] Failed to update expense in SQLite:', err);
+        window.appLog?.error('[ExpensesContext] Failed to update expense in SQLite:', err);
       });
     }
 
@@ -81,7 +81,7 @@ export function ExpensesProvider({ children }: ProviderProps) {
     // ── Delete expense from SQLite ───────────────────────────────────
     if (isElectron()) {
       expensesDB.delete(id).catch((err) => {
-        console.error('[ExpensesContext] Failed to delete expense from SQLite:', err);
+        window.appLog?.error('[ExpensesContext] Failed to delete expense from SQLite:', err);
       });
     }
 
@@ -92,7 +92,7 @@ export function ExpensesProvider({ children }: ProviderProps) {
     // ── Clear all expenses from SQLite ────────────────────────────────
     if (isElectron()) {
       expensesDB.clearAll().catch((err) => {
-        console.error('[ExpensesContext] Failed to clear all expenses from SQLite:', err);
+        window.appLog?.error('[ExpensesContext] Failed to clear all expenses from SQLite:', err);
       });
     }
 

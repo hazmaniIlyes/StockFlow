@@ -44,12 +44,12 @@ export function SalesDetailView() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const printRef = useRef<HTMLDivElement>(null);
-  const { showSuccess } = useSnackbar();
+  const { showSuccess, showError } = useSnackbar();
   const { businessInfo } = useBusiness();
   const { t, language, dir } = useTranslation();
   const { getInvoice, updateInvoice, deleteInvoice, recordPayment, markAsPaid } = useInvoices();
-  const { restoreStockForInvoice, deductStockForInvoice } = useInventory();
-  const { getClientByName, recordPayment: recordClientPayment } = useClients();
+  const { restoreStockForInvoice, deductStockForInvoice, canDeductAfterRestore } = useInventory();
+  const { getClientByName, recordPayment: recordClientPayment, updateClient } = useClients();
 
   const [invoice, setInvoice] = useState<Invoice | undefined>(undefined);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -76,8 +76,10 @@ export function SalesDetailView() {
   // Handle legacy ?print=true
   useEffect(() => {
     if (shouldPrint && invoice) {
-      setTimeout(() => window.print(), 500);
+      const timerId = setTimeout(() => window.print(), 500);
+      return () => clearTimeout(timerId);
     }
+    return undefined;
   }, [shouldPrint, invoice]);
 
   // Handle ?printMode=invoice|delivery — set view mode then trigger popup print
@@ -122,13 +124,14 @@ export function SalesDetailView() {
         sigClient:    language === 'fr' ? 'Signature Client'  : language === 'ar' ? 'توقيع العميل'  : 'Client Signature',
         nomSig:       language === 'fr' ? 'Nom & Signature'   : language === 'ar' ? 'الاسم والتوقيع' : 'Name & Signature',
       };
+      const blTvaMultiplier = 1 + (invoice.tvaRate || 0) / 100;
       const blRows = invoice.products.map((p, i) => `
         <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f9fafb'};border-bottom:1px solid #f0f0f0">
           <td style="padding:9px 10px;font-size:0.7rem;color:#bbb;font-weight:700;width:32px;text-align:center">${String(i + 1).padStart(2, '0')}</td>
           <td style="padding:9px 10px;font-size:0.8rem;font-weight:600;color:#1a1a1a">${p.name}</td>
-          <td style="padding:9px 10px;font-size:0.78rem;text-align:center;color:#333">${fCurrency(p.unitPrice)}</td>
+          <td style="padding:9px 10px;font-size:0.78rem;text-align:center;color:#333">${fCurrency(p.unitPrice * blTvaMultiplier)}</td>
           <td style="padding:9px 10px;font-size:0.78rem;text-align:center;color:#333">${p.quantity}${p.unit && p.unit !== 'pcs' ? ` ${p.unit}` : ''}</td>
-          <td style="padding:9px 10px;font-size:0.78rem;text-align:right;font-weight:700;color:#1a1a1a">${fCurrency(p.total)}</td>
+          <td style="padding:9px 10px;font-size:0.78rem;text-align:right;font-weight:700;color:#1a1a1a">${fCurrency(p.total * blTvaMultiplier)}</td>
         </tr>`).join('');
       const blLogoHtml = businessInfo.logo
         ? `<img src="${businessInfo.logo}" alt="logo" style="height:48px;max-width:130px;object-fit:contain">`
@@ -436,6 +439,16 @@ ${pagesHtml}
     if (html) (window as any).database?.printHtml(html);
   }, [buildHtml]);
 
+  const handleSavePdf = useCallback(() => {
+    const html = buildHtml();
+    if (!html) return;
+    const numeric = invoice!.invoiceNumber.replace(/^[A-Z]+-/, '');
+    const prefix = viewMode === 'invoice'
+      ? (language === 'fr' ? 'FAC' : language === 'ar' ? 'فاتورة' : 'INV')
+      : (language === 'fr' ? 'BL' : language === 'ar' ? 'وصل-تسليم' : 'DN');
+    (window as any).database?.savePdf(html, `${prefix}-${numeric}`);
+  }, [buildHtml, invoice, viewMode, language]);
+
   const handleOpenPreview = useCallback(() => {
     const html = buildHtml();
     if (!html) return;
@@ -447,8 +460,10 @@ ${pagesHtml}
   useEffect(() => {
     if (pendingPrint) {
       setPendingPrint(false);
-      setTimeout(() => handlePrint(), 300);
+      const timerId = setTimeout(() => handlePrint(), 300);
+      return () => clearTimeout(timerId);
     }
+    return undefined;
   }, [pendingPrint, handlePrint]);
 
   if (!invoice) {
@@ -487,12 +502,48 @@ ${pagesHtml}
     data: Omit<Invoice, 'id'>,
     options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery' }
   ) => {
+    const oldInvoice = invoice;
+    const oldAmountPaid = invoice.amountPaid;
+    const oldAmountDue = invoice.amountDue;
+    const oldItems = options.originalProducts?.map((p) => ({ name: p.name, quantity: p.quantity })) ?? [];
+    const newItems = data.products.map((p) => ({ name: p.name, quantity: p.quantity }));
+
+    // Pre-validate stock BEFORE touching anything
     if (options.originalProducts) {
-      restoreStockForInvoice(options.originalProducts.map((p) => ({ name: p.name, quantity: p.quantity })));
+      const { ok, errors } = canDeductAfterRestore(oldItems, newItems);
+      if (!ok) {
+        showError(errors[0] ?? t('inventory.insufficientStock'));
+        return;
+      }
     }
-    deductStockForInvoice(data.products.map((p) => ({ name: p.name, quantity: p.quantity })));
-    updateInvoice(invoice.id, data);
-    setInvoice({ ...invoice, ...data });
+
+    try {
+      if (options.originalProducts) {
+        restoreStockForInvoice(oldItems);
+      }
+      deductStockForInvoice(newItems);
+      updateInvoice(invoice.id, data);
+      setInvoice({ ...invoice, ...data });
+      // Sync client balance when payment amounts changed
+      const paidDelta = data.amountPaid - oldAmountPaid;
+      const dueDelta = data.amountDue - oldAmountDue;
+      if (paidDelta !== 0 || dueDelta !== 0) {
+        const client = getClientByName(invoice.client.name);
+        if (client) {
+          const newRemainingBalance = Math.max(0, client.remainingBalance + dueDelta);
+          updateClient(client.id, {
+            totalPaid: client.totalPaid + paidDelta,
+            remainingBalance: newRemainingBalance,
+            status: newRemainingBalance <= 0 ? 'paid' : 'unpaid',
+          });
+        }
+      }
+    } catch (err) {
+      // Revert local state if any synchronous step throws
+      setInvoice(oldInvoice);
+      showError(t('sales.failedToUpdate'));
+      return;
+    }
     setEditDialogOpen(false);
     showSuccess(t('sales.invoiceUpdated'));
   };
@@ -583,6 +634,14 @@ ${pagesHtml}
             onClick={handleOpenPreview}
           >
             {t('common.print')}
+          </Button>
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<Iconify icon="solar:download-bold-duotone" width={20} />}
+            onClick={handleSavePdf}
+          >
+            {t('common.save')} PDF
           </Button>
           <Button
             variant="outlined"
@@ -695,15 +754,18 @@ ${pagesHtml}
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {invoice.products.map((p, idx) => (
-                        <TableRow key={p.id} sx={{ bgcolor: idx % 2 === 0 ? '#fff' : '#f9fafb', '&:last-child td': { border: 0 } }}>
-                          <TableCell sx={{ textAlign: 'center', color: '#bbb', fontWeight: 700, fontSize: '0.68rem' }}>{String(idx + 1).padStart(2, '0')}</TableCell>
-                          <TableCell><Typography variant="body2" fontWeight={600}>{p.name}</Typography></TableCell>
-                          <TableCell align="center"><Typography variant="body2">{fCurrency(p.unitPrice)}</Typography></TableCell>
-                          <TableCell align="center"><Typography variant="body2">{p.quantity}{p.unit && p.unit !== 'pcs' ? ` ${p.unit}` : ''}</Typography></TableCell>
-                          <TableCell align="right"><Typography variant="body2" fontWeight={700}>{fCurrency(p.total)}</Typography></TableCell>
-                        </TableRow>
-                      ))}
+                      {invoice.products.map((p, idx) => {
+                        const tvaM = 1 + (invoice.tvaRate || 0) / 100;
+                        return (
+                          <TableRow key={p.id} sx={{ bgcolor: idx % 2 === 0 ? '#fff' : '#f9fafb', '&:last-child td': { border: 0 } }}>
+                            <TableCell sx={{ textAlign: 'center', color: '#bbb', fontWeight: 700, fontSize: '0.68rem' }}>{String(idx + 1).padStart(2, '0')}</TableCell>
+                            <TableCell><Typography variant="body2" fontWeight={600}>{p.name}</Typography></TableCell>
+                            <TableCell align="center"><Typography variant="body2">{fCurrency(p.unitPrice * tvaM)}</Typography></TableCell>
+                            <TableCell align="center"><Typography variant="body2">{p.quantity}{p.unit && p.unit !== 'pcs' ? ` ${p.unit}` : ''}</Typography></TableCell>
+                            <TableCell align="right"><Typography variant="body2" fontWeight={700}>{fCurrency(p.total * tvaM)}</Typography></TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </Box>

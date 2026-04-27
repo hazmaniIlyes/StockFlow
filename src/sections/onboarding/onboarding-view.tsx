@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+﻿import { useState, useCallback, useRef, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
@@ -315,7 +315,7 @@ export function OnboardingView({ onComplete }: Props) {
             onComplete(); // Skip wizard immediately
           }
         } catch (e) {
-          console.error('Failed to probe DB for onboarding signal:', e);
+          window.appLog?.error('Failed to probe DB for onboarding signal:', e);
         }
       }
     }
@@ -381,22 +381,31 @@ export function OnboardingView({ onComplete }: Props) {
   };
 
   const handleComplete = async () => {
-    // 1. Save unified account credentials to SQLite natively
+    // ── 1. Account credentials ─────────────────────────────────────────
     const accountStr = JSON.stringify({
       password: data.password,
       displayName: data.displayName,
       role: 'admin',
-      workerModeEnabled: false
+      workerModeEnabled: false,
     });
-    
-    if (isElectron()) {
-      await settingsDB.set('account', accountStr); // Save unified row natively
-    }
-    
-    // Transparently hydrate local cache synchronously
-    localStorage.setItem('account', accountStr); 
+    if (isElectron()) await settingsDB.set('account', accountStr);
+    localStorage.setItem('account', accountStr);
 
-    // 2. Save business info (This delegates to context which auto-syncs to SQLite)
+    // ── 2. Business info — write directly to SQLite (key: 'business_info') ──
+    const businessStr = JSON.stringify({
+      businessName: data.businessName,
+      phone: data.phone,
+      email: '',
+      address: data.address,
+      nif: data.nif,
+      nis: data.nis,
+      rc: data.rc,
+      ai: data.ai,
+      logo: data.logo || undefined,
+    });
+    if (isElectron()) await settingsDB.set('business_info', businessStr);
+    localStorage.setItem('business_info', businessStr);
+    // Also update in-memory context so current session reflects the data
     updateBusinessInfo({
       businessName: data.businessName,
       phone: data.phone,
@@ -408,40 +417,62 @@ export function OnboardingView({ onComplete }: Props) {
       logo: data.logo || undefined,
     });
 
-    // 3. TVA setting (Delegates to Settings context)
+    // ── 3. Invoice settings — write directly to SQLite (key: 'invoice_settings') ──
+    const invoiceStr = JSON.stringify({
+      tvaRate: data.tvaRate ?? 0,
+      invoicePrefix: 'INV-',
+      paymentTerms: 30,
+      currency: 'DA',
+      footerNote: 'Thank you for your business.',
+    });
+    if (isElectron()) await settingsDB.set('invoice_settings', invoiceStr);
+    localStorage.setItem('invoice_settings', invoiceStr);
     updateInvoiceSettings({ tvaRate: data.tvaRate ?? 0 });
 
-    // 4. Preferences (Delegates to Settings context)
+    // ── 4. Preferences — write directly to SQLite (key: 'preferences') ──
+    const prefsStr = JSON.stringify({
+      colorMode: data.colorMode,
+      lowStockThreshold: data.lowStockThreshold,
+      showExpenses: true,
+      enabledUnits: data.defaultUnits.length > 0 ? data.defaultUnits : ['pcs'],
+    });
+    if (isElectron()) await settingsDB.set('preferences', prefsStr);
+    localStorage.setItem('preferences', prefsStr);
     updatePreferences({
       colorMode: data.colorMode,
       lowStockThreshold: data.lowStockThreshold,
       enabledUnits: data.defaultUnits.length > 0 ? (data.defaultUnits as any) : undefined,
     });
 
-    // 5. Replace product categories
-    // Remove existing default categories
-    const existingIds = productCategories.map((c) => c.id);
-    existingIds.forEach((id) => deleteProductCategory(id));
-    // Add new categories
-    data.categories.forEach((label, idx) => {
-      addProductCategory({ label, color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length] });
-    });
+    // ── 5. Categories — write directly to SQLite (key: 'categories') ───
+    // This bypasses the React state → useEffect → SQLite chain which can be
+    // skipped if onComplete() navigates away before the effect fires.
+    const newProductCats = data.categories.map((label, idx) => ({
+      id: `pc-${Date.now()}-${idx}`,
+      label,
+      color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+    }));
+    // Expense categories are always saved regardless of the toggle — the toggle
+    // only controls whether the user sees the section in the wizard to customise it.
+    const newExpenseCats = data.expenseCategories.map((label, idx) => ({
+      id: `ec-${Date.now()}-${idx}`,
+      label,
+      color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+    }));
+    const categoriesStr = JSON.stringify({ product: newProductCats, expense: newExpenseCats });
+    if (isElectron()) await settingsDB.set('categories', categoriesStr);
+    localStorage.setItem('categories', categoriesStr);
+    // Also update in-memory context state so current session works without a reload
+    productCategories.map((c) => c.id).forEach((id) => deleteProductCategory(id));
+    newProductCats.forEach((cat) => addProductCategory({ label: cat.label, color: cat.color }));
+    existingExpCategories.map((c) => c.id).forEach((id) => deleteExpenseCategory(id));
+    newExpenseCats.forEach((cat) => addExpenseCategory({ label: cat.label, color: cat.color }));
 
-    // 6. Expense categories (if enabled)
-    if (data.expenseCategoriesEnabled) {
-      existingExpCategories.map((c) => c.id).forEach((id) => deleteExpenseCategory(id));
-      data.expenseCategories.forEach((label, idx) => {
-        addExpenseCategory({ label, color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length] });
-      });
-    }
+    // ── 6. Mark onboarding complete ────────────────────────────────────
+    if (isElectron()) await settingsDB.set(ONBOARDING_KEY, 'true');
+    localStorage.setItem(ONBOARDING_KEY, 'true');
 
-    // 7. Mark onboarding complete in SQLite safely so it survives PC transfers
-    if (isElectron()) {
-      await settingsDB.set(ONBOARDING_KEY, 'true');
-    }
-    localStorage.setItem(ONBOARDING_KEY, 'true'); // Hydrate synchronous browser cache
-
-    onComplete(); // Advance router securely
+    onComplete();
   };
 
   // ────────── Layout shell ──────────

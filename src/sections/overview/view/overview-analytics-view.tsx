@@ -100,18 +100,18 @@ export function OverviewAnalyticsView() {
 
       // Today
       if (invDate.toDateString() === today) {
-        todayRevenue += inv.total;
+        todayRevenue += inv.subtotal;
       }
 
       // This month
       if (invMonth === currentMonth && invYear === currentYear) {
-        thisMonthRevenue += inv.total;
+        thisMonthRevenue += inv.subtotal;
         tvaCollected += inv.tvaAmount || 0;
       }
 
       // Last month
       if (invMonth === lastMonth && invYear === lastMonthYear) {
-        lastMonthRevenue += inv.total;
+        lastMonthRevenue += inv.subtotal;
         inv.products.forEach((item) => {
           lastMonthCOGS += (productBuyMap.get(item.name) ?? 0) * item.quantity;
         });
@@ -264,7 +264,8 @@ export function OverviewAnalyticsView() {
       invoices.forEach((inv) => {
         const invDate = new Date(inv.createdAt);
         if (invDate.getMonth() === m && invDate.getFullYear() === y) {
-          monthIn += inv.amountPaid;
+          const paid = Number(inv.amountPaid);
+          if (Number.isFinite(paid)) monthIn += paid;
         }
       });
       moneyIn.push(monthIn);
@@ -274,14 +275,25 @@ export function OverviewAnalyticsView() {
       expenses.forEach((exp) => {
         const expDate = new Date(exp.date);
         if (expDate.getMonth() === m && expDate.getFullYear() === y) {
-          monthOut += exp.amount;
+          const amt = Number(exp.amount);
+          if (Number.isFinite(amt)) monthOut += amt;
         }
       });
       suppliers.forEach((sup) => {
+        // Cash paid upfront at time of purchase
         (sup.purchases ?? []).forEach((purchase) => {
           const purchaseDate = new Date(purchase.date);
           if (purchaseDate.getMonth() === m && purchaseDate.getFullYear() === y) {
-            monthOut += purchase.amountPaid;
+            const amt = Number(purchase.amountPaid);
+            if (Number.isFinite(amt)) monthOut += amt;
+          }
+        });
+        // Cash paid later via separate supplier payments
+        (sup.payments ?? []).forEach((payment) => {
+          const payDate = new Date(payment.date);
+          if (payDate.getMonth() === m && payDate.getFullYear() === y) {
+            const amt = Number(payment.amount);
+            if (Number.isFinite(amt)) monthOut += amt;
           }
         });
       });

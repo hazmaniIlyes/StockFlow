@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { Client } from 'src/_mock/_data';
 
-import { useMemo, useState, useEffect, useContext, useCallback, createContext } from 'react';
+import { useMemo, useRef, useState, useEffect, useContext, useCallback, createContext } from 'react';
 
 import { clientsDB, isElectron } from 'src/services/db'; // Import database service for SQLite client operations
 
@@ -42,6 +42,10 @@ type ProviderProps = {
 
 export function ClientsProvider({ children }: ProviderProps) {
   const [clients, setClients] = useState<Client[]>([]);
+  // Keep a ref always pointing to the latest clients array so stable callbacks
+  // (with [] deps) can access current data without causing recreations.
+  const clientsRef = useRef<Client[]>(clients);
+  useEffect(() => { clientsRef.current = clients; }, [clients]);
 
   // ── Load clients from SQLite on mount ──────────────────────────────
   // Replaces the old useState([]) that used no initial data or mock data.
@@ -52,7 +56,7 @@ export function ClientsProvider({ children }: ProviderProps) {
         console.log('[ClientsContext] Loaded clients from SQLite:', dbClients.length);
         setClients(dbClients); // Populate React state with database data
       }).catch((err) => {
-        console.error('[ClientsContext] Failed to load clients from SQLite:', err);
+        window.appLog?.error('[ClientsContext] Failed to load clients from SQLite:', err);
       });
     }
   }, []); // Empty deps = run only once on mount
@@ -70,7 +74,7 @@ export function ClientsProvider({ children }: ProviderProps) {
     // ── Persist new client to SQLite ──────────────────────────────────
     if (isElectron()) {
       clientsDB.add(newClient).catch((err) => {
-        console.error('[ClientsContext] Failed to add client to SQLite:', err);
+        window.appLog?.error('[ClientsContext] Failed to add client to SQLite:', err);
       });
     }
 
@@ -82,7 +86,7 @@ export function ClientsProvider({ children }: ProviderProps) {
     // ── Persist update to SQLite ─────────────────────────────────────
     if (isElectron()) {
       clientsDB.update(id, data).catch((err) => {
-        console.error('[ClientsContext] Failed to update client in SQLite:', err);
+        window.appLog?.error('[ClientsContext] Failed to update client in SQLite:', err);
       });
     }
 
@@ -93,7 +97,7 @@ export function ClientsProvider({ children }: ProviderProps) {
     // ── Delete from SQLite ───────────────────────────────────────────
     if (isElectron()) {
       clientsDB.delete(id).catch((err) => {
-        console.error('[ClientsContext] Failed to delete client from SQLite:', err);
+        window.appLog?.error('[ClientsContext] Failed to delete client from SQLite:', err);
       });
     }
 
@@ -101,13 +105,13 @@ export function ClientsProvider({ children }: ProviderProps) {
   }, []);
 
   const recordPayment = useCallback((id: string, amount: number) => {
-    // 1. Locate the client natively outside the React loop
-    const target = clients.find((c) => c.id === id);
+    // Read latest clients from ref — avoids stale closure, no need for [clients] dep
+    const target = clientsRef.current.find((c) => c.id === id);
     if (!target) return;
 
     const newTotalPaid = target.totalPaid + amount;
     const newRemainingBalance = Math.max(0, target.remainingBalance - amount);
-    const newStatus = newRemainingBalance <= 0 ? 'paid' : 'unpaid';
+    const newStatus = newRemainingBalance <= 0 ? 'paid' : newTotalPaid > 0 ? 'partly-paid' : 'unpaid';
 
     // 2. Safely trigger SQLite exactly once
     if (isElectron()) {
@@ -116,7 +120,7 @@ export function ClientsProvider({ children }: ProviderProps) {
         remainingBalance: newRemainingBalance,
         status: newStatus,
       }).catch((err) => {
-        console.error('[ClientsContext] Failed to record payment in SQLite:', err);
+        window.appLog?.error('[ClientsContext] Failed to record payment in SQLite:', err);
       });
     }
 
@@ -133,7 +137,7 @@ export function ClientsProvider({ children }: ProviderProps) {
           : c
       )
     );
-  }, [clients]);
+  }, []); // clientsRef is stable — no dep needed
 
   // Update or create client when an invoice is created/updated
   const updateClientFromInvoice = useCallback(
@@ -154,15 +158,15 @@ export function ClientsProvider({ children }: ProviderProps) {
           ...existing,
           phone: phone || existing.phone,
           address: address || existing.address,
-          nif: taxInfo?.nif || existing.nif,
-          nis: taxInfo?.nis || existing.nis,
-          rc: taxInfo?.rc || existing.rc,
-          ai: taxInfo?.ai || existing.ai,
+          nif: taxInfo?.nif !== undefined ? taxInfo.nif : existing.nif,
+          nis: taxInfo?.nis !== undefined ? taxInfo.nis : existing.nis,
+          rc: taxInfo?.rc !== undefined ? taxInfo.rc : existing.rc,
+          ai: taxInfo?.ai !== undefined ? taxInfo.ai : existing.ai,
           totalPurchases: existing.totalPurchases + invoiceTotal,
           totalPaid: existing.totalPaid + amountPaid,
           remainingBalance: existing.remainingBalance + (invoiceTotal - amountPaid),
-          lastInvoiceDate: new Date().toLocaleDateString('en-US'),
-          status: (existing.remainingBalance + (invoiceTotal - amountPaid) > 0 ? 'unpaid' : 'paid') as Client['status'],
+          lastInvoiceDate: new Date().toISOString().split('T')[0],
+          status: (() => { const rem = existing.remainingBalance + (invoiceTotal - amountPaid); const paid = existing.totalPaid + amountPaid; return rem <= 0 ? 'paid' : paid > 0 ? 'partly-paid' : 'unpaid'; })() as Client['status'],
         };
 
         // 2. Safely call SQLite side-effect EXACTLY ONCE block before setting state!
@@ -180,7 +184,7 @@ export function ClientsProvider({ children }: ProviderProps) {
             lastInvoiceDate: updatedClient.lastInvoiceDate,
             status: updatedClient.status,
           }).catch((err) => {
-            console.error('[ClientsContext] Failed to update client from invoice in SQLite:', err);
+            window.appLog?.error('[ClientsContext] Failed to update client from invoice in SQLite:', err);
           });
         }
 
@@ -200,14 +204,14 @@ export function ClientsProvider({ children }: ProviderProps) {
           totalPurchases: invoiceTotal,
           totalPaid: amountPaid,
           remainingBalance: invoiceTotal - amountPaid,
-          lastInvoiceDate: new Date().toLocaleDateString('en-US'),
-          status: invoiceTotal - amountPaid > 0 ? 'unpaid' : 'paid',
+          lastInvoiceDate: new Date().toISOString().split('T')[0],
+          status: (amountPaid <= 0 ? 'unpaid' : invoiceTotal - amountPaid > 0 ? 'partly-paid' : 'paid') as Client['status'],
         };
 
         // Execute side-effect EXACTLY ONCE block
         if (isElectron()) {
           clientsDB.add(newClient).catch((err) => {
-            console.error('[ClientsContext] Failed to add new client from invoice to SQLite:', err);
+            window.appLog?.error('[ClientsContext] Failed to add new client from invoice to SQLite:', err);
           });
         }
 
@@ -222,7 +226,7 @@ export function ClientsProvider({ children }: ProviderProps) {
     // ── Clear all clients from SQLite ────────────────────────────────
     if (isElectron()) {
       clientsDB.clearAll().catch((err) => {
-        console.error('[ClientsContext] Failed to clear all clients from SQLite:', err);
+        window.appLog?.error('[ClientsContext] Failed to clear all clients from SQLite:', err);
       });
     }
 

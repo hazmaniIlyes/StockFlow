@@ -1,4 +1,4 @@
-import type { CardProps } from '@mui/material/Card';
+﻿import type { CardProps } from '@mui/material/Card';
 
 import { useState, useEffect } from 'react';
 
@@ -50,7 +50,7 @@ export function AnalyticsTodoList({
     if (isElectron()) {
       actionItemsDB.getAll().then((items) => {
         if (items) setTodos(items);
-      }).catch(console.error);
+      }).catch((err) => window.appLog?.error(err));
     }
   }, []);
 
@@ -64,7 +64,7 @@ export function AnalyticsTodoList({
 
       // Native SQLite append
       if (isElectron()) {
-        actionItemsDB.add(newTodo).catch(console.error);
+        actionItemsDB.add(newTodo).catch((err) => window.appLog?.error(err));
       }
 
       setTodos([...todos, newTodo]);
@@ -75,7 +75,7 @@ export function AnalyticsTodoList({
   const handleToggleTodo = (id: string) => {
     // Native SQLite toggle
     if (isElectron()) {
-      actionItemsDB.toggle(id).catch(console.error);
+      actionItemsDB.toggle(id).catch((err) => window.appLog?.error(err));
     }
     
     setTodos(todos.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)));
@@ -84,7 +84,7 @@ export function AnalyticsTodoList({
   const handleDeleteTodo = (id: string) => {
     // Native SQLite deletion
     if (isElectron()) {
-      actionItemsDB.delete(id).catch(console.error);
+      actionItemsDB.delete(id).catch((err) => window.appLog?.error(err));
     }
     
     setTodos(todos.filter((todo) => todo.id !== id));

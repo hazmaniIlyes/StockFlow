@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -6,6 +6,11 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
@@ -17,7 +22,7 @@ import { useTheme } from '@mui/material/styles';
 import { useTranslation, useSettings } from 'src/contexts';
 import { Iconify } from 'src/components/iconify';
 import { useSnackbar } from 'src/components/snackbar';
-import { settingsDB, isElectron } from 'src/services/db'; // Import our new database service
+import { settingsDB, isElectron, productsDB, clientsDB, suppliersDB, invoicesDB, expensesDB, tvaDB } from 'src/services/db'; // Import our new database service
 
 // ======================================================================
 
@@ -30,7 +35,7 @@ if (isElectron()) {
     if (accStr) {
        localStorage.setItem(ACCOUNT_STORAGE_KEY, accStr); // Caches unified JSON map
     }
-  }).catch(console.error);
+  }).catch((err) => window.appLog?.error(err));
 }
 
 // Synchronous function remains for UI compatibility, parsing directly from the populated unified cache
@@ -54,6 +59,8 @@ export function SettingsAccount() {
   const { t } = useTranslation();
   const { role, setRole, workerModeEnabled, setWorkerModeEnabled } = useSettings();
   const isWorker = workerModeEnabled;
+
+  const [resetOnboardingOpen, setResetOnboardingOpen] = useState(false);
 
   const [profile, setProfile] = useState(() => {
     try {
@@ -85,7 +92,7 @@ export function SettingsAccount() {
           if (acc.displayName) setProfile({ displayName: acc.displayName }); // Hydrate explicit property correctly
         }
       } catch (e) {
-        console.error('Failed to reload profile from DB:', e);
+        window.appLog?.error('Failed to reload profile from DB:', e);
       }
     }
     loadData();
@@ -387,18 +394,54 @@ export function SettingsAccount() {
           </Box>
           <Button
             variant="outlined"
-            color="inherit"
+            color="error"
             size="small"
             startIcon={<Iconify icon="solar:restart-bold-duotone" width={16} />}
-            onClick={() => {
-              localStorage.removeItem('onboarding_complete');
-              navigate('/onboarding');
-            }}
+            onClick={() => setResetOnboardingOpen(true)}
           >
             {t('settings.resetOnboarding') ?? 'Restart'}
           </Button>
         </Box>
       </Card>
+
+      {/* Reset Onboarding Confirm Dialog */}
+      <Dialog open={resetOnboardingOpen} onClose={() => setResetOnboardingOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t('settings.resetOnboarding') ?? 'Restart Onboarding'}</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: 'error.main', fontWeight: 600, mb: 1 }}>
+            {t('settings.clearAllDataWarning')}
+          </DialogContentText>
+          <DialogContentText>
+            {t('settings.clearAllDataDesc')}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResetOnboardingOpen(false)}>{t('common.cancel')}</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={async () => {
+              if (isElectron()) {
+                // Wipe all data directly — awaited so SQLite is clear before reload
+                await Promise.all([
+                  productsDB.clearAll(),
+                  clientsDB.clearAll(),
+                  suppliersDB.clearAll(),
+                  invoicesDB.clearAll(),
+                  expensesDB.clearAll(),
+                  tvaDB.clearAll(),
+                ]);
+                await settingsDB.set('onboarding_complete', 'false');
+              }
+              localStorage.clear();
+              // Full reload — React restarts from empty SQLite, guard redirects to /onboarding
+              window.location.reload();
+            }}
+          >
+            {t('settings.clearAllData') ?? 'Wipe & Restart'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

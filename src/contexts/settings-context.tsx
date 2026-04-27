@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useMemo, useEffect } 
 import type { ReactNode } from 'react';
 
 import { settingsDB, isElectron } from 'src/services/db'; // Import SQLite database wrapper for persistent settings
+import { setActiveCurrency } from 'src/utils/format-number';
 
 import type { ProductUnit } from 'src/_mock/_data';
 
@@ -180,7 +181,7 @@ export function SettingsProvider({ children }: ProviderProps) {
         });
 
       } catch (err) {
-        console.error('Failed to load settings:', err);
+        window.appLog?.error('Failed to load settings:', err);
       } finally {
         setIsInitialized(true); // Always unlock persistence syncing even if parse fails
       }
@@ -205,6 +206,11 @@ export function SettingsProvider({ children }: ProviderProps) {
     };
     save();
   }, [settings.invoice, isInitialized]); // Effect triggers ONLY when invoices settings mutate
+
+  // Keep fCurrency module-level currency in sync with the invoice.currency setting
+  useEffect(() => {
+    setActiveCurrency(settings.invoice.currency || 'DA');
+  }, [settings.invoice.currency]);
 
   // Persist combined categories natively into their dedicated JSON structure
   useEffect(() => {
@@ -282,7 +288,7 @@ export function SettingsProvider({ children }: ProviderProps) {
       ...prev,
       productCategories: [
         ...prev.productCategories,
-        { ...category, id: `pc-${Date.now()}` },
+        { ...category, id: `pc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` },
       ],
     }));
   }, []);
@@ -299,7 +305,7 @@ export function SettingsProvider({ children }: ProviderProps) {
       ...prev,
       expenseCategories: [
         ...prev.expenseCategories,
-        { ...category, id: `ec-${Date.now()}` },
+        { ...category, id: `ec-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` },
       ],
     }));
   }, []);

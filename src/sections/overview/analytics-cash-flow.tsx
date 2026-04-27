@@ -38,6 +38,13 @@ export function AnalyticsCashFlow({ title, subheader, chart, sx, ...other }: Pro
     colors: [theme.palette.success.main, theme.palette.error.main],
     stroke: { width: 1, colors: [theme.vars.palette.background.paper] },
     xaxis: { categories: chart.categories },
+    yaxis: {
+      min: 0,
+      forceNiceScale: true,
+      labels: {
+        formatter: (value: number) => fCurrency(value),
+      },
+    },
     tooltip: {
       y: {
         formatter: (value: number) => fCurrency(value),

@@ -17,7 +17,7 @@ import Typography from '@mui/material/Typography';
 
 import { fCurrency } from 'src/utils/format-number';
 
-import { useInventory, useTranslation, useGlobalScan } from 'src/contexts';
+import { useInventory, useTranslation, useGlobalScan, useSettings } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -70,6 +70,7 @@ export function SuppliersPurchaseDialog({ open, supplier, onClose, onSubmit }: P
   const { t, language } = useTranslation(); // added language: used for RTL-aware arrow icon in pricing dialog
   const { products, updateProduct, addBatch, getProductByName } = useInventory(); // added updateProduct, addBatch, getProductByName for pricing conflict resolution
   const { setFormOpen } = useGlobalScan();
+  const { invoice: invoiceSettings } = useSettings();
 
   useEffect(() => {
     setFormOpen(open);
@@ -323,6 +324,7 @@ export function SuppliersPurchaseDialog({ open, supplier, onClose, onSubmit }: P
                   htmlInput: { min: 0 }, // added: prevent negative values
                   input: { endAdornment: <InputAdornment position="end">DA</InputAdornment> }, // added: currency suffix matching buy price field
                 }}
+                helperText={item.sellPrice > 0 ? `TVA (${invoiceSettings.tvaRate}%): ${(item.sellPrice * (1 + invoiceSettings.tvaRate / 100)).toFixed(2)} DA TTC` : undefined}
                 sx={{ width: 140 }} // added: same width as buy price field for visual alignment
               />
 

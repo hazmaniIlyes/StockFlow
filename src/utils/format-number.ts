@@ -9,6 +9,10 @@ type Options = Intl.NumberFormatOptions;
 
 const DEFAULT_LOCALE = { code: 'fr-DZ', currency: 'DZD' };
 
+// Module-level active currency — updated by SettingsProvider on load/change
+let _activeCurrency = 'DA';
+export function setActiveCurrency(c: string) { _activeCurrency = c; }
+
 function processInput(inputValue: InputNumberValue): number | null {
   if (inputValue == null || Number.isNaN(inputValue)) return null;
   return Number(inputValue);
@@ -33,7 +37,7 @@ export function fNumber(inputValue: InputNumberValue, options?: Options) {
 
 // ----------------------------------------------------------------------
 
-export function fCurrency(inputValue: InputNumberValue, options?: Options) {
+export function fCurrency(inputValue: InputNumberValue, options?: Options, currency?: string) {
   const number = processInput(inputValue);
   if (number === null) return '';
 
@@ -44,8 +48,8 @@ export function fCurrency(inputValue: InputNumberValue, options?: Options) {
     ...options,
   }).format(number);
 
-  // Append "DA" suffix for Algerian Dinar
-  return `${fm} DA`;
+  // Append currency symbol — uses module-level active currency unless overridden
+  return `${fm} ${currency ?? _activeCurrency}`;
 }
 
 // ----------------------------------------------------------------------

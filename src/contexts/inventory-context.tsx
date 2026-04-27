@@ -16,6 +16,10 @@ type InventoryContextType = {
   updateProduct: (id: string, data: Partial<InventoryProduct>) => void;
   deleteProduct: (id: string) => void;
   adjustStock: (id: string, quantity: number, type: 'add' | 'remove') => boolean;
+  canDeductAfterRestore: (
+    oldItems: { name: string; quantity: number }[],
+    newItems: { name: string; quantity: number }[]
+  ) => { ok: boolean; errors: string[] };
   deductStockForInvoice: (items: { name: string; quantity: number }[]) => { // return type extended to carry FIFO-weighted prices
     success: boolean;
     errors: string[];
@@ -75,7 +79,7 @@ export function InventoryProvider({ children }: ProviderProps) {
 
         setProducts(withBatches); // added: set state once after all products are fully hydrated with batches
       }).catch((err) => {
-        console.error('[InventoryContext] Failed to load products from SQLite:', err); // Log any database errors
+        window.appLog?.error('[InventoryContext] Failed to load products from SQLite:', err); // Log any database errors
       });
     }
     // If not in Electron, products starts as empty array (no mock data)
@@ -105,7 +109,7 @@ export function InventoryProvider({ children }: ProviderProps) {
     // ── Persist to SQLite database ───────────────────────────────────
     if (isElectron()) {
       productsDB.add(newProduct).catch((err) => {
-        console.error('[InventoryContext] Failed to add product to SQLite:', err); // Log database write errors
+        window.appLog?.error('[InventoryContext] Failed to add product to SQLite:', err); // Log database write errors
       });
     }
 
@@ -154,11 +158,11 @@ export function InventoryProvider({ children }: ProviderProps) {
           // added: if this is the first batch ever, persist the synthetic init-batch so it survives app restart
           if (initBatch) { // added: only run when p.batches was undefined — i.e. init-batch was just created
             batchesDB.add({ ...initBatch, productId }).catch((err) => { // added: write original-stock batch to stock_batches
-              console.error('[InventoryContext] Failed to persist init-batch to SQLite:', err); // added: error log
+              window.appLog?.error('[InventoryContext] Failed to persist init-batch to SQLite:', err); // added: error log
             }); // added: end of initBatch persist call
           } // added: end initBatch guard
           batchesDB.add({ ...newBatch, productId }).catch((err) => {
-            console.error('[InventoryContext] Failed to add batch to SQLite:', err);
+            window.appLog?.error('[InventoryContext] Failed to add batch to SQLite:', err);
           });
           productsDB.update(productId, {
             stock: newStock,
@@ -166,7 +170,7 @@ export function InventoryProvider({ children }: ProviderProps) {
             sellPrice: oldest.sellPrice,
             status: newStatus,
           }).catch((err) => {
-            console.error('[InventoryContext] Failed to update product stock in SQLite:', err);
+            window.appLog?.error('[InventoryContext] Failed to update product stock in SQLite:', err);
           });
         }
 
@@ -189,7 +193,7 @@ export function InventoryProvider({ children }: ProviderProps) {
       const dbData = { ...data }; // Clone to avoid mutating the original
       delete (dbData as any).batches; // Batches are in the stock_batches table, not the products table
       productsDB.update(id, dbData).catch((err) => {
-        console.error('[InventoryContext] Failed to update product in SQLite:', err);
+        window.appLog?.error('[InventoryContext] Failed to update product in SQLite:', err);
       });
     }
 
@@ -214,7 +218,7 @@ export function InventoryProvider({ children }: ProviderProps) {
     // ── Delete from SQLite database ──────────────────────────────────
     if (isElectron()) {
       productsDB.delete(id).catch((err) => {
-        console.error('[InventoryContext] Failed to delete product from SQLite:', err);
+        window.appLog?.error('[InventoryContext] Failed to delete product from SQLite:', err);
       });
     }
 
@@ -245,7 +249,7 @@ export function InventoryProvider({ children }: ProviderProps) {
           updatedBatches = [...product.batches.slice(0, -1), updatedMostRecent];
           if (isElectron()) {
             batchesDB.update(mostRecentBatch.id, { quantity: updatedMostRecent.quantity }).catch((err) => {
-              console.error('[InventoryContext] Failed to update most-recent batch in SQLite:', err);
+              window.appLog?.error('[InventoryContext] Failed to update most-recent batch in SQLite:', err);
             });
           }
         } else {
@@ -260,7 +264,7 @@ export function InventoryProvider({ children }: ProviderProps) {
           updatedBatches = [fallbackBatch];
           if (isElectron()) {
             batchesDB.add({ ...fallbackBatch, productId: id }).catch((err) => {
-              console.error('[InventoryContext] Failed to persist fallback batch to SQLite:', err);
+              window.appLog?.error('[InventoryContext] Failed to persist fallback batch to SQLite:', err);
             });
           }
         }
@@ -276,11 +280,11 @@ export function InventoryProvider({ children }: ProviderProps) {
             if (isElectron()) {
               if (updatedBatch.quantity <= 0) {
                 batchesDB.delete(batch.id).catch((err) => {
-                  console.error('[InventoryContext] Failed to delete depleted batch from SQLite:', err);
+                  window.appLog?.error('[InventoryContext] Failed to delete depleted batch from SQLite:', err);
                 });
               } else {
                 batchesDB.update(batch.id, { quantity: updatedBatch.quantity }).catch((err) => {
-                  console.error('[InventoryContext] Failed to update batch quantity in SQLite:', err);
+                  window.appLog?.error('[InventoryContext] Failed to update batch quantity in SQLite:', err);
                 });
               }
             }
@@ -303,7 +307,7 @@ export function InventoryProvider({ children }: ProviderProps) {
         buyingPrice: newBuyingPrice,
         sellPrice: newSellPrice,
       }).catch((err) => {
-        console.error('[InventoryContext] Failed to adjust stock in SQLite:', err);
+        window.appLog?.error('[InventoryContext] Failed to adjust stock in SQLite:', err);
       });
     }
 
@@ -390,7 +394,7 @@ export function InventoryProvider({ children }: ProviderProps) {
             // ── Persist simple deduction to SQLite ─────────────────
             if (isElectron()) {
               productsDB.update(p.id, { stock: newStock, status: newStatus }).catch((err) => {
-                console.error('[InventoryContext] Failed to deduct stock in SQLite:', err);
+                window.appLog?.error('[InventoryContext] Failed to deduct stock in SQLite:', err);
               });
             }
 
@@ -410,11 +414,11 @@ export function InventoryProvider({ children }: ProviderProps) {
               if (isElectron()) {
                 if (updatedBatch.quantity <= 0) {
                   batchesDB.delete(batch.id).catch((err) => {
-                    console.error('[InventoryContext] Failed to delete empty batch from SQLite:', err);
+                    window.appLog?.error('[InventoryContext] Failed to delete empty batch from SQLite:', err);
                   });
                 } else {
                   batchesDB.update(batch.id, { quantity: updatedBatch.quantity }).catch((err) => {
-                    console.error('[InventoryContext] Failed to update batch quantity in SQLite:', err);
+                    window.appLog?.error('[InventoryContext] Failed to update batch quantity in SQLite:', err);
                   });
                 }
               }
@@ -435,7 +439,7 @@ export function InventoryProvider({ children }: ProviderProps) {
               sellPrice: oldest?.sellPrice ?? p.sellPrice,
               status: newStatus,
             }).catch((err) => {
-              console.error('[InventoryContext] Failed to update product after FIFO deduction in SQLite:', err);
+              window.appLog?.error('[InventoryContext] Failed to update product after FIFO deduction in SQLite:', err);
             });
           }
 
@@ -451,6 +455,30 @@ export function InventoryProvider({ children }: ProviderProps) {
       );
 
       return { success: true, errors: [], pricedItems }; // added: pass FIFO-weighted prices back to the caller alongside the success flag
+    },
+    [products]
+  );
+
+  // Pure read-only check: simulates restoring oldItems then validates newItems fit.
+  // Does NOT mutate any state.
+  const canDeductAfterRestore = useCallback(
+    (
+      oldItems: { name: string; quantity: number }[],
+      newItems: { name: string; quantity: number }[]
+    ): { ok: boolean; errors: string[] } => {
+      const errors: string[] = [];
+      for (const newItem of newItems) {
+        const product = products.find((p) => p.name.toLowerCase() === newItem.name.toLowerCase());
+        if (!product) continue; // custom / non-inventory product — skip
+        const oldItem = oldItems.find((o) => o.name.toLowerCase() === newItem.name.toLowerCase());
+        const restoredStock = product.stock + (oldItem?.quantity ?? 0);
+        if (restoredStock < newItem.quantity) {
+          errors.push(
+            `"${newItem.name}": insufficient stock (${restoredStock} available, ${newItem.quantity} needed)`
+          );
+        }
+      }
+      return { ok: errors.length === 0, errors };
     },
     [products]
   );
@@ -474,12 +502,12 @@ export function InventoryProvider({ children }: ProviderProps) {
         // ── Persist stock restoration to SQLite ──────────────────────
         if (isElectron()) {
           productsDB.update(p.id, { stock: newStock, status: newStatus }).catch((err) => {
-            console.error('[InventoryContext] Failed to restore stock in SQLite:', err);
+            window.appLog?.error('[InventoryContext] Failed to restore stock in SQLite:', err);
           });
           // Also update the first batch quantity if FIFO
           if (updatedBatches && updatedBatches.length > 0) {
             batchesDB.update(updatedBatches[0].id, { quantity: updatedBatches[0].quantity }).catch((err) => {
-              console.error('[InventoryContext] Failed to update batch during stock restore in SQLite:', err);
+              window.appLog?.error('[InventoryContext] Failed to update batch during stock restore in SQLite:', err);
             });
           }
         }
@@ -498,7 +526,7 @@ export function InventoryProvider({ children }: ProviderProps) {
     // ── Reset all stock in SQLite ────────────────────────────────────
     if (isElectron()) {
       productsDB.resetAllStock().catch((err) => {
-        console.error('[InventoryContext] Failed to reset all stock in SQLite:', err);
+        window.appLog?.error('[InventoryContext] Failed to reset all stock in SQLite:', err);
       });
     }
 
@@ -511,7 +539,7 @@ export function InventoryProvider({ children }: ProviderProps) {
     // ── Clear all products from SQLite ────────────────────────────────
     if (isElectron()) {
       productsDB.clearAll().catch((err) => {
-        console.error('[InventoryContext] Failed to clear all products from SQLite:', err);
+        window.appLog?.error('[InventoryContext] Failed to clear all products from SQLite:', err);
       });
     }
 
@@ -528,6 +556,7 @@ export function InventoryProvider({ children }: ProviderProps) {
       updateProduct,
       deleteProduct,
       adjustStock,
+      canDeductAfterRestore,
       deductStockForInvoice,
       restoreStockForInvoice,
       resetAllStock,
@@ -542,6 +571,7 @@ export function InventoryProvider({ children }: ProviderProps) {
       updateProduct,
       deleteProduct,
       adjustStock,
+      canDeductAfterRestore,
       deductStockForInvoice,
       restoreStockForInvoice,
       resetAllStock,

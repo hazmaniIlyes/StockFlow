@@ -58,7 +58,7 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
   const { t, language } = useTranslation();
   const currencySymbol = language === 'ar' ? 'د.ج' : 'DA';
   const isEdit = Boolean(product);
-  const { productCategories, preferences } = useSettings();
+  const { productCategories, preferences, invoice: invoiceSettings } = useSettings();
   const { activeSuppliers, addSupplier, getSupplier, addProductToCatalog, recordPurchase, updateSupplier } = useSuppliers();
   const { getProductByName, updateProduct, addBatch, adjustStock } = useInventory();
   const { setFormOpen } = useGlobalScan();
@@ -596,6 +596,7 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
                 value={sellPrice || ''}
                 onChange={(e) => setSellPrice(Number(e.target.value))}
                 slotProps={{ htmlInput: { min: 0 } }}
+                helperText={sellPrice > 0 ? `TVA (${invoiceSettings.tvaRate}%): ${(sellPrice * (1 + invoiceSettings.tvaRate / 100)).toFixed(2)} DA TTC` : undefined}
               />
             </Box>
 

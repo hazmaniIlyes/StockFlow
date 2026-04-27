@@ -65,11 +65,10 @@ const buildInvoice = (
     unitPrice: p.unitPrice,
     total: p.quantity * p.unitPrice,
   }));
-  // TVA is taken directly from the price (19% of total)
-  const totalTTC = invoiceProducts.reduce((sum, p) => sum + p.total, 0);
-  const tvaAmount = totalTTC * (tvaRate / 100);
-  const subtotHT = totalTTC - tvaAmount;
-  const total = totalTTC;
+  // Price entered is HT (before tax); TVA is added on top
+  const subtotHT = invoiceProducts.reduce((sum, p) => sum + p.total, 0);
+  const tvaAmount = subtotHT * (tvaRate / 100);
+  const total = subtotHT + tvaAmount; // TTC = HT + TVA
   const amountPaid =
     status === 'paid' ? total : status === 'unpaid' ? 0 : (amountPaidOverride ?? 0);
 
@@ -150,7 +149,7 @@ export type Client = {
   totalPaid: number;
   remainingBalance: number;
   lastInvoiceDate: string;
-  status: 'paid' | 'unpaid';
+  status: 'paid' | 'partly-paid' | 'unpaid';
 };
 
 export type PaymentRecord = {

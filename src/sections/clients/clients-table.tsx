@@ -56,6 +56,7 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
   const statusOptions = useMemo(() => [
     { value: 'all', label: t('common.all') },
     { value: 'paid', label: t('sales.paid') },
+    { value: 'partly-paid', label: t('sales.partial') },
     { value: 'unpaid', label: t('sales.unpaid') },
   ], [t]);
 
@@ -155,7 +156,7 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
             { label: t('clients.totalPaid'), key: 'totalPaid', format: fmtCurrency },
             ...(role !== 'worker' ? [{ label: t('clients.remaining'), key: 'remainingBalance', format: fmtCurrency }] : []),
             { label: t('clients.lastInvoice'), key: 'lastInvoiceDate' },
-            { label: t('common.status'), key: 'status', format: (v) => v === 'paid' ? t('sales.paid') : t('sales.unpaid') },
+            { label: t('common.status'), key: 'status', format: (v) => v === 'paid' ? t('sales.paid') : v === 'partly-paid' ? t('sales.partial') : t('sales.unpaid') },
           ]}
           fileName="clients"
         />
@@ -172,7 +173,7 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
                 <TableCell align="right">{t('clients.totalPaid')}</TableCell>
                 {role !== 'worker' && <TableCell align="right">{t('clients.remaining')}</TableCell>}
                 <TableCell>{t('clients.lastInvoice')}</TableCell>
-                <TableCell>{t('common.dueDate') || 'Due Date'}</TableCell>
+                <TableCell>{t('sales.dueDate')}</TableCell>
                 <TableCell align="center">{t('common.status')}</TableCell>
                 <TableCell align="center" sx={{ width: 60 }} />
               </TableRow>
@@ -210,7 +211,7 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
                     </Box>
                   </TableCell>
                   )}
-                  <TableCell>{fDate(client.lastInvoiceDate)}</TableCell>
+                  <TableCell>{client.lastInvoiceDate ? fDate(client.lastInvoiceDate) : <Typography variant="caption" color="text.disabled">—</Typography>}</TableCell>
                   <TableCell>
                     {(() => {
                       const entry = clientDueMap.get(client.name);
@@ -237,8 +238,8 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
                     })()}
                   </TableCell>
                   <TableCell align="center">
-                    <Label color={client.status === 'paid' ? 'success' : 'error'}>
-                      {client.status === 'paid' ? t('sales.paid') : t('sales.unpaid')}
+                    <Label color={client.status === 'paid' ? 'success' : client.status === 'partly-paid' ? 'warning' : 'error'}>
+                      {client.status === 'paid' ? t('sales.paid') : client.status === 'partly-paid' ? t('sales.partial') : t('sales.unpaid')}
                     </Label>
                   </TableCell>
                   <TableCell align="center">

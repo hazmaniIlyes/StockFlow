@@ -259,6 +259,44 @@ export function SettingsReset() {
         </Box>
       </Card>
 
+      {/* ── Open Logs Folder ── */}
+      <Card sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+          <Box
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: 'info.lighter',
+              color: 'info.main',
+              flexShrink: 0,
+            }}
+          >
+            <Iconify icon="solar:folder-with-files-bold-duotone" width={24} />
+          </Box>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="subtitle1" fontWeight="fontWeightSemiBold">
+              {t('settings.openLogsFolder')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              {t('settings.openLogsFolderDesc')}
+            </Typography>
+          </Box>
+          <Button
+            variant="outlined"
+            color="info"
+            startIcon={<Iconify icon="solar:folder-open-bold" width={18} />}
+            onClick={() => window.appShell?.openLogsFolder()}
+            sx={{ flexShrink: 0 }}
+          >
+            {t('settings.openLogsFolder')}
+          </Button>
+        </Box>
+      </Card>
+
       {/* ── Danger Zone — Clear All Data ── */}
       <Card
         sx={{

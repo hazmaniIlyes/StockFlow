@@ -65,7 +65,7 @@ export function SuppliersProvider({ children }: ProviderProps) {
         );
         setSuppliers(enrichedSuppliers); // Set React state with fully loaded supplier data
       }).catch((err) => {
-        console.error('[SuppliersContext] Failed to load suppliers from SQLite:', err);
+        window.appLog?.error('[SuppliersContext] Failed to load suppliers from SQLite:', err);
       });
     }
   }, []); // Empty deps = run once on mount
@@ -91,6 +91,8 @@ export function SuppliersProvider({ children }: ProviderProps) {
         totalPurchased: data.totalPurchased || 0,
         totalPaid: 0,
         totalOwed: data.totalOwed || 0,
+        purchases: [],
+        payments: [],
       };
       console.log('Adding supplier:', newSupplier);
 
@@ -113,7 +115,7 @@ export function SuppliersProvider({ children }: ProviderProps) {
           debtDueDate: newSupplier.debtDueDate,
           status: newSupplier.status,
         }).catch((err) => {
-          console.error('[SuppliersContext] Failed to add supplier to SQLite:', err);
+          window.appLog?.error('[SuppliersContext] Failed to add supplier to SQLite:', err);
         });
         // Insert each catalog product into the supplier_catalog table
         catalog.forEach((catProduct) => {
@@ -121,7 +123,7 @@ export function SuppliersProvider({ children }: ProviderProps) {
             ...catProduct,
             supplierId: newSupplier.id, // Link catalog product to the supplier
           }).catch((err) => {
-            console.error('[SuppliersContext] Failed to add catalog product to SQLite:', err);
+            window.appLog?.error('[SuppliersContext] Failed to add catalog product to SQLite:', err);
           });
         });
       }
@@ -145,7 +147,7 @@ export function SuppliersProvider({ children }: ProviderProps) {
       delete dbData.payments;   // Payments are managed via supplier_payments table
       if (Object.keys(dbData).length > 0) {
         suppliersDB.update(id, dbData).catch((err) => {
-          console.error('[SuppliersContext] Failed to update supplier in SQLite:', err);
+          window.appLog?.error('[SuppliersContext] Failed to update supplier in SQLite:', err);
         });
       }
     }
@@ -157,7 +159,7 @@ export function SuppliersProvider({ children }: ProviderProps) {
     // ── Delete supplier from SQLite (CASCADE handles catalog/purchases/payments) ──
     if (isElectron()) {
       suppliersDB.delete(id).catch((err) => {
-        console.error('[SuppliersContext] Failed to delete supplier from SQLite:', err);
+        window.appLog?.error('[SuppliersContext] Failed to delete supplier from SQLite:', err);
       });
     }
 
@@ -177,7 +179,7 @@ export function SuppliersProvider({ children }: ProviderProps) {
           ...newProduct,
           supplierId, // Link the catalog product to the supplier
         }).catch((err) => {
-          console.error('[SuppliersContext] Failed to add product to catalog in SQLite:', err);
+          window.appLog?.error('[SuppliersContext] Failed to add product to catalog in SQLite:', err);
         });
       }
 
@@ -195,7 +197,7 @@ export function SuppliersProvider({ children }: ProviderProps) {
     // ── Remove catalog product from SQLite ────────────────────────────
     if (isElectron()) {
       suppliersDB.removeCatalogProduct(productId).catch((err) => {
-        console.error('[SuppliersContext] Failed to remove product from catalog in SQLite:', err);
+        window.appLog?.error('[SuppliersContext] Failed to remove product from catalog in SQLite:', err);
       });
     }
 
@@ -219,7 +221,7 @@ export function SuppliersProvider({ children }: ProviderProps) {
     // ── Persist payment record to SQLite ──────────────────────────────
     if (isElectron()) {
       suppliersDB.addPayment(paymentRecord).catch((err) => {
-        console.error('[SuppliersContext] Failed to record supplier payment in SQLite:', err);
+        window.appLog?.error('[SuppliersContext] Failed to record supplier payment in SQLite:', err);
       });
     }
 
@@ -236,7 +238,7 @@ export function SuppliersProvider({ children }: ProviderProps) {
             totalPaid: newTotalPaid,
             totalOwed: newTotalOwed,
           }).catch((err) => {
-            console.error('[SuppliersContext] Failed to update supplier totals after payment in SQLite:', err);
+            window.appLog?.error('[SuppliersContext] Failed to update supplier totals after payment in SQLite:', err);
           });
         }
 
@@ -267,7 +269,7 @@ export function SuppliersProvider({ children }: ProviderProps) {
     // ── Persist purchase record to SQLite ─────────────────────────────
     if (isElectron()) {
       suppliersDB.addPurchase(purchaseRecord).catch((err) => {
-        console.error('[SuppliersContext] Failed to record purchase in SQLite:', err);
+        window.appLog?.error('[SuppliersContext] Failed to record purchase in SQLite:', err);
       });
     }
 
@@ -286,7 +288,7 @@ export function SuppliersProvider({ children }: ProviderProps) {
             totalPaid: newTotalPaid,
             totalOwed: newTotalOwed,
           }).catch((err) => {
-            console.error('[SuppliersContext] Failed to update supplier totals after purchase in SQLite:', err);
+            window.appLog?.error('[SuppliersContext] Failed to update supplier totals after purchase in SQLite:', err);
           });
         }
 
@@ -311,7 +313,7 @@ export function SuppliersProvider({ children }: ProviderProps) {
     // ── Clear all suppliers from SQLite ───────────────────────────────
     if (isElectron()) {
       suppliersDB.clearAll().catch((err) => {
-        console.error('[SuppliersContext] Failed to clear all suppliers from SQLite:', err);
+        window.appLog?.error('[SuppliersContext] Failed to clear all suppliers from SQLite:', err);
       });
     }
 

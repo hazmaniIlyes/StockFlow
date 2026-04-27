@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+﻿import type { ReactNode } from 'react';
 import type { Invoice } from 'src/_mock/_data';
 
 import { useMemo, useState, useEffect, useContext, useCallback, createContext } from 'react';
@@ -70,7 +70,7 @@ export function InvoiceProvider({ children }: ProviderProps) {
         console.log('[InvoiceContext] Loaded invoices from SQLite:', dbInvoices.length);
         setInvoices(dbInvoices); // Populate React state
       }).catch((err) => {
-        console.error('[InvoiceContext] Failed to load invoices from SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to load invoices from SQLite:', err);
       });
 
       // Load the current invoice counter from the settings table
@@ -78,7 +78,7 @@ export function InvoiceProvider({ children }: ProviderProps) {
         console.log('[InvoiceContext] Loaded invoice counter from SQLite:', counter);
         setInvoiceCounter(counter); // Set the counter so getNextInvoiceNumber works correctly
       }).catch((err) => {
-        console.error('[InvoiceContext] Failed to load invoice counter from SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to load invoice counter from SQLite:', err);
       });
 
       // Load all TVA declarations
@@ -86,14 +86,14 @@ export function InvoiceProvider({ children }: ProviderProps) {
         console.log('[InvoiceContext] Loaded TVA declarations from SQLite:', dbTva.length);
         setTvaDeclarations(dbTva); // Populate TVA declaration history
       }).catch((err) => {
-        console.error('[InvoiceContext] Failed to load TVA declarations from SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to load TVA declarations from SQLite:', err);
       });
 
       // Load the TVA reset date from settings
       settingsDB.get('tva_reset_date').then((value) => {
         setTvaResetDate(value && value !== '' ? value : null); // Convert empty string to null
       }).catch((err) => {
-        console.error('[InvoiceContext] Failed to load TVA reset date from SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to load TVA reset date from SQLite:', err);
       });
     }
   }, []); // Run once on mount
@@ -110,11 +110,11 @@ export function InvoiceProvider({ children }: ProviderProps) {
     // ── Persist invoice to SQLite ────────────────────────────────────
     if (isElectron()) {
       invoicesDB.add(newInvoice).catch((err) => {
-        console.error('[InvoiceContext] Failed to add invoice to SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to add invoice to SQLite:', err);
       });
       // Save the updated counter to settings so it persists across restarts
       invoicesDB.setCounter(newCounter).catch((err) => {
-        console.error('[InvoiceContext] Failed to update invoice counter in SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to update invoice counter in SQLite:', err);
       });
     }
 
@@ -127,7 +127,7 @@ export function InvoiceProvider({ children }: ProviderProps) {
     // ── Persist invoice update to SQLite ──────────────────────────────
     if (isElectron()) {
       invoicesDB.update(id, data).catch((err) => {
-        console.error('[InvoiceContext] Failed to update invoice in SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to update invoice in SQLite:', err);
       });
     }
 
@@ -142,7 +142,7 @@ export function InvoiceProvider({ children }: ProviderProps) {
     // ── Delete from SQLite securely ──────────────────────────────────
     if (isElectron()) {
       invoicesDB.delete(id).catch((err) => {
-        console.error('[InvoiceContext] Failed to delete invoice from SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to delete invoice from SQLite:', err);
       });
     }
 
@@ -173,7 +173,7 @@ export function InvoiceProvider({ children }: ProviderProps) {
         amountDue: newAmountDue,
         status: newStatus,
       }).catch((err) => {
-        console.error('[InvoiceContext] Failed to record invoice payment in SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to record invoice payment in SQLite:', err);
       });
     }
 
@@ -198,7 +198,7 @@ export function InvoiceProvider({ children }: ProviderProps) {
         amountDue: 0,
         status: 'paid',
       }).catch((err) => {
-        console.error('[InvoiceContext] Failed to mark invoice as paid in SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to mark invoice as paid in SQLite:', err);
       });
     }
 
@@ -215,7 +215,7 @@ export function InvoiceProvider({ children }: ProviderProps) {
   // Calculate dynamic summary from actual invoice data
   const getSummary = useCallback((): SalesSummary => {
     const today = new Date();
-    const todayStr = today.toLocaleDateString('en-US');
+    const todayStr = today.toDateString();
     const thisMonth = today.getMonth();
     const thisYear = today.getFullYear();
 
@@ -235,7 +235,7 @@ export function InvoiceProvider({ children }: ProviderProps) {
       const dueDate = new Date(inv.dueDate);
 
       // Today's sales
-      if (inv.createdAt === todayStr) {
+      if (invDate.toDateString() === todayStr) {
         todaySales += inv.total;
         // Estimate profit as 25% of subtotal (before TVA)
         todayProfit += inv.subtotal * 0.25;
@@ -284,7 +284,7 @@ export function InvoiceProvider({ children }: ProviderProps) {
     // ── Reset counter in SQLite ──────────────────────────────────────
     if (isElectron()) {
       invoicesDB.setCounter(1).catch((err) => {
-        console.error('[InvoiceContext] Failed to reset invoice counter in SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to reset invoice counter in SQLite:', err);
       });
     }
 
@@ -316,11 +316,11 @@ export function InvoiceProvider({ children }: ProviderProps) {
     // ── Persist TVA declaration to SQLite ─────────────────────────────
     if (isElectron()) {
       tvaDB.add(declaration).catch((err) => {
-        console.error('[InvoiceContext] Failed to add TVA declaration to SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to add TVA declaration to SQLite:', err);
       });
       // Save the new reset date in settings
       settingsDB.set('tva_reset_date', now).catch((err) => {
-        console.error('[InvoiceContext] Failed to update TVA reset date in SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to update TVA reset date in SQLite:', err);
       });
     }
 
@@ -332,10 +332,10 @@ export function InvoiceProvider({ children }: ProviderProps) {
     // ── Clear TVA declarations in SQLite ──────────────────────────────
     if (isElectron()) {
       tvaDB.clearAll().catch((err) => {
-        console.error('[InvoiceContext] Failed to clear TVA declarations from SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to clear TVA declarations from SQLite:', err);
       });
       settingsDB.set('tva_reset_date', '').catch((err) => {
-        console.error('[InvoiceContext] Failed to clear TVA reset date in SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to clear TVA reset date in SQLite:', err);
       });
     }
 
@@ -347,16 +347,16 @@ export function InvoiceProvider({ children }: ProviderProps) {
     // ── Clear all invoices and related data from SQLite ───────────────
     if (isElectron()) {
       invoicesDB.clearAll().catch((err) => {
-        console.error('[InvoiceContext] Failed to clear all invoices from SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to clear all invoices from SQLite:', err);
       });
       invoicesDB.setCounter(1).catch((err) => {
-        console.error('[InvoiceContext] Failed to reset invoice counter in SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to reset invoice counter in SQLite:', err);
       });
       tvaDB.clearAll().catch((err) => {
-        console.error('[InvoiceContext] Failed to clear TVA declarations from SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to clear TVA declarations from SQLite:', err);
       });
       settingsDB.set('tva_reset_date', '').catch((err) => {
-        console.error('[InvoiceContext] Failed to clear TVA reset date in SQLite:', err);
+        window.appLog?.error('[InvoiceContext] Failed to clear TVA reset date in SQLite:', err);
       });
     }
 

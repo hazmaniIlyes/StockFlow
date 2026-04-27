@@ -427,6 +427,22 @@ export function InstructionsView() {
           ],
         },
         {
+          id: 'record-purchase',
+          title: t('guide.sup_purchaseTitle'),
+          icon: 'solar:cart-bold-duotone',
+          color: 'success',
+          description: t('guide.sup_purchaseDesc'),
+          steps: [
+            { label: t('guide.sup_purchase1'), detail: t('guide.sup_purchase1d') },
+            { label: t('guide.sup_purchase2'), detail: t('guide.sup_purchase2d') },
+            { label: t('guide.sup_purchase3'), detail: t('guide.sup_purchase3d') },
+            { label: t('guide.sup_purchase4'), detail: t('guide.sup_purchase4d') },
+          ],
+          notes: [
+            t('guide.sup_purchaseN1'),
+          ],
+        },
+        {
           id: 'supplier-history',
           title: t('guide.sup_histTitle'),
           icon: 'solar:history-bold-duotone',
@@ -543,21 +559,6 @@ export function InstructionsView() {
           ],
         },
         {
-          id: 'preferences',
-          title: t('guide.set_prefTitle'),
-          icon: 'solar:slider-minimalistic-bold-duotone',
-          color: 'secondary',
-          description: t('guide.set_prefDesc'),
-          steps: [
-            { label: t('guide.set_pref1'), detail: t('guide.set_pref1d') },
-            { label: t('guide.set_pref2'), detail: t('guide.set_pref2d') },
-            { label: t('guide.set_pref3'), detail: t('guide.set_pref3d') },
-            { label: t('guide.set_pref4'), detail: t('guide.set_pref4d') },
-            { label: t('guide.set_pref5'), detail: t('guide.set_pref5d') },
-            { label: t('guide.set_pref6'), detail: t('guide.set_pref6d') },
-          ],
-        },
-        {
           id: 'categories',
           title: t('guide.set_catTitle'),
           icon: 'solar:tag-bold-duotone',
@@ -593,6 +594,21 @@ export function InstructionsView() {
           ],
         },
         {
+          id: 'preferences',
+          title: t('guide.set_prefTitle'),
+          icon: 'solar:slider-minimalistic-bold-duotone',
+          color: 'secondary',
+          description: t('guide.set_prefDesc'),
+          steps: [
+            { label: t('guide.set_pref1'), detail: t('guide.set_pref1d') },
+            { label: t('guide.set_pref2'), detail: t('guide.set_pref2d') },
+            { label: t('guide.set_pref3'), detail: t('guide.set_pref3d') },
+            { label: t('guide.set_pref4'), detail: t('guide.set_pref4d') },
+            { label: t('guide.set_pref5'), detail: t('guide.set_pref5d') },
+            { label: t('guide.set_pref6'), detail: t('guide.set_pref6d') },
+          ],
+        },
+        {
           id: 'reset',
           title: t('guide.set_resetTitle'),
           icon: 'solar:restart-bold-duotone',
@@ -603,6 +619,7 @@ export function InstructionsView() {
             { label: t('guide.set_reset2'), detail: t('guide.set_reset2d') },
             { label: t('guide.set_reset3'), detail: t('guide.set_reset3d') },
             { label: t('guide.set_reset4'), detail: t('guide.set_reset4d') },
+            { label: t('guide.set_reset5'), detail: t('guide.set_reset5d') },
           ],
           notes: [
             t('guide.set_resetN1'),
@@ -756,6 +773,25 @@ export function InstructionsView() {
         <Iconify icon="solar:lock-bold-duotone" width={20} sx={{ color: theme.palette.info.main, flexShrink: 0 }} />
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
           {t('guide.footerNote')}
+        </Typography>
+      </Box>
+
+      {/* Support note */}
+      <Box
+        sx={{
+          mt: 1.5,
+          p: 2,
+          borderRadius: 2,
+          bgcolor: alpha(theme.palette.warning.main, 0.06),
+          border: `1px solid ${alpha(theme.palette.warning.main, 0.18)}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+        }}
+      >
+        <Iconify icon="solar:bug-bold-duotone" width={20} sx={{ color: theme.palette.warning.main, flexShrink: 0 }} />
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          {t('guide.supportNote')}
         </Typography>
       </Box>
     </Box>
