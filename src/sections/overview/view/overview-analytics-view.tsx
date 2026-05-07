@@ -1,34 +1,32 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import type { Invoice, ProductUnit, InvoiceProduct } from 'src/_mock/_data';
 
-import Box from '@mui/material/Box';
-import ButtonBase from '@mui/material/ButtonBase';
-import Collapse from '@mui/material/Collapse';
+import { useNavigate } from 'react-router-dom';
+import { useMemo, useState, useEffect, useCallback } from 'react';
+
 import Grid from '@mui/material/Grid';
+import Collapse from '@mui/material/Collapse';
+import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
 
-import { useClients, useExpenses, useInventory, useSettings, useSuppliers, useTranslation } from 'src/contexts';
+import { DashboardContent } from 'src/layouts/dashboard';
+import { useClients, useExpenses, useSettings, useInventory, useSuppliers, useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 import { useSnackbar } from 'src/components/snackbar';
 
-import { DashboardContent } from 'src/layouts/dashboard';
-
 import { useInvoices } from 'src/sections/sales/context';
-import { SalesNewInvoiceDialog } from 'src/sections/sales/sales-new-invoice-dialog';
 import { InventoryFormDialog } from 'src/sections/inventory/inventory-form-dialog';
 import { SuppliersFormDialog } from 'src/sections/suppliers/suppliers-form-dialog';
+import { SalesNewInvoiceDialog } from 'src/sections/sales/sales-new-invoice-dialog';
 
 import { AnalyticsLowStock } from '../analytics-low-stock';
-import { AnalyticsQuickActions } from '../analytics-quick-actions';
-import { AnalyticsRecentSales } from '../analytics-recent-sales';
-import { AnalyticsRevenueBreakdown } from '../analytics-revenue-breakdown';
 import { AnalyticsCashFlow } from '../analytics-cash-flow';
 import { AnalyticsTodoList } from '../analytics-todo-list';
-import { AnalyticsWidgetSecondary } from '../analytics-widget-secondary';
+import { AnalyticsRecentSales } from '../analytics-recent-sales';
+import { AnalyticsQuickActions } from '../analytics-quick-actions';
 import { AnalyticsWidgetSummary } from '../analytics-widget-summary';
-
-import type { Invoice, InvoiceProduct, ProductUnit } from 'src/_mock/_data';
+import { AnalyticsWidgetSecondary } from '../analytics-widget-secondary';
+import { AnalyticsRevenueBreakdown } from '../analytics-revenue-breakdown';
 
 // ======================================================================
 
@@ -100,20 +98,21 @@ export function OverviewAnalyticsView() {
 
       // Today
       if (invDate.toDateString() === today) {
-        todayRevenue += inv.subtotal;
+        todayRevenue += inv.total;
       }
 
       // This month
       if (invMonth === currentMonth && invYear === currentYear) {
-        thisMonthRevenue += inv.subtotal;
+        thisMonthRevenue += inv.total;
         tvaCollected += inv.tvaAmount || 0;
       }
 
       // Last month
       if (invMonth === lastMonth && invYear === lastMonthYear) {
-        lastMonthRevenue += inv.subtotal;
+        lastMonthRevenue += inv.total;
         inv.products.forEach((item) => {
-          lastMonthCOGS += (productBuyMap.get(item.name) ?? 0) * item.quantity;
+          const buyingPrice = (item as any).buyingPrice ?? productBuyMap.get(item.name) ?? 0;
+          lastMonthCOGS += buyingPrice * item.quantity;
         });
       }
 
@@ -131,7 +130,8 @@ export function OverviewAnalyticsView() {
     invoices.forEach((inv) => {
       if (new Date(inv.createdAt).toDateString() === today) {
         inv.products.forEach((item) => {
-          todayCOGS += (productBuyMap.get(item.name) ?? 0) * item.quantity;
+          const buyingPrice = (item as any).buyingPrice ?? productBuyMap.get(item.name) ?? 0;
+          todayCOGS += buyingPrice * item.quantity;
         });
       }
     });
@@ -225,7 +225,8 @@ export function OverviewAnalyticsView() {
         if (new Date(inv.createdAt).toDateString() === ds) {
           dayRevenue += inv.total;
           inv.products.forEach((item) => {
-            dayCOGS += (chartProductBuyMap.get(item.name) ?? 0) * item.quantity;
+            const buyingPrice = (item as any).buyingPrice ?? chartProductBuyMap.get(item.name) ?? 0;
+            dayCOGS += buyingPrice * item.quantity;
           });
         }
       });
@@ -317,8 +318,7 @@ export function OverviewAnalyticsView() {
   }, [expenses, expenseCategories]);
 
   // ============ LOW STOCK ALERTS ============
-  const lowStockAlerts = useMemo(() => {
-    return products
+  const lowStockAlerts = useMemo(() => products
       .filter((p) => p.stock <= p.minStock)
       .map((p) => ({
         id: p.id,
@@ -327,12 +327,10 @@ export function OverviewAnalyticsView() {
         minStock: p.minStock,
         status: (p.stock === 0 ? 'critical' : 'warning') as 'critical' | 'warning',
       }))
-      .sort((a, b) => a.currentStock - b.currentStock);
-  }, [products]);
+      .sort((a, b) => a.currentStock - b.currentStock), [products]);
 
   // ============ RECENT SALES ============
-  const recentSales = useMemo(() => {
-    return invoices
+  const recentSales = useMemo(() => invoices
       .slice()
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .map((inv) => ({
@@ -342,8 +340,7 @@ export function OverviewAnalyticsView() {
         amount: inv.total,
         date: inv.createdAt,
         status: (inv.status === 'paid' ? 'completed' : 'pending') as 'completed' | 'pending' | 'shipped',
-      }));
-  }, [invoices]);
+      })), [invoices]);
 
   // --- Invoice Save Handler (same as sales-view) ---
   const handleInvoiceSave = useCallback(

@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useMemo, useState, useEffect, useContext, createContext } from 'react';
 
 type GlobalScanContextType = {
   isFormOpen: boolean;

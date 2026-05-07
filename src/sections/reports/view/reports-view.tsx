@@ -1,22 +1,23 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
+import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 
 import { DashboardContent } from 'src/layouts/dashboard';
+import { useClients, useExpenses, useInventory, useSuppliers, useTranslation } from 'src/contexts';
+
 import { Iconify } from 'src/components/iconify';
 
-import { useClients, useExpenses, useInventory, useSuppliers, useTranslation } from 'src/contexts';
 import { useInvoices } from 'src/sections/sales/context';
 
 import { ReportsSummaryCards } from '../reports-summary-cards';
-import { ReportsRevenueExpensesChart } from '../reports-revenue-expenses-chart';
-import { ReportsProfitMarginChart } from '../reports-profit-margin-chart';
 import { ReportsBreakdownTabs } from '../reports-breakdown-tabs';
+import { ReportsProfitMarginChart } from '../reports-profit-margin-chart';
+import { ReportsRevenueExpensesChart } from '../reports-revenue-expenses-chart';
 
 // ======================================================================
 
@@ -78,12 +79,12 @@ export function ReportsView() {
 
   // Summary metrics
   const summary = useMemo(() => {
-    // Use amountPaid (actual cash received) instead of total to exclude unpaid invoices from revenue
-    const revenue = filteredInvoices.reduce((s, i) => s + i.amountPaid, 0);
+    // Use total (TTC) to represent the full value of the sale regardless of payment status
+    const revenue = filteredInvoices.reduce((s, i) => s + i.total, 0);
     const supplierCosts = suppliers.reduce((s, sp) => {
       // Always re-sum from the purchases array — single consistent path for all date ranges
       const filteredPurchases = filterByDateRange(sp.purchases || [], (p) => p.date, dateRange);
-      return s + filteredPurchases.reduce((sum, p) => sum + p.total, 0);
+      return s + filteredPurchases.reduce((sum, p) => sum + p.amountPaid, 0);
     }, 0);
     const overheadExpenses = filteredExpenses.reduce((s, e) => s + e.amount, 0);
     const totalExpenses = supplierCosts + overheadExpenses;
@@ -115,7 +116,7 @@ export function ReportsView() {
     suppliers.forEach((sp) => {
       filterByDateRange(sp.purchases || [], (p) => p.date, dateRange).forEach((p) => {
         const d = new Date(p.date);
-        expensesByMonth[d.getMonth()] += p.total;
+        expensesByMonth[d.getMonth()] += p.amountPaid;
       });
     });
 

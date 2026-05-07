@@ -1,26 +1,25 @@
-import { useState, useEffect } from 'react';
+import type { Supplier, ProductUnit, SupplierProduct } from 'src/_mock/_data';
 
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
+import { useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
-import Collapse from '@mui/material/Collapse';
 import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
+import Collapse from '@mui/material/Collapse';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
-import { useTranslation, useSettings, ALL_UNITS, useGlobalScan } from 'src/contexts';
+import { ALL_UNITS, useSettings, useGlobalScan, useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
-
-import type { Supplier, SupplierProduct, ProductUnit } from 'src/_mock/_data';
 
 // ======================================================================
 

@@ -1,33 +1,33 @@
-import { useState, useMemo } from 'react';
+import type { Client, Invoice } from 'src/_mock/_data';
+
+import { useMemo, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
-import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
 import Table from '@mui/material/Table';
+import MenuItem from '@mui/material/MenuItem';
+import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
-import TablePagination from '@mui/material/TablePagination';
-import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import InputAdornment from '@mui/material/InputAdornment';
+import TableContainer from '@mui/material/TableContainer';
+import TablePagination from '@mui/material/TablePagination';
 
-import { fCurrency } from 'src/utils/format-number';
 import { fDate } from 'src/utils/format-time';
+import { fCurrency } from 'src/utils/format-number';
 
 import { useSettings, useTranslation } from 'src/contexts';
 
-import { Iconify } from 'src/components/iconify';
 import { Label } from 'src/components/label';
+import { Iconify } from 'src/components/iconify';
 import { ExportButtons } from 'src/components/export-buttons';
-
-import type { Client, Invoice } from 'src/_mock/_data';
 
 // ======================================================================
 
@@ -94,7 +94,7 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
   // Per-client nearest unpaid due date derived from invoices
   const clientDueMap = useMemo(() => {
     const map = new Map<string, { date: Date; label: string }>();
-    const now = new Date();
+    const _now = new Date();
     invoices.forEach((inv) => {
       if (inv.amountDue <= 0 || !inv.dueDate) return;
       const due = new Date(inv.dueDate);
@@ -245,7 +245,7 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
                   <TableCell align="center">
                     <IconButton
                       size="small"
-                      onClick={(e) => handleOpenMenu(e, client)}
+                      onClick={(e) => handleCloseMenu()}
                     >
                       <Iconify icon="solar:menu-dots-bold" width={20} />
                     </IconButton>

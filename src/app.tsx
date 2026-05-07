@@ -1,22 +1,22 @@
 import 'src/global.css';
 
 import { useEffect } from 'react';
-
 import { Navigate } from 'react-router-dom';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 
 import { usePathname } from 'src/routes/hooks';
 
-import { SnackbarProvider } from 'src/components/snackbar';
-
-import { BusinessProvider, ClientsProvider, ExpensesProvider, I18nProvider, InventoryProvider, SettingsProvider, SuppliersProvider, GlobalScanProvider } from 'src/contexts';
-
-import { InvoiceProvider } from 'src/sections/sales/context';
+import { GlobalBarcodeScanListener } from 'src/hooks/use-global-barcode-scan';
 
 import { ThemeProvider } from 'src/theme/theme-provider';
+import { I18nProvider, ClientsProvider, BusinessProvider, ExpensesProvider, SettingsProvider, InventoryProvider, SuppliersProvider, GlobalScanProvider } from 'src/contexts';
+
+import { SnackbarProvider } from 'src/components/snackbar';
+
+import { InvoiceProvider } from 'src/sections/sales/context';
 import { isOnboardingComplete } from 'src/sections/onboarding/onboarding-view';
-import { GlobalBarcodeScanListener } from 'src/hooks/use-global-barcode-scan';
 
 // ----------------------------------------------------------------------
 

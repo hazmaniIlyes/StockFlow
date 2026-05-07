@@ -2,17 +2,17 @@ import type { CardProps } from '@mui/material/Card';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
-import CardHeader from '@mui/material/CardHeader';
-import LinearProgress from '@mui/material/LinearProgress';
 import Table from '@mui/material/Table';
+import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-
-import { useTranslation } from 'src/contexts';
+import CardHeader from '@mui/material/CardHeader';
+import LinearProgress from '@mui/material/LinearProgress';
 
 import { fNumber } from 'src/utils/format-number';
+
+import { useTranslation } from 'src/contexts';
 
 import { Label } from 'src/components/label';
 
@@ -42,9 +42,7 @@ export function AnalyticsLowStock({
   const { t } = useTranslation();
   const criticalCount = list.filter((item) => item.status === 'critical').length;
 
-  const getStatusLabel = (status: 'critical' | 'warning') => {
-    return status === 'critical' ? t('common.critical') : t('common.warning');
-  };
+  const getStatusLabel = (status: 'critical' | 'warning') => status === 'critical' ? t('common.critical') : t('common.warning');
 
   return (
     <Card

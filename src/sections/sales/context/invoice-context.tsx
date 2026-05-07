@@ -1,8 +1,9 @@
-﻿import type { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { Invoice } from 'src/_mock/_data';
 
 import { useMemo, useState, useEffect, useContext, useCallback, createContext } from 'react';
 
+import { useInventory } from 'src/contexts/inventory-context';
 import { tvaDB, isElectron, invoicesDB, settingsDB } from 'src/services/db'; // Import database services for invoices, TVA, and settings
 
 // ======================================================================
@@ -60,6 +61,8 @@ export function InvoiceProvider({ children }: ProviderProps) {
   const [invoiceCounter, setInvoiceCounter] = useState(1);
   const [tvaDeclarations, setTvaDeclarations] = useState<TvaDeclaration[]>([]);
   const [tvaResetDate, setTvaResetDate] = useState<string | null>(null);
+
+  const { products } = useInventory(); // Get products for real COGS lookup
 
   // ── Load invoices, counter, TVA data from SQLite on mount ──────────
   // This replaces the old useState([]) with real database data.
@@ -230,22 +233,29 @@ export function InvoiceProvider({ children }: ProviderProps) {
     let overdueAmount = 0;
     let overdueCount = 0;
 
+    const productBuyMap = new Map(products.map((p) => [p.name, p.buyingPrice]));
+
     invoices.forEach((inv) => {
       const invDate = new Date(inv.createdAt);
       const dueDate = new Date(inv.dueDate);
 
+      let invoiceProfit = 0;
+      inv.products.forEach((item) => {
+        const buyingPrice = (item as any).buyingPrice ?? productBuyMap.get(item.name) ?? 0;
+        invoiceProfit += (item.unitPrice - buyingPrice) * item.quantity;
+      });
+
       // Today's sales
       if (invDate.toDateString() === todayStr) {
         todaySales += inv.total;
-        // Estimate profit as 25% of subtotal (before TVA)
-        todayProfit += inv.subtotal * 0.25;
+        todayProfit += invoiceProfit;
         todayCount += 1;
       }
 
       // This month's sales
       if (invDate.getMonth() === thisMonth && invDate.getFullYear() === thisYear) {
         monthSales += inv.total;
-        monthProfit += inv.subtotal * 0.25;
+        monthProfit += invoiceProfit;
         monthCount += 1;
       }
 
@@ -268,7 +278,7 @@ export function InvoiceProvider({ children }: ProviderProps) {
       thisMonth: { totalSales: monthSales, profit: monthProfit, count: monthCount },
       overdue: { totalAmount: overdueAmount, count: overdueCount },
     };
-  }, [invoices]);
+  }, [invoices, products]);
 
   const getInvoicesForClient = useCallback(
     (clientName: string) =>

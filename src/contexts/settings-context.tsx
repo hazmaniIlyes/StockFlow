@@ -1,10 +1,11 @@
-import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import type { ProductUnit } from 'src/_mock/_data';
 
-import { settingsDB, isElectron } from 'src/services/db'; // Import SQLite database wrapper for persistent settings
+import { useMemo, useState, useEffect, useContext, useCallback, createContext } from 'react';
+
 import { setActiveCurrency } from 'src/utils/format-number';
 
-import type { ProductUnit } from 'src/_mock/_data';
+import { settingsDB, isElectron } from 'src/services/db'; // Import SQLite database wrapper for persistent settings
 
 export const ALL_UNITS: ProductUnit[] = ['pcs', 'g', 'kg', 'mg', 'ton', 'quintar', 'l', 'ml', 'm', 'cm', 'mm'];
 

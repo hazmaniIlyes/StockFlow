@@ -42,7 +42,7 @@ export function Logo({
     />
   );
 
-  const singleLogo = (
+  const _singleLogo = (
     <svg
       width="100%"
       height="100%"
@@ -104,7 +104,7 @@ export function Logo({
     </svg>
   );
 
-  const fullLogo = (
+  const _fullLogo = (
     <svg
       width="100%"
       height="100%"

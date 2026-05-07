@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { Supplier, SupplierProduct, SupplierPurchase, SupplierPaymentRecord } from 'src/_mock/_data';
 
-import { useMemo, useState, useEffect, useContext, useCallback, createContext } from 'react';
+import { useRef, useMemo, useState, useEffect, useContext, useCallback, createContext } from 'react';
 
 import { isElectron, suppliersDB } from 'src/services/db'; // Import database service for SQLite supplier operations
 
@@ -22,6 +22,10 @@ type SuppliersContextType = {
   recordPurchase: (id: string, items: PurchaseItem[], amountPaid: number) => SupplierPurchase;
   activeSuppliers: Supplier[];
   clearAll: () => void;
+  // Register a callback that will be called whenever a supplier name changes.
+  // Used by view components that have access to both SuppliersContext and
+  // InventoryContext to propagate the rename to linked inventory products.
+  registerInventorySync: (fn: ((supplierId: string, newName: string) => void) | null) => void;
 };
 
 const SuppliersContext = createContext<SuppliersContextType | null>(null);
@@ -40,6 +44,19 @@ type ProviderProps = {
 
 export function SuppliersProvider({ children }: ProviderProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+
+  // Stable ref that holds a callback registered by a view component which has
+  // access to InventoryContext. When set, updateSupplier will call it with the
+  // supplier id and the new name so the view can sync linked product records.
+  // Using a ref (not state) keeps updateSupplier's useCallback dep-free.
+  const inventorySyncRef = useRef<((supplierId: string, newName: string) => void) | null>(null);
+
+  const registerInventorySync = useCallback(
+    (fn: ((supplierId: string, newName: string) => void) | null) => {
+      inventorySyncRef.current = fn;
+    },
+    []
+  );
 
   // ── Load suppliers from SQLite on mount ────────────────────────────
   // Loads all suppliers and their associated catalog, purchases, and payments from the database.
@@ -153,6 +170,12 @@ export function SuppliersProvider({ children }: ProviderProps) {
     }
 
     setSuppliers((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s)));
+
+    // If the supplier name changed, notify the registered inventory sync callback
+    // so the view component can update all linked inventory products.
+    if (data.name && inventorySyncRef.current) {
+      inventorySyncRef.current(id, data.name);
+    }
   }, []);
 
   const deleteSupplier = useCallback((id: string) => {
@@ -334,6 +357,7 @@ export function SuppliersProvider({ children }: ProviderProps) {
       recordPurchase,
       activeSuppliers,
       clearAll,
+      registerInventorySync,
     }),
     [
       suppliers,
@@ -348,6 +372,7 @@ export function SuppliersProvider({ children }: ProviderProps) {
       recordPurchase,
       activeSuppliers,
       clearAll,
+      registerInventorySync,
     ]
   );
 

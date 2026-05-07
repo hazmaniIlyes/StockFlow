@@ -2,13 +2,11 @@ import type { CardProps } from '@mui/material/Card';
 import type { PaletteColorKey } from 'src/theme/core';
 import type { ChartOptions } from 'src/components/chart';
 
-import { varAlpha } from 'minimal-shared/utils';
-
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import { useTheme } from '@mui/material/styles';
 
-import { fCurrency, fNumber, fPercent } from 'src/utils/format-number';
+import { fNumber, fPercent, fCurrency } from 'src/utils/format-number';
 
 import { Iconify } from 'src/components/iconify';
 import { Chart, useChart } from 'src/components/chart';

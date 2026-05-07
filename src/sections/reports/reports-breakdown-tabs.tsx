@@ -1,25 +1,25 @@
+import type { Client, Invoice, Expense, Supplier, InventoryProduct } from 'src/_mock/_data';
+
 import { useState } from 'react';
 
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
 import Tab from '@mui/material/Tab';
+import Card from '@mui/material/Card';
 import Tabs from '@mui/material/Tabs';
 import Table from '@mui/material/Table';
+import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
-import TablePagination from '@mui/material/TablePagination';
-import TableRow from '@mui/material/TableRow';
 import { useTheme } from '@mui/material/styles';
+import TableContainer from '@mui/material/TableContainer';
+import TablePagination from '@mui/material/TablePagination';
 
-import { fCurrency, fNumber } from 'src/utils/format-number';
+import { fNumber, fCurrency } from 'src/utils/format-number';
 
 import { useSettings, useTranslation } from 'src/contexts';
 
 import { Label } from 'src/components/label';
-
-import type { Invoice, Client, Supplier, Expense, InventoryProduct } from 'src/_mock/_data';
 
 // ======================================================================
 

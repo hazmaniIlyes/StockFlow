@@ -1,15 +1,16 @@
 import type { CardProps } from '@mui/material/Card';
 import type { ChartOptions } from 'src/components/chart';
 
-import Card from '@mui/material/Card';
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
+import Card from '@mui/material/Card';
 import { useTheme } from '@mui/material/styles';
+import Typography from '@mui/material/Typography';
 import CardHeader from '@mui/material/CardHeader';
+
+import { fCurrency } from 'src/utils/format-number';
 
 import { useTranslation } from 'src/contexts';
 
-import { fCurrency } from 'src/utils/format-number';
 import { Chart, useChart } from 'src/components/chart';
 
 // ======================================================================

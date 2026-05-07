@@ -1,6 +1,7 @@
-import { useMemo, useRef } from 'react';
+import { useRef, useMemo } from 'react';
 
-import { useInventory, useSuppliers, useExpenses, useTranslation } from 'src/contexts';
+import { useExpenses, useInventory, useSuppliers, useTranslation } from 'src/contexts';
+
 import { useInvoices } from 'src/sections/sales/context';
 
 // ----------------------------------------------------------------------

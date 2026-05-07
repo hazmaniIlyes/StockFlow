@@ -1,27 +1,26 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'; // added useCallback for memoised queue-advance handler
+import type { Supplier, InventoryProduct } from 'src/_mock/_data'; // added InventoryProduct for conflict-queue typing
 
-import { useTheme, alpha } from '@mui/material/styles'; // added: design tokens needed for pricing dialog cards (mirrors inventory-form-dialog.tsx)
+import { useMemo, useState, useEffect, useCallback } from 'react'; // added useCallback for memoised queue-advance handler
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import DialogTitle from '@mui/material/DialogTitle';
+import { alpha, useTheme } from '@mui/material/styles'; // added: design tokens needed for pricing dialog cards (mirrors inventory-form-dialog.tsx)
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import InputAdornment from '@mui/material/InputAdornment';
 
 import { fCurrency } from 'src/utils/format-number';
 
-import { useInventory, useTranslation, useGlobalScan, useSettings } from 'src/contexts';
+import { useSettings, useInventory, useGlobalScan, useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
-
-import type { Supplier, InventoryProduct } from 'src/_mock/_data'; // added InventoryProduct for conflict-queue typing
 
 // ======================================================================
 

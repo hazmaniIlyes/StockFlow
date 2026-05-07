@@ -1,16 +1,16 @@
+import type { Expense } from 'src/_mock/_data';
+
 import { useState, useEffect } from 'react';
 
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
 
-import { useSettings, useTranslation, useGlobalScan } from 'src/contexts';
-
-import type { Expense } from 'src/_mock/_data';
+import { useSettings, useGlobalScan, useTranslation } from 'src/contexts';
 
 // ======================================================================
 

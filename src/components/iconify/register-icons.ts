@@ -1,12 +1,11 @@
 import type { IconifyJSON } from '@iconify/react';
 
 import { addCollection } from '@iconify/react';
-
-import { icons as solarIcons } from '@iconify-json/solar';
-import { icons as evaIcons } from '@iconify-json/eva';
 import { icons as icIcons } from '@iconify-json/ic';
-import { icons as mingcuteIcons } from '@iconify-json/mingcute';
+import { icons as evaIcons } from '@iconify-json/eva';
+import { icons as solarIcons } from '@iconify-json/solar';
 import { icons as carbonIcons } from '@iconify-json/carbon';
+import { icons as mingcuteIcons } from '@iconify-json/mingcute';
 
 import customIcons from './icon-sets';
 

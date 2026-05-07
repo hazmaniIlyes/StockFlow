@@ -1,22 +1,19 @@
 import type { Theme, SxProps, Breakpoint } from '@mui/material/styles';
 
 import { useEffect } from 'react';
-import { varAlpha } from 'minimal-shared/utils';
 
 import Box from '@mui/material/Box';
+import Tooltip from '@mui/material/Tooltip';
 import ListItem from '@mui/material/ListItem';
 import { useTheme } from '@mui/material/styles';
 import ListItemButton from '@mui/material/ListItemButton';
 import Drawer, { drawerClasses } from '@mui/material/Drawer';
-import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
 
 import { usePathname } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
-import { useTranslation, useI18n } from 'src/contexts';
+import { useI18n, useTranslation } from 'src/contexts';
 
-import { Iconify } from 'src/components/iconify';
 import { Logo } from 'src/components/logo';
 import { Scrollbar } from 'src/components/scrollbar';
 
@@ -47,7 +44,7 @@ export function NavDesktop({
 }) {
   const theme = useTheme();
   const { dir } = useI18n();
-  const isRTL = dir === 'rtl';
+  const _isRTL = dir === 'rtl';
 
   return (
     <Box

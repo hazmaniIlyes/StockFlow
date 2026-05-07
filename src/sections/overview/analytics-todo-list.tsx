@@ -3,22 +3,21 @@
 import { useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
-import CardHeader from '@mui/material/CardHeader';
-import Checkbox from '@mui/material/Checkbox';
-import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
-import ListItemButton from '@mui/material/ListItemButton';
+import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
+import TextField from '@mui/material/TextField';
+import CardHeader from '@mui/material/CardHeader';
+import IconButton from '@mui/material/IconButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import Stack from '@mui/material/Stack';
-import TextField from '@mui/material/TextField';
+import ListItemButton from '@mui/material/ListItemButton';
 
 import { useTranslation } from 'src/contexts';
+import { isElectron, actionItemsDB } from 'src/services/db'; // Import our new database endpoint
 
 import { Iconify } from 'src/components/iconify';
-import { actionItemsDB, isElectron } from 'src/services/db'; // Import our new database endpoint
 
 // ----------------------------------------------------------------------
 

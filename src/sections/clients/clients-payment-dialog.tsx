@@ -1,24 +1,23 @@
+import type { Client } from 'src/_mock/_data';
+
 import { useState, useEffect } from 'react';
 
-import { useTheme, alpha } from '@mui/material/styles';
-
 import Box from '@mui/material/Box';
+import Radio from '@mui/material/Radio';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
+import TextField from '@mui/material/TextField';
+import RadioGroup from '@mui/material/RadioGroup';
+import Typography from '@mui/material/Typography';
+import DialogTitle from '@mui/material/DialogTitle';
+import { alpha, useTheme } from '@mui/material/styles';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import Radio from '@mui/material/Radio';
-import RadioGroup from '@mui/material/RadioGroup';
-import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
 
 import { fCurrency } from 'src/utils/format-number';
 
-import { useTranslation, useGlobalScan } from 'src/contexts';
-
-import type { Client } from 'src/_mock/_data';
+import { useGlobalScan, useTranslation } from 'src/contexts';
 
 // ======================================================================
 

@@ -1,37 +1,36 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import type { Client, Invoice, ProductUnit, InvoiceProduct, InventoryProduct } from 'src/_mock/_data';
 
-import Autocomplete from '@mui/material/Autocomplete';
+import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
+
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Grid from '@mui/material/Grid';
+import Menu from '@mui/material/Menu';
+import Radio from '@mui/material/Radio';
+import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
+import Divider from '@mui/material/Divider';
+import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
+import RadioGroup from '@mui/material/RadioGroup';
+import Typography from '@mui/material/Typography';
+import DialogTitle from '@mui/material/DialogTitle';
+import Autocomplete from '@mui/material/Autocomplete';
+import { alpha, useTheme } from '@mui/material/styles';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
-import Divider from '@mui/material/Divider';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import Grid from '@mui/material/Grid';
-import IconButton from '@mui/material/IconButton';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
-import Radio from '@mui/material/Radio';
-import RadioGroup from '@mui/material/RadioGroup';
-import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
 
 import { fCurrency } from 'src/utils/format-number';
 
-import { alpha, useTheme } from '@mui/material/styles';
-
-import { useClients, useInventory, useTranslation, useSettings, useGlobalScan } from 'src/contexts';
-
-import { useInvoices } from './context/invoice-context';
+import { useClients, useSettings, useInventory, useGlobalScan, useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 import { ScanModal } from 'src/components/scan-modal';
 import { useSnackbar } from 'src/components/snackbar';
 
-import type { Invoice, InvoiceProduct, Client, InventoryProduct, ProductUnit } from 'src/_mock/_data';
+import { useInvoices } from './context/invoice-context';
 
 // ======================================================================
 

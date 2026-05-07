@@ -1,6 +1,6 @@
 import type { IconButtonProps } from '@mui/material/IconButton';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import List from '@mui/material/List';
@@ -14,11 +14,13 @@ import ListItemText from '@mui/material/ListItemText';
 import ListSubheader from '@mui/material/ListSubheader';
 import ListItemButton from '@mui/material/ListItemButton';
 
+import { useRouter } from 'src/routes/hooks';
+
+import { useNotifications, type AppNotification } from 'src/hooks/use-notifications';
+
 import { fToNow } from 'src/utils/format-time';
 
 import { useTranslation } from 'src/contexts';
-import { type AppNotification, useNotifications } from 'src/hooks/use-notifications';
-import { useRouter } from 'src/routes/hooks';
 
 import { Iconify } from 'src/components/iconify';
 

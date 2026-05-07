@@ -1,17 +1,17 @@
 import type { Breakpoint } from '@mui/material/styles';
 
+import { useMemo } from 'react';
 import { merge } from 'es-toolkit';
 import { useBoolean } from 'minimal-shared/hooks';
-import { useMemo } from 'react';
 
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
-import IconButton from '@mui/material/IconButton';
 import { useTheme } from '@mui/material/styles';
+import IconButton from '@mui/material/IconButton';
 
 import { _langs } from 'src/_mock';
+import { useI18n, useSettings } from 'src/contexts';
 
-import { useSettings, useI18n } from 'src/contexts';
 import { Iconify } from 'src/components/iconify';
 
 import { NavMobile, NavDesktop } from './nav';
@@ -21,7 +21,6 @@ import { dashboardLayoutVars } from './css-vars';
 import { navData } from '../nav-config-dashboard';
 import { MainSection } from '../core/main-section';
 import { Searchbar } from '../components/searchbar';
-
 import { MenuButton } from '../components/menu-button';
 import { HeaderSection } from '../core/header-section';
 import { LayoutSection } from '../core/layout-section';

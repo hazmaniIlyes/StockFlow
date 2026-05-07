@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useRef, useEffect } from 'react';
 
 /**
  * Listens for keyboard-buffered barcode scanner input.
@@ -15,7 +15,7 @@ export function useBarcodeScan(enabled: boolean, onScan: (sku: string) => void):
   const THRESHOLD_MS = 150;
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) return undefined;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;

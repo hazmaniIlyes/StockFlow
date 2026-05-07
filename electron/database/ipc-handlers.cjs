@@ -37,6 +37,15 @@ function registerAllHandlers(ipcMain, db) {
 
   // ADD — Inserts a new product and returns the complete inserted row
   ipcMain.handle('db:products:add', (_event, data) => {
+    // Guard: reject duplicate non-empty SKUs before attempting the INSERT.
+    // The UI should have already blocked this, but this is a second line of defense.
+    if (data.sku && data.sku.trim() !== '') {
+      const existing = db.prepare('SELECT id FROM products WHERE sku = ?').get(data.sku.trim());
+      if (existing) {
+        throw new Error(`SKU_DUPLICATE:${data.sku.trim()}`); // Structured error so the UI can show a friendly message
+      }
+    }
+
     const stmt = db.prepare(`
       INSERT INTO products (id, sku, name, category, supplierId, supplierName, buyingPrice, sellPrice, stock, minStock, unit, expiryDate, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -393,28 +402,61 @@ function registerAllHandlers(ipcMain, db) {
     return data;
   });
 
-  // UPDATE — Updates invoice fields (e.g., payment status changes)
+  // UPDATE — Updates invoice fields and replaces product line items if provided
   ipcMain.handle('db:invoices:update', (_event, id, data) => {
+    // Capture the products array BEFORE flattening/deleting — it may be undefined
+    // for payment-only updates (recordPayment, markAsPaid) which never pass products
+    const updatedProducts = data.products;
+
     // Handle client object flattening if present
     const flatData = { ...data };           // Copy to avoid mutating the original
     if (flatData.client) {
-      flatData.clientName = flatData.client.name;
-      flatData.clientPhone = flatData.client.phone;
+      flatData.clientName    = flatData.client.name;
+      flatData.clientPhone   = flatData.client.phone;
       flatData.clientAddress = flatData.client.address;
-      flatData.clientNif = flatData.client.nif;
-      flatData.clientNis = flatData.client.nis;
-      flatData.clientRc = flatData.client.rc;
-      flatData.clientAi = flatData.client.ai;
+      flatData.clientNif     = flatData.client.nif;
+      flatData.clientNis     = flatData.client.nis;
+      flatData.clientRc      = flatData.client.rc;
+      flatData.clientAi      = flatData.client.ai;
       delete flatData.client;               // Remove the nested object since we flattened it
     }
-    delete flatData.products;               // Products are managed separately, not updated here
+    delete flatData.products;               // Products are handled separately below via invoice_products
 
     const fields = Object.keys(flatData);
-    if (fields.length === 0) return;
-    const setClause = fields.map(f => `${f} = ?`).join(', ');
-    const values = fields.map(f => flatData[f]);
-    const stmt = db.prepare(`UPDATE invoices SET ${setClause} WHERE id = ?`);
-    stmt.run(...values, id);
+    if (fields.length === 0 && !updatedProducts) return; // Nothing to do — skip entirely
+
+    // Prepare all statements once outside the transaction for efficiency
+    const updateInvoiceStmt = fields.length > 0
+      ? db.prepare(`UPDATE invoices SET ${fields.map(f => `${f} = ?`).join(', ')} WHERE id = ?`)
+      : null;
+
+    const deleteProductsStmt = db.prepare('DELETE FROM invoice_products WHERE invoiceId = ?');
+    const insertProductStmt  = db.prepare(`
+      INSERT INTO invoice_products (id, invoiceId, name, quantity, unitPrice, total, unit)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    // Wrap the invoice row update + line-item replacement in a single atomic transaction
+    const updateTransaction = db.transaction(() => {
+      // 1. Update the scalar invoice fields (amounts, status, client info, etc.)
+      if (updateInvoiceStmt) {
+        const values = fields.map(f => flatData[f]);
+        updateInvoiceStmt.run(...values, id);
+      }
+
+      // 2. Replace product line items only when a products array was provided
+      //    (payment-only calls omit products entirely so this block is skipped)
+      if (updatedProducts) {
+        deleteProductsStmt.run(id);         // Remove all existing line items for this invoice
+        updatedProducts.forEach(p => {
+          insertProductStmt.run(            // Re-insert each updated product row
+            p.id, id, p.name, p.quantity, p.unitPrice, p.total, p.unit || null
+          );
+        });
+      }
+    });
+
+    updateTransaction();                    // Execute all three steps atomically
   });
 
   // DELETE — Removes an invoice and returns the deleted data (for stock restoration)

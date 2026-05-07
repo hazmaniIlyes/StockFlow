@@ -1,25 +1,27 @@
-﻿import { useState, useCallback, useRef, useEffect } from 'react';
+﻿import type { Language } from 'src/contexts';
+
+import { useRef, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
-import Checkbox from '@mui/material/Checkbox';
-import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Button from '@mui/material/Button';
+import Switch from '@mui/material/Switch';
 import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
-import LinearProgress from '@mui/material/LinearProgress';
+import Checkbox from '@mui/material/Checkbox';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import Switch from '@mui/material/Switch';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import ToggleButton from '@mui/material/ToggleButton';
 import { alpha, useTheme } from '@mui/material/styles';
+import InputAdornment from '@mui/material/InputAdornment';
+import LinearProgress from '@mui/material/LinearProgress';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
-import { useI18n, useBusiness, useSettings } from 'src/contexts';
-import type { Language } from 'src/contexts';
-import { Iconify } from 'src/components/iconify';
 import { settingsDB, isElectron } from 'src/services/db'; // Import SQLite interface
+import { useI18n, useBusiness, useSettings } from 'src/contexts';
+
+import { Iconify } from 'src/components/iconify';
 
 // ──────────────────────────────────────────────────────────────────────
 // Types

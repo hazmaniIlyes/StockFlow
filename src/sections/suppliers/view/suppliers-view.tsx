@@ -1,23 +1,23 @@
-import { useState, useCallback, useMemo } from 'react';
+import type { Supplier } from 'src/_mock/_data';
+
 import { useNavigate } from 'react-router-dom';
+import { useRef, useMemo, useState, useCallback, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
+import { DashboardContent } from 'src/layouts/dashboard';
 import { useSuppliers, useInventory, useTranslation } from 'src/contexts';
 
-import { ConfirmDialog } from 'src/components/confirm-dialog';
-import { DashboardContent } from 'src/layouts/dashboard';
 import { Iconify } from 'src/components/iconify';
 import { useSnackbar } from 'src/components/snackbar';
+import { ConfirmDialog } from 'src/components/confirm-dialog';
 
-import { SuppliersKpiCards } from '../suppliers-kpi-cards';
 import { SuppliersTable } from '../suppliers-table';
+import { SuppliersKpiCards } from '../suppliers-kpi-cards';
 import { SuppliersFormDialog } from '../suppliers-form-dialog';
 import { SuppliersPaymentDialog } from '../suppliers-payment-dialog';
-
-import type { Supplier } from 'src/_mock/_data';
 
 // ======================================================================
 
@@ -25,8 +25,8 @@ export function SuppliersView() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { showSuccess, showError } = useSnackbar();
-  const { suppliers, addSupplier, updateSupplier, deleteSupplier, recordPayment, recordPurchase } = useSuppliers();
-  const { addProduct } = useInventory();
+  const { suppliers, addSupplier, updateSupplier, deleteSupplier, recordPayment, recordPurchase, registerInventorySync } = useSuppliers();
+  const { addProduct, products, updateProduct } = useInventory();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editSupplier, setEditSupplier] = useState<Supplier | null>(null);
@@ -35,6 +35,25 @@ export function SuppliersView() {
   // Delete confirmation
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
+
+  // Keep a ref that always points at the latest products so the rename sync
+  // callback (registered below) can see fresh data without being re-created
+  // every time products changes — same pattern as clientsRef in clients-context.
+  const productsRef = useRef(products);
+  useEffect(() => { productsRef.current = products; }, [products]);
+
+  // Register the inventory sync callback once (stable refs mean no re-runs).
+  // When a supplier is renamed, updateSupplier fires inventorySyncRef.current,
+  // which calls this closure. It iterates all products via productsRef.current
+  // and patches their supplierName so the inventory table shows the new name.
+  useEffect(() => {
+    registerInventorySync((supplierId, newName) => {
+      productsRef.current
+        .filter((p) => p.supplierId === supplierId)
+        .forEach((p) => updateProduct(p.id, { supplierName: newName }));
+    });
+    return () => registerInventorySync(null); // clean up on unmount
+  }, [registerInventorySync, updateProduct]); // updateProduct is stable (useCallback [])
 
   // KPI calculations - from shared context
   const kpis = useMemo(() => {

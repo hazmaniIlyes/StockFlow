@@ -1,41 +1,38 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import type { Invoice, InvoiceProduct } from 'src/_mock/_data';
+
+import { useRef, useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
-import Divider from '@mui/material/Divider';
-import Grid from '@mui/material/Grid';
 import Table from '@mui/material/Table';
+import Button from '@mui/material/Button';
+import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
+import { useTheme } from '@mui/material/styles';
+import Typography from '@mui/material/Typography';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import Typography from '@mui/material/Typography';
-import { alpha, useTheme } from '@mui/material/styles';
 
 import { fCurrency } from 'src/utils/format-number';
-import { fDate, fDateLocale } from 'src/utils/format-time';
+import { fDateLocale } from 'src/utils/format-time';
 import { numberToWords } from 'src/utils/number-to-words';
 
-import { ConfirmDialog } from 'src/components/confirm-dialog';
-import { Iconify } from 'src/components/iconify';
-import { Label } from 'src/components/label';
-import { useSnackbar } from 'src/components/snackbar';
-
-import { useBusiness, useTranslation, useInventory, useClients } from 'src/contexts';
-
 import { DashboardContent } from 'src/layouts/dashboard';
+import { useClients, useBusiness, useInventory, useTranslation } from 'src/contexts';
+
+import { Label } from 'src/components/label';
+import { Iconify } from 'src/components/iconify';
+import { useSnackbar } from 'src/components/snackbar';
+import { ConfirmDialog } from 'src/components/confirm-dialog';
 
 import { useInvoices } from '../context';
 import { SalesNewInvoiceDialog } from '../sales-new-invoice-dialog';
-import { SalesRecordPaymentDialog } from '../sales-record-payment-dialog';
 import { SalesPrintPreviewDialog } from '../sales-print-preview-dialog';
-
-import type { Invoice, InvoiceProduct } from 'src/_mock/_data';
+import { SalesRecordPaymentDialog } from '../sales-record-payment-dialog';
 
 // ======================================================================
 
@@ -49,7 +46,7 @@ export function SalesDetailView() {
   const { t, language, dir } = useTranslation();
   const { getInvoice, updateInvoice, deleteInvoice, recordPayment, markAsPaid } = useInvoices();
   const { restoreStockForInvoice, deductStockForInvoice, canDeductAfterRestore } = useInventory();
-  const { getClientByName, recordPayment: recordClientPayment, updateClient } = useClients();
+  const { getClientByName, recordPayment: recordClientPayment, updateClient, addClient } = useClients();
 
   const [invoice, setInvoice] = useState<Invoice | undefined>(undefined);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -505,6 +502,7 @@ ${pagesHtml}
     const oldInvoice = invoice;
     const oldAmountPaid = invoice.amountPaid;
     const oldAmountDue = invoice.amountDue;
+    const oldTotal = invoice.total;
     const oldItems = options.originalProducts?.map((p) => ({ name: p.name, quantity: p.quantity })) ?? [];
     const newItems = data.products.map((p) => ({ name: p.name, quantity: p.quantity }));
 
@@ -525,18 +523,65 @@ ${pagesHtml}
       updateInvoice(invoice.id, data);
       setInvoice({ ...invoice, ...data });
       // Sync client balance when payment amounts changed
-      const paidDelta = data.amountPaid - oldAmountPaid;
-      const dueDelta = data.amountDue - oldAmountDue;
-      if (paidDelta !== 0 || dueDelta !== 0) {
-        const client = getClientByName(invoice.client.name);
-        if (client) {
-          const newRemainingBalance = Math.max(0, client.remainingBalance + dueDelta);
-          updateClient(client.id, {
-            totalPaid: client.totalPaid + paidDelta,
+      const paidDelta = Number(data.amountPaid) - Number(oldAmountPaid);
+      const dueDelta = Number(data.amountDue) - Number(oldAmountDue);
+      const totalDelta = Number(data.total) - Number(oldTotal);
+      
+      const clientNameChanged = data.client.name !== invoice.client.name;
+      if (clientNameChanged) {
+        const oldClient = getClientByName(invoice.client.name);
+        if (oldClient) {
+          const newTotalPurchases = Math.max(0, Number(oldClient.totalPurchases) - Number(invoice.total));
+          const newTotalPaid = Math.max(0, Number(oldClient.totalPaid) - Number(invoice.amountPaid));
+          const newRemainingBalance = Math.max(0, Number(oldClient.remainingBalance) - Number(invoice.amountDue));
+          
+          updateClient(oldClient.id, {
+            totalPurchases: newTotalPurchases,
+            totalPaid: newTotalPaid,
             remainingBalance: newRemainingBalance,
             status: newRemainingBalance <= 0 ? 'paid' : 'unpaid',
           });
         }
+      }
+      
+      const client = getClientByName(data.client.name);
+      if (!client) {
+        // Unknown client name entered during edit -> create new client
+        addClient({
+          name: data.client.name,
+          phone: data.client.phone || '',
+          address: data.client.address || '',
+          nif: data.client.nif,
+          nis: data.client.nis,
+          rc: data.client.rc,
+          ai: data.client.ai,
+          totalPurchases: Number(data.total),
+          totalPaid: Number(data.amountPaid),
+          remainingBalance: Number(data.amountDue),
+          lastInvoiceDate: new Date().toISOString().split('T')[0],
+          status: data.amountDue <= 0 ? 'paid' : data.amountPaid > 0 ? 'partly-paid' : 'unpaid',
+        });
+      } else if (clientNameChanged) {
+        // The new client already exists, and the invoice was moved to them.
+        // Add the FULL absolute invoice totals to this existing client.
+        const newRemainingBalance = Math.max(0, Number(client.remainingBalance) + Number(data.amountDue));
+        const newTotalPurchases = Math.max(0, Number(client.totalPurchases) + Number(data.total));
+        updateClient(client.id, {
+          totalPaid: Number(client.totalPaid) + Number(data.amountPaid),
+          totalPurchases: newTotalPurchases,
+          remainingBalance: newRemainingBalance,
+          status: newRemainingBalance <= 0 ? 'paid' : 'unpaid',
+        });
+      } else if (paidDelta !== 0 || dueDelta !== 0 || totalDelta !== 0) {
+        // Standard edit: the client name did not change, so just apply the deltas
+        const newRemainingBalance = Math.max(0, Number(client.remainingBalance) + dueDelta);
+        const newTotalPurchases = Math.max(0, Number(client.totalPurchases) + totalDelta);
+        updateClient(client.id, {
+          totalPaid: Number(client.totalPaid) + paidDelta,
+          totalPurchases: newTotalPurchases,
+          remainingBalance: newRemainingBalance,
+          status: newRemainingBalance <= 0 ? 'paid' : 'unpaid',
+        });
       }
     } catch (err) {
       // Revert local state if any synchronous step throws
@@ -550,6 +595,21 @@ ${pagesHtml}
 
   const handleDelete = () => {
     restoreStockForInvoice(invoice.products.map((p) => ({ name: p.name, quantity: p.quantity })));
+    
+    // Revert client's totalPurchases and balance
+    const client = getClientByName(invoice.client.name);
+    if (client) {
+      const newTotalPurchases = Math.max(0, Number(client.totalPurchases) - Number(invoice.total));
+      const newTotalPaid = Math.max(0, Number(client.totalPaid) - Number(invoice.amountPaid));
+      const newRemainingBalance = Math.max(0, Number(client.remainingBalance) - Number(invoice.amountDue));
+      updateClient(client.id, {
+        totalPurchases: newTotalPurchases,
+        totalPaid: newTotalPaid,
+        remainingBalance: newRemainingBalance,
+        status: newRemainingBalance <= 0 ? 'paid' : 'unpaid',
+      });
+    }
+
     deleteInvoice(invoice.id);
     showSuccess(`${t('sales.invoiceDeleted')} (${invoice.invoiceNumber})`);
     navigate('/sales');
@@ -659,7 +719,7 @@ ${pagesHtml}
         <ToggleButtonGroup
           value={viewMode}
           exclusive
-          onChange={(_, val) => { if (val) setViewMode(val); }}
+          onChange={(_, val) => { if (val) setViewMode(val as 'invoice' | 'delivery'); }}
           size="small"
           sx={{ bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}
         >
@@ -742,15 +802,15 @@ ${pagesHtml}
                   </Box>
                 </Box>
                 {/* products table */}
-                <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1.5, overflow: 'hidden', mb: 2.5 }}>
-                  <Table size="small">
+                <Box sx={{ overflow: 'hidden', border: '1px solid #e8e8e8', borderRadius: 2, mb: 2.5 }}>
+                  <Table size="small" sx={{ '& td, & th': { borderColor: '#f0f0f0' }, '& td': { color: 'rgba(0,0,0,0.87)' } }}>
                     <TableHead>
                       <TableRow>
-                        <TableCell sx={{ bgcolor: '#1a1a2e', color: 'white', fontWeight: 600, fontSize: '0.68rem', width: 32, textAlign: 'center' }}>N</TableCell>
-                        <TableCell sx={{ bgcolor: '#1a1a2e', color: 'white', fontWeight: 600, fontSize: '0.68rem' }}>{lbl.product}</TableCell>
-                        <TableCell align="center" sx={{ bgcolor: '#1a1a2e', color: 'white', fontWeight: 600, fontSize: '0.68rem', width: 100 }}>{lbl.unitPrice}</TableCell>
-                        <TableCell align="center" sx={{ bgcolor: '#1a1a2e', color: 'white', fontWeight: 600, fontSize: '0.68rem', width: 80 }}>{lbl.qty}</TableCell>
-                        <TableCell align="right" sx={{ bgcolor: '#1a1a2e', color: 'white', fontWeight: 600, fontSize: '0.68rem', width: 110 }}>{lbl.total}</TableCell>
+                        <TableCell sx={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)', color: 'rgba(255,255,255,0.5)', fontWeight: 600, fontSize: '0.68rem', width: 32, textAlign: 'center' }}>N</TableCell>
+                        <TableCell sx={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)', color: 'white', fontWeight: 600, fontSize: '0.68rem' }}>{lbl.product}</TableCell>
+                        <TableCell align="center" sx={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)', color: 'white', fontWeight: 600, fontSize: '0.68rem', width: 100 }}>{lbl.unitPrice}</TableCell>
+                        <TableCell align="center" sx={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)', color: 'white', fontWeight: 600, fontSize: '0.68rem', width: 80 }}>{lbl.qty}</TableCell>
+                        <TableCell align="right" sx={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)', color: 'white', fontWeight: 600, fontSize: '0.68rem', width: 110 }}>{lbl.total}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -780,6 +840,20 @@ ${pagesHtml}
                       <Typography variant="body2" fontWeight={700}>{lbl.aPayer}:</Typography>
                       <Typography variant="body2" fontWeight={800}>{fCurrency(invoice.amountDue)}</Typography>
                     </Box>
+                  </Box>
+                </Box>
+
+                {/* ── DELIVERY SIGNATURES ── */}
+                <Box sx={{ display: 'flex', gap: 3, mt: 4.5, mb: 3 }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="overline" sx={{ color: '#1a1a1a', fontWeight: 700, letterSpacing: 1.5, fontSize: '0.62rem', display: 'block', mb: 1 }}>{lbl.sigLivreur}</Typography>
+                    <Box sx={{ height: 64, border: '1.5px dashed #ddd', borderRadius: 1.5, bgcolor: '#fafafa' }} />
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, textAlign: 'center' }}>{lbl.nomSig}</Typography>
+                  </Box>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="overline" sx={{ color: '#9e9e9e', fontWeight: 700, letterSpacing: 1.5, fontSize: '0.62rem', display: 'block', mb: 1 }}>{lbl.sigClient}</Typography>
+                    <Box sx={{ height: 64, border: '1.5px dashed #ddd', borderRadius: 1.5, bgcolor: '#fafafa' }} />
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, textAlign: 'center' }}>{lbl.nomSig}</Typography>
                   </Box>
                 </Box>
               </Box>
@@ -908,21 +982,7 @@ ${pagesHtml}
             </Table>
           </Box>
 
-          {/* ── DELIVERY SIGNATURES ── */}
-          {viewMode === 'delivery' && (
-            <Box sx={{ display: 'flex', gap: 3, mt: 4.5, mb: 3 }}>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="overline" sx={{ color: '#1a1a1a', fontWeight: 700, letterSpacing: 1.5, fontSize: '0.62rem', display: 'block', mb: 1 }}>Signature Livreur</Typography>
-                <Box sx={{ height: 64, border: '1.5px dashed #ddd', borderRadius: 1.5, bgcolor: '#fafafa' }} />
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, textAlign: 'center' }}>Nom &amp; Signature</Typography>
-              </Box>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="overline" sx={{ color: '#9e9e9e', fontWeight: 700, letterSpacing: 1.5, fontSize: '0.62rem', display: 'block', mb: 1 }}>Signature Client</Typography>
-                <Box sx={{ height: 64, border: '1.5px dashed #ddd', borderRadius: 1.5, bgcolor: '#fafafa' }} />
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, textAlign: 'center' }}>Nom &amp; Signature</Typography>
-              </Box>
-            </Box>
-          )}
+
 
           {/* ── TOTALS (invoice only) ── */}
           {viewMode === 'invoice' && (

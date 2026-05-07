@@ -1,17 +1,19 @@
 import { useCallback } from 'react';
 
-import { keyframes } from '@mui/system';
-import { alpha } from '@mui/material/styles';
 import Box from '@mui/material/Box';
+import { keyframes } from '@mui/system';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
+import { alpha } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+
+import { useBarcodeScan } from 'src/hooks/use-barcode-scan';
+
+import { useTranslation } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
-import { useBarcodeScan } from 'src/hooks/use-barcode-scan';
-import { useTranslation } from 'src/contexts';
 
 // ---------------------------------------------------------------------------
 

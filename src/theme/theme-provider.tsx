@@ -1,10 +1,11 @@
 import type { ThemeProviderProps as MuiThemeProviderProps } from '@mui/material/styles';
 
 import createCache from '@emotion/cache';
+import rtlPlugin from 'stylis-plugin-rtl';
 import { CacheProvider } from '@emotion/react';
+
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider as ThemeVarsProvider } from '@mui/material/styles';
-import rtlPlugin from 'stylis-plugin-rtl';
 
 import { useI18n, useSettings } from 'src/contexts';
 

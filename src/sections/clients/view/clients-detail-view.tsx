@@ -1,31 +1,29 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
-import CardHeader from '@mui/material/CardHeader';
-import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
+import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
+import CardHeader from '@mui/material/CardHeader';
 import Typography from '@mui/material/Typography';
-import { useTheme, alpha } from '@mui/material/styles';
-
-import { fCurrency } from 'src/utils/format-number';
-import { fDate } from 'src/utils/format-time';
-
-import { useClients, useTranslation } from 'src/contexts';
-
-import { Iconify } from 'src/components/iconify';
+import { alpha, useTheme } from '@mui/material/styles';
 import TablePagination from '@mui/material/TablePagination';
 
+import { fDate } from 'src/utils/format-time';
+import { fCurrency } from 'src/utils/format-number';
+
+import { DashboardContent } from 'src/layouts/dashboard';
+import { useClients, useTranslation } from 'src/contexts';
+
 import { Label } from 'src/components/label';
+import { Iconify } from 'src/components/iconify';
 import { useSnackbar } from 'src/components/snackbar';
 
 import { useInvoices } from 'src/sections/sales/context';
 
 import { ClientsPaymentDialog } from '../clients-payment-dialog';
-
-import { DashboardContent } from 'src/layouts/dashboard';
 
 // ======================================================================
 
@@ -368,8 +366,7 @@ export function ClientsDetailView() {
                 </Box>
               }
             />
-            <>
-              <Box sx={{ p: 3, pt: 0 }}>
+            <Box sx={{ p: 3, pt: 0 }}>
                 {activityTimeline.length === 0 ? (
                   <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
                     <Iconify icon="solar:inbox-bold-duotone" width={48} sx={{ mb: 1, opacity: 0.5 }} />
@@ -510,8 +507,7 @@ export function ClientsDetailView() {
                     ))}
                   </Box>
                 )}
-              </Box>
-            </>
+            </Box>
             <TablePagination
               component="div"
               count={activityTimeline.length}

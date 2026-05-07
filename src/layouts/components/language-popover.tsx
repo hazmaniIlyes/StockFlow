@@ -1,3 +1,4 @@
+import type { Language } from 'src/contexts';
 import type { IconButtonProps } from '@mui/material/IconButton';
 
 import { useCallback } from 'react';
@@ -7,13 +8,13 @@ import Box from '@mui/material/Box';
 import Popover from '@mui/material/Popover';
 import MenuList from '@mui/material/MenuList';
 import ButtonBase from '@mui/material/ButtonBase';
-import MenuItem, { menuItemClasses } from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
+import MenuItem, { menuItemClasses } from '@mui/material/MenuItem';
 
 import { useI18n } from 'src/contexts';
+
 import { Iconify } from 'src/components/iconify';
-import type { Language } from 'src/contexts';
 
 // ----------------------------------------------------------------------
 

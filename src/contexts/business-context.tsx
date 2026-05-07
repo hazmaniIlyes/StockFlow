@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { useMemo, useState, useEffect, useContext, useCallback, createContext } from 'react';
 
 import { settingsDB, isElectron } from 'src/services/db'; // Added import for SQLite database bridge

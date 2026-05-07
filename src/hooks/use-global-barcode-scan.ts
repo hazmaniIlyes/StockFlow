@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useInventory, useGlobalScan } from 'src/contexts';
+
 import { useBarcodeScan } from './use-barcode-scan';
 
 export function useGlobalBarcodeScan() {
@@ -24,7 +25,7 @@ export function useGlobalBarcodeScan() {
         navigate(`/inventory`, { state: { addSku: trimmed } });
       }
     },
-    [products, products.length, navigate]
+    [products, navigate]
   );
 
   const enabled = !isFormOpen && products.length > 0;

@@ -1,26 +1,25 @@
-import { useState, useCallback, useMemo } from 'react';
+import type { Client } from 'src/_mock/_data';
+
 import { useNavigate } from 'react-router-dom';
+import { useMemo, useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
+import { DashboardContent } from 'src/layouts/dashboard';
 import { useClients, useTranslation } from 'src/contexts';
 
-import { ConfirmDialog } from 'src/components/confirm-dialog';
 import { Iconify } from 'src/components/iconify';
 import { useSnackbar } from 'src/components/snackbar';
-
-import { DashboardContent } from 'src/layouts/dashboard';
+import { ConfirmDialog } from 'src/components/confirm-dialog';
 
 import { useInvoices } from 'src/sections/sales/context';
 
+import { ClientsTable } from '../clients-table';
 import { ClientsKpiCards } from '../clients-kpi-cards';
 import { ClientsNewDialog } from '../clients-new-dialog';
 import { ClientsPaymentDialog } from '../clients-payment-dialog';
-import { ClientsTable } from '../clients-table';
-
-import type { Client } from 'src/_mock/_data';
 
 // ======================================================================
 

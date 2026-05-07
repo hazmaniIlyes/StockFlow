@@ -9,10 +9,11 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import CardHeader from '@mui/material/CardHeader';
 
-import { fCurrency, fNumber } from 'src/utils/format-number';
+import { fNumber, fCurrency } from 'src/utils/format-number';
+
+import { useTranslation } from 'src/contexts';
 
 import { Scrollbar } from 'src/components/scrollbar';
-import { useTranslation } from 'src/contexts';
 
 // ----------------------------------------------------------------------
 

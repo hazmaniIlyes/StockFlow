@@ -1,31 +1,30 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import type { ProductUnit, InventoryProduct } from 'src/_mock/_data';
 
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
-
-import { useTheme, alpha } from '@mui/material/styles';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
+import Grid from '@mui/material/Grid';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
-import Grid from '@mui/material/Grid';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import DialogTitle from '@mui/material/DialogTitle';
+import { alpha, useTheme } from '@mui/material/styles';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
 import { fCurrency } from 'src/utils/format-number';
 
+import { useSettings, useSuppliers, useInventory, useGlobalScan, useTranslation } from 'src/contexts';
+
 import { Iconify } from 'src/components/iconify';
 import { ScanModal } from 'src/components/scan-modal';
-
-import { useSettings, useSuppliers, useTranslation, useInventory, useGlobalScan } from 'src/contexts';
-
-import type { InventoryProduct, ProductUnit } from 'src/_mock/_data';
+import { useSnackbar } from 'src/components/snackbar';
 
 // ======================================================================
 
@@ -60,7 +59,8 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
   const isEdit = Boolean(product);
   const { productCategories, preferences, invoice: invoiceSettings } = useSettings();
   const { activeSuppliers, addSupplier, getSupplier, addProductToCatalog, recordPurchase, updateSupplier } = useSuppliers();
-  const { getProductByName, updateProduct, addBatch, adjustStock } = useInventory();
+  const { getProductByName, updateProduct, addBatch, adjustStock, products } = useInventory();
+  const { showError } = useSnackbar();
   const { setFormOpen } = useGlobalScan();
   const location = useLocation();
   const navigate = useNavigate();
@@ -289,6 +289,22 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
   };
 
   const doSubmit = (keepOpen = false) => {
+    // ── SKU uniqueness check ────────────────────────────────────────────
+    // Only validate when the user actually entered a SKU (empty = auto-generated, no conflict possible).
+    const trimmedSku = sku.trim();
+    if (trimmedSku !== '') {
+      const duplicate = products.find((p) => {
+        if (p.sku.trim().toLowerCase() !== trimmedSku.toLowerCase()) return false;
+        // When editing, ignore the product being edited itself
+        if (isEdit && product && p.id === product.id) return false;
+        return true;
+      });
+      if (duplicate) {
+        showError(`SKU "${trimmedSku}" is already used by "${duplicate.name}". Please enter a unique SKU.`);
+        return; // Block the save — keep the dialog open so the user can fix the SKU
+      }
+    }
+
     // If a supplier is selected and this product is not from their existing catalog, add it
     const productExistsInCatalog = catalogProducts.some((p) => p.name === customName.trim());
     if (supplierId && !productExistsInCatalog && !isEdit) {

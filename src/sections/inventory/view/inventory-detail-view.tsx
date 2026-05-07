@@ -1,36 +1,36 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
-import CardHeader from '@mui/material/CardHeader';
 import Chip from '@mui/material/Chip';
-import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
 import Table from '@mui/material/Table';
+import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
+import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
-import TablePagination from '@mui/material/TablePagination';
-import TableRow from '@mui/material/TableRow';
+import CardHeader from '@mui/material/CardHeader';
 import Typography from '@mui/material/Typography';
-import { useTheme, alpha } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
+import TableContainer from '@mui/material/TableContainer';
+import TablePagination from '@mui/material/TablePagination';
 
-import { fCurrency } from 'src/utils/format-number';
 import { fDate } from 'src/utils/format-time';
-
-import { useInventory, useSuppliers, useTranslation, useSettings } from 'src/contexts';
-import { useInvoices } from 'src/sections/sales/context';
-
-import { Iconify } from 'src/components/iconify';
-import { Label } from 'src/components/label';
-import { useSnackbar } from 'src/components/snackbar';
-
-import { InventoryStockDialog } from '../inventory-stock-dialog';
+import { fCurrency } from 'src/utils/format-number';
 
 import { DashboardContent } from 'src/layouts/dashboard';
+import { useSettings, useInventory, useSuppliers, useTranslation } from 'src/contexts';
+
+import { Label } from 'src/components/label';
+import { Iconify } from 'src/components/iconify';
+import { useSnackbar } from 'src/components/snackbar';
+
+import { useInvoices } from 'src/sections/sales/context';
+
+import { InventoryStockDialog } from '../inventory-stock-dialog';
 
 // ======================================================================
 

@@ -7,16 +7,17 @@ import Tabs from '@mui/material/Tabs';
 import Typography from '@mui/material/Typography';
 import ButtonBase from '@mui/material/ButtonBase';
 
-import { DashboardContent } from 'src/layouts/dashboard';
 import { useTranslation } from 'src/contexts';
+import { DashboardContent } from 'src/layouts/dashboard';
+
 import { Iconify } from 'src/components/iconify';
 
-import { SettingsBusinessInfo } from '../settings-business-info';
-import { SettingsInvoice } from '../settings-invoice';
-import { SettingsCategories } from '../settings-categories';
-import { SettingsAccount } from '../settings-account';
-import { SettingsPreferences } from '../settings-preferences';
 import { SettingsReset } from '../settings-reset';
+import { SettingsInvoice } from '../settings-invoice';
+import { SettingsAccount } from '../settings-account';
+import { SettingsCategories } from '../settings-categories';
+import { SettingsPreferences } from '../settings-preferences';
+import { SettingsBusinessInfo } from '../settings-business-info';
 
 // ======================================================================
 

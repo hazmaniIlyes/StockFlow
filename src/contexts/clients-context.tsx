@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { Client } from 'src/_mock/_data';
 
-import { useMemo, useRef, useState, useEffect, useContext, useCallback, createContext } from 'react';
+import { useRef, useMemo, useState, useEffect, useContext, useCallback, createContext } from 'react';
 
 import { clientsDB, isElectron } from 'src/services/db'; // Import database service for SQLite client operations
 

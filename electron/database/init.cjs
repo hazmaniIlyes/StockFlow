@@ -237,6 +237,17 @@ function initDatabase() {
     );
   `);
 
+  // ── Enforce SKU uniqueness (migration-safe) ──────────────────────────
+  // A partial unique index on non-empty SKUs prevents two products from sharing
+  // the same barcode/SKU while still allowing multiple products with no SKU
+  // (stored as ''). IF NOT EXISTS makes this safe to run on every app launch
+  // without failing on an already-initialized database.
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_products_sku_unique
+    ON products (sku)
+    WHERE sku != '';
+  `);
+
   // ── Initialize default settings if they don't exist yet ────────────
   // This ensures the app works correctly on first launch
 

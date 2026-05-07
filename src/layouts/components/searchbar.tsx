@@ -1,7 +1,7 @@
 import type { BoxProps } from '@mui/material/Box';
 
-import { useState, useCallback, useMemo } from 'react';
 import { varAlpha } from 'minimal-shared/utils';
+import { useMemo, useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import List from '@mui/material/List';
@@ -12,20 +12,22 @@ import Divider from '@mui/material/Divider';
 import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
 import ListItemText from '@mui/material/ListItemText';
+import InputAdornment from '@mui/material/InputAdornment';
 import ListItemButton from '@mui/material/ListItemButton';
 import ClickAwayListener from '@mui/material/ClickAwayListener';
 
 import { useRouter } from 'src/routes/hooks';
-import { useTranslation, useSettings } from 'src/contexts';
-import { useInventory } from 'src/contexts/inventory-context';
+
 import { useClients } from 'src/contexts/clients-context';
-import { useSuppliers } from 'src/contexts/suppliers-context';
+import { useSettings, useTranslation } from 'src/contexts';
 import { useExpenses } from 'src/contexts/expenses-context';
-import { useInvoices } from 'src/sections/sales/context';
+import { useInventory } from 'src/contexts/inventory-context';
+import { useSuppliers } from 'src/contexts/suppliers-context';
 
 import { Iconify } from 'src/components/iconify';
+
+import { useInvoices } from 'src/sections/sales/context';
 
 // ----------------------------------------------------------------------
 

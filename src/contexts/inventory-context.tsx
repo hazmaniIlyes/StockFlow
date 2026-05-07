@@ -492,12 +492,24 @@ export function InventoryProvider({ children }: ProviderProps) {
 
         const newStock = p.stock + item.quantity;
         const newStatus = computeStockStatus(newStock, p.minStock);
-        // For FIFO products, add restored qty back to the oldest remaining batch
-        const updatedBatches = p.batches
-          ? p.batches.map((batch, idx) =>
-              idx === 0 ? { ...batch, quantity: batch.quantity + item.quantity } : batch
-            )
-          : undefined;
+        // For FIFO products, add restored qty back to the oldest remaining batch, or create a new one
+        let updatedBatches = p.batches ? [...p.batches] : undefined;
+        let newBatchId: string | undefined;
+
+        if (updatedBatches) {
+          if (updatedBatches.length > 0) {
+            updatedBatches[0] = { ...updatedBatches[0], quantity: updatedBatches[0].quantity + item.quantity };
+          } else {
+            newBatchId = `batch-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+            updatedBatches.push({
+              id: newBatchId,
+              quantity: item.quantity,
+              buyingPrice: p.buyingPrice,
+              sellPrice: p.sellPrice,
+              purchaseDate: new Date().toISOString().split('T')[0],
+            });
+          }
+        }
 
         // ── Persist stock restoration to SQLite ──────────────────────
         if (isElectron()) {
@@ -506,9 +518,15 @@ export function InventoryProvider({ children }: ProviderProps) {
           });
           // Also update the first batch quantity if FIFO
           if (updatedBatches && updatedBatches.length > 0) {
-            batchesDB.update(updatedBatches[0].id, { quantity: updatedBatches[0].quantity }).catch((err) => {
-              window.appLog?.error('[InventoryContext] Failed to update batch during stock restore in SQLite:', err);
-            });
+            if (newBatchId) {
+              batchesDB.add({ ...updatedBatches[0], productId: p.id }).catch((err) => {
+                window.appLog?.error('[InventoryContext] Failed to add new batch during stock restore in SQLite:', err);
+              });
+            } else {
+              batchesDB.update(updatedBatches[0].id, { quantity: updatedBatches[0].quantity }).catch((err) => {
+                window.appLog?.error('[InventoryContext] Failed to update batch during stock restore in SQLite:', err);
+              });
+            }
           }
         }
 

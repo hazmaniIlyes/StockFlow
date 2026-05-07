@@ -1,34 +1,35 @@
 ﻿import type { IconButtonProps } from '@mui/material/IconButton';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
 import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import InputAdornment from '@mui/material/InputAdornment';
 import Popover from '@mui/material/Popover';
 import Divider from '@mui/material/Divider';
 import MenuList from '@mui/material/MenuList';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
+import DialogTitle from '@mui/material/DialogTitle';
 import ToggleButton from '@mui/material/ToggleButton';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import InputAdornment from '@mui/material/InputAdornment';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import MenuItem, { menuItemClasses } from '@mui/material/MenuItem';
 
 import { useRouter, usePathname } from 'src/routes/hooks';
 
-import { useSettings } from 'src/contexts/settings-context';
 import { useTranslation } from 'src/contexts';
-import { getAdminPassword } from 'src/sections/settings/settings-account';
+import { settingsDB, isElectron } from 'src/services/db'; // Import SQLite DB wrapper
+import { useSettings } from 'src/contexts/settings-context';
 
 import { Iconify } from 'src/components/iconify';
-import { settingsDB, isElectron } from 'src/services/db'; // Import SQLite DB wrapper
+
+import { getAdminPassword } from 'src/sections/settings/settings-account';
 
 // ----------------------------------------------------------------------
 

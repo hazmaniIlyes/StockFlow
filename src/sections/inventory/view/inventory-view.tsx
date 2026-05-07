@@ -1,24 +1,23 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import type { ProductUnit, InventoryProduct } from 'src/_mock/_data';
+
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
+import { DashboardContent } from 'src/layouts/dashboard';
 import { useInventory, useTranslation } from 'src/contexts';
 
-import { ConfirmDialog } from 'src/components/confirm-dialog';
 import { Iconify } from 'src/components/iconify';
 import { useSnackbar } from 'src/components/snackbar';
+import { ConfirmDialog } from 'src/components/confirm-dialog';
 
-import { DashboardContent } from 'src/layouts/dashboard';
-
-import { InventoryKpiCards } from '../inventory-kpi-cards';
 import { InventoryTable } from '../inventory-table';
+import { InventoryKpiCards } from '../inventory-kpi-cards';
 import { InventoryFormDialog } from '../inventory-form-dialog';
 import { InventoryStockDialog } from '../inventory-stock-dialog';
-
-import type { InventoryProduct, ProductUnit } from 'src/_mock/_data';
 
 // ======================================================================
 

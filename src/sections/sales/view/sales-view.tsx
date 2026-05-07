@@ -1,26 +1,25 @@
-import { useState, useCallback, useMemo } from 'react';
+import type { Invoice, InvoiceProduct } from 'src/_mock/_data';
+
 import { useNavigate } from 'react-router-dom';
+import { useMemo, useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Grid from '@mui/material/Grid';
+import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
+import { DashboardContent } from 'src/layouts/dashboard';
 import { useClients, useInventory, useTranslation } from 'src/contexts';
 
-import { ConfirmDialog } from 'src/components/confirm-dialog';
 import { Iconify } from 'src/components/iconify';
 import { useSnackbar } from 'src/components/snackbar';
-
-import { DashboardContent } from 'src/layouts/dashboard';
+import { ConfirmDialog } from 'src/components/confirm-dialog';
 
 import { useInvoices } from '../context';
 import { SalesInvoiceList } from '../sales-invoice-list';
+import { SalesSummaryCard } from '../sales-summary-card';
 import { SalesNewInvoiceDialog } from '../sales-new-invoice-dialog';
 import { SalesRecordPaymentDialog } from '../sales-record-payment-dialog';
-import { SalesSummaryCard } from '../sales-summary-card';
-
-import type { Invoice, InvoiceProduct } from 'src/_mock/_data';
 
 // ======================================================================
 
@@ -37,7 +36,7 @@ export function SalesView() {
     markAsPaid,
     getSummary,
   } = useInvoices();
-  const { updateClientFromInvoice, recordPayment: recordClientPayment, getClientByName, updateClient } = useClients();
+  const { updateClientFromInvoice, recordPayment: recordClientPayment, getClientByName, updateClient, addClient } = useClients();
   const { deductStockForInvoice, restoreStockForInvoice } = useInventory();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -116,16 +115,34 @@ export function SalesView() {
           // Sync client balance when payment amounts changed by edit
           const paidDelta = data.amountPaid - editingInvoice.amountPaid;
           const dueDelta = data.amountDue - editingInvoice.amountDue;
-          if (paidDelta !== 0 || dueDelta !== 0) {
-            const client = getClientByName(data.client.name);
-            if (client) {
-              const newRemainingBalance = Math.max(0, client.remainingBalance + dueDelta);
-              updateClient(client.id, {
-                totalPaid: client.totalPaid + paidDelta,
-                remainingBalance: newRemainingBalance,
-                status: newRemainingBalance <= 0 ? 'paid' : 'unpaid',
-              });
-            }
+          const totalDelta = data.total - editingInvoice.total;
+          
+          const client = getClientByName(data.client.name);
+          if (!client) {
+            // Unknown client name entered during edit -> create new client
+            addClient({
+              name: data.client.name,
+              phone: data.client.phone || '',
+              address: data.client.address || '',
+              nif: data.client.nif,
+              nis: data.client.nis,
+              rc: data.client.rc,
+              ai: data.client.ai,
+              totalPurchases: data.total,
+              totalPaid: data.amountPaid,
+              remainingBalance: data.amountDue,
+              lastInvoiceDate: new Date().toISOString().split('T')[0],
+              status: data.amountDue <= 0 ? 'paid' : data.amountPaid > 0 ? 'partly-paid' : 'unpaid',
+            });
+          } else if (paidDelta !== 0 || dueDelta !== 0 || totalDelta !== 0) {
+            const newRemainingBalance = Math.max(0, client.remainingBalance + dueDelta);
+            const newTotalPurchases = Math.max(0, client.totalPurchases + totalDelta);
+            updateClient(client.id, {
+              totalPaid: client.totalPaid + paidDelta,
+              totalPurchases: newTotalPurchases,
+              remainingBalance: newRemainingBalance,
+              status: newRemainingBalance <= 0 ? 'paid' : (client.totalPaid + paidDelta) > 0 ? 'partly-paid' : 'unpaid',
+            });
           }
           showSuccess(t('sales.invoiceUpdated'));
         } else {
@@ -210,6 +227,22 @@ export function SalesView() {
         quantity: p.quantity,
       }));
       restoreStockForInvoice(productItems);
+
+      // Revert client's totalPurchases and balance
+      console.log('[DEBUG handleDeleteConfirm] invoiceToDelete.client.name:', invoiceToDelete.client.name);
+      const client = getClientByName(invoiceToDelete.client.name);
+      console.log('[DEBUG handleDeleteConfirm] found client:', client);
+      if (client) {
+        const newTotalPurchases = Math.max(0, client.totalPurchases - invoiceToDelete.total);
+        const newTotalPaid = Math.max(0, client.totalPaid - invoiceToDelete.amountPaid);
+        const newRemainingBalance = Math.max(0, client.remainingBalance - invoiceToDelete.amountDue);
+        updateClient(client.id, {
+          totalPurchases: newTotalPurchases,
+          totalPaid: newTotalPaid,
+          remainingBalance: newRemainingBalance,
+          status: newRemainingBalance <= 0 ? 'paid' : newTotalPaid > 0 ? 'partly-paid' : 'unpaid',
+        });
+      }
 
       deleteInvoice(invoiceToDelete.id);
       showSuccess(`${t('sales.invoiceDeleted')} (${invoiceToDelete.invoiceNumber})`);

@@ -1,15 +1,16 @@
-﻿import React from 'react';
+import React from 'react';
 import * as XLSX from 'xlsx';
 
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Menu from '@mui/material/Menu';
+import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 
-import { Iconify } from 'src/components/iconify';
 import { useTranslation } from 'src/contexts';
+
+import { Iconify } from 'src/components/iconify';
 
 // ======================================================================
 
@@ -136,9 +137,6 @@ export function ExportButtons({ data, columns, fileName }: ExportButtonsProps) {
     handleClose();
   };
 
-  const handleExportPDF = () => {
-    handleSavePdf();
-  };
 
   return (
     <Box>

@@ -394,7 +394,7 @@ export type StockAdjustment = {
   date: string;
 };
 
-const computeStockStatus = (stock: number, minStock: number): InventoryProduct['status'] => {
+const _computeStockStatus = (stock: number, minStock: number): InventoryProduct['status'] => {
   if (stock === 0) return 'out-of-stock';
   if (stock <= minStock) return 'low-stock';
   return 'in-stock';

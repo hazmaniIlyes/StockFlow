@@ -1,28 +1,28 @@
 ﻿import { useState, useEffect } from 'react';
-
 import { useNavigate } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
+import Grid from '@mui/material/Grid';
+import Stack from '@mui/material/Stack';
+import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
+import Switch from '@mui/material/Switch';
+import Divider from '@mui/material/Divider';
+import TextField from '@mui/material/TextField';
+import { useTheme } from '@mui/material/styles';
+import Typography from '@mui/material/Typography';
+import DialogTitle from '@mui/material/DialogTitle';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
-import Divider from '@mui/material/Divider';
-import Grid from '@mui/material/Grid';
-import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
-import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
-import { useTheme } from '@mui/material/styles';
 
-import { useTranslation, useSettings } from 'src/contexts';
+import { useSettings, useTranslation } from 'src/contexts';
+import { tvaDB, clientsDB, settingsDB, isElectron, productsDB, invoicesDB, expensesDB, suppliersDB } from 'src/services/db'; // Import our new database service
+
 import { Iconify } from 'src/components/iconify';
 import { useSnackbar } from 'src/components/snackbar';
-import { settingsDB, isElectron, productsDB, clientsDB, suppliersDB, invoicesDB, expensesDB, tvaDB } from 'src/services/db'; // Import our new database service
 
 // ======================================================================
 
