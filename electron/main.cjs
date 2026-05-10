@@ -21,6 +21,117 @@ ipcMain.on('log:error', (_e, msg, ...args) => log.error('[renderer]', msg, ...ar
 ipcMain.on('log:warn',  (_e, msg, ...args) => log.warn('[renderer]',  msg, ...args));
 ipcMain.on('log:info',  (_e, msg, ...args) => log.info('[renderer]',  msg, ...args));
 
+// ── Hardware ID generation ───────────────────────────────────────────
+// Produces a deterministic ID from MAC address + CPU model, hashed with
+// SHA-256 and formatted as XXXX-XXXX-XXXX-XXXX (16 hex chars, uppercase).
+// The same PC will always produce the same ID.
+const crypto = require('crypto');
+
+function generateHardwareId() {
+  // 1. Get a stable (non-internal) MAC address
+  const nets = os.networkInterfaces();
+  let mac = '';
+  for (const name of Object.keys(nets).sort()) {        // Sort for determinism
+    for (const iface of nets[name]) {
+      if (!iface.internal && iface.mac && iface.mac !== '00:00:00:00:00:00') {
+        mac = iface.mac;
+        break;
+      }
+    }
+    if (mac) break;
+  }
+
+  // 2. Get CPU model string
+  const cpuModel = os.cpus()[0]?.model || 'unknown-cpu';
+
+  // 3. Combine and hash
+  const raw = `${mac}|${cpuModel}`;
+  const hash = crypto.createHash('sha256').update(raw).digest('hex');
+
+  // 4. Take first 16 chars → format as XXXX-XXXX-XXXX-XXXX
+  const id = hash.substring(0, 16).toUpperCase();
+  return `${id.slice(0, 4)}-${id.slice(4, 8)}-${id.slice(8, 12)}-${id.slice(12, 16)}`;
+}
+
+ipcMain.handle('app:getHardwareId', () => {
+  const hwid = generateHardwareId();
+  log.info('[StockFlow] Hardware ID generated:', hwid);
+  return hwid;
+});
+
+// ── Activation code verification ─────────────────────────────────────
+// Uses HMAC-SHA256 with a shared secret to verify that the activation
+// code matches the hardware ID.  On success the activation is persisted
+// to a JSON file in AppData so it survives localStorage clears.
+const HMAC_SECRET = 'b3f2a1e4d7c6b9a08f5e2d1c4b7a0e3f6d9c2b5a8e1f4d7c0b3a6e9f2d5c8b1';
+
+function verifyActivationCode(hardwareId, code) {
+  const hex = crypto.createHmac('sha256', HMAC_SECRET)
+    .update(hardwareId.trim().toUpperCase())
+    .digest('hex')
+    .slice(0, 16)
+    .toUpperCase();
+  const expected = `${hex.slice(0,4)}-${hex.slice(4,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}`;
+  return expected === code.trim().toUpperCase();
+}
+
+function getActivationFilePath() {
+  return path.join(app.getPath('userData'), 'activation.json');
+}
+
+// Called when user clicks "Activer" — verifies code, writes file on success
+ipcMain.handle('app:verifyActivation', (_event, hardwareId, code) => {
+  const valid = verifyActivationCode(hardwareId, code);
+  if (valid) {
+    const filePath = getActivationFilePath();
+    const data = JSON.stringify({
+      hardwareId: hardwareId.trim().toUpperCase(),
+      activatedAt: new Date().toISOString(),
+    });
+    fs.writeFileSync(filePath, data, 'utf-8');
+    log.info('[StockFlow] Activation successful for HWID:', hardwareId);
+    return { success: true };
+  }
+  log.warn('[StockFlow] Activation failed — invalid code for HWID:', hardwareId);
+  return { success: false };
+});
+
+// Called on every app launch — checks if activation file exists and HWID matches
+ipcMain.handle('app:checkActivation', () => {
+  try {
+    const filePath = getActivationFilePath();
+    if (!fs.existsSync(filePath)) return { activated: false };
+
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const currentHwid = generateHardwareId();
+
+    if (data.hardwareId === currentHwid) {
+      return { activated: true };
+    }
+    // HWID mismatch — activation file belongs to a different machine
+    log.warn('[StockFlow] Activation HWID mismatch. File:', data.hardwareId, 'Current:', currentHwid);
+    return { activated: false };
+  } catch (err) {
+    log.error('[StockFlow] Error checking activation file:', err);
+    return { activated: false };
+  }
+});
+
+// Called by the "Reset" button in Settings — deletes the activation file
+ipcMain.handle('app:resetActivation', () => {
+  try {
+    const filePath = getActivationFilePath();
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      log.info('[StockFlow] Activation file deleted — app will require re-activation');
+    }
+    return { success: true };
+  } catch (err) {
+    log.error('[StockFlow] Failed to delete activation file:', err);
+    return { success: false };
+  }
+});
+
 // ── Open logs folder in File Explorer ────────────────────────────────
 // Registered at module level but only *called* after app is ready (user click),
 // so app.getPath('userData') is safe here.

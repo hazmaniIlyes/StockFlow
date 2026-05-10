@@ -17,12 +17,31 @@ import { SnackbarProvider } from 'src/components/snackbar';
 
 import { InvoiceProvider } from 'src/sections/sales/context';
 import { isOnboardingComplete } from 'src/sections/onboarding/onboarding-view';
+import { isActivationComplete } from 'src/sections/activation/activation-view';
+
+// ----------------------------------------------------------------------
+
+function ActivationGuard({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const activationDone = isActivationComplete();
+
+  if (!activationDone && pathname !== '/activation') {
+    return <Navigate to="/activation" replace />;
+  }
+  if (activationDone && pathname === '/activation') {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
 
 // ----------------------------------------------------------------------
 
 function OnboardingGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const onboardingDone = isOnboardingComplete();
+
+  // Let ActivationGuard handle the /activation route — don't interfere
+  if (pathname === '/activation') return <>{children}</>;
 
   if (!onboardingDone && pathname !== '/onboarding') {
     return <Navigate to="/onboarding" replace />;
@@ -55,10 +74,12 @@ export default function App({ children }: AppProps) {
                     <InventoryProvider>
                       <InvoiceProvider>
                         <GlobalScanProvider>
-                          <OnboardingGuard>
-                            <GlobalBarcodeScanListener />
-                            {children}
-                          </OnboardingGuard>
+                          <ActivationGuard>
+                            <OnboardingGuard>
+                              <GlobalBarcodeScanListener />
+                              {children}
+                            </OnboardingGuard>
+                          </ActivationGuard>
                         </GlobalScanProvider>
                       </InvoiceProvider>
                     </InventoryProvider>

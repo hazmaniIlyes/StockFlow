@@ -134,4 +134,8 @@ contextBridge.exposeInMainWorld('appLog', {
 
 contextBridge.exposeInMainWorld('appShell', {
   openLogsFolder: () => ipcRenderer.invoke('app:openLogsFolder'),
+  getHardwareId: () => ipcRenderer.invoke('app:getHardwareId'),           // Returns deterministic XXXX-XXXX-XXXX-XXXX hardware fingerprint
+  verifyActivation: (hardwareId, code) => ipcRenderer.invoke('app:verifyActivation', hardwareId, code), // Verify code + save activation file
+  checkActivation: () => ipcRenderer.invoke('app:checkActivation'),       // Check if activation file exists and HWID matches
+  resetActivation: () => ipcRenderer.invoke('app:resetActivation'),       // Delete activation file (settings reset)
 });

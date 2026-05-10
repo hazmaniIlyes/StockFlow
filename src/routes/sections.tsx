@@ -21,6 +21,7 @@ function WorkerGuard({ children }: { children: React.ReactNode }) {
 // ----------------------------------------------------------------------
 
 export const DashboardPage = lazy(() => import('src/pages/dashboard'));
+const ActivationPage = lazy(() => import('src/pages/activation'));
 const OnboardingPage = lazy(() => import('src/pages/onboarding'));
 const SalesPage = lazy(() => import('src/pages/sales'));
 const SalesDetailPage = lazy(() => import('src/pages/sales-detail'));
@@ -56,6 +57,14 @@ const renderFallback = () => (
 );
 
 export const routesSection: RouteObject[] = [
+  {
+    path: 'activation',
+    element: (
+      <Suspense fallback={renderFallback()}>
+        <ActivationPage />
+      </Suspense>
+    ),
+  },
   {
     path: 'onboarding',
     element: (
