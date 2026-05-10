@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
@@ -432,9 +432,11 @@ export function SettingsAccount() {
                   tvaDB.clearAll(),
                 ]);
                 await settingsDB.set('onboarding_complete', 'false');
+                // Delete the activation file so the app returns to activation page
+                await (window as any).appShell?.resetActivation?.();
               }
               localStorage.clear();
-              // Full reload — React restarts from empty SQLite, guard redirects to /onboarding
+              // Full reload — React restarts from scratch, guard redirects to /activation
               window.location.reload();
             }}
           >
