@@ -3,6 +3,7 @@ const path = require('path');                                  // Node path modu
 const fs = require('fs');                                      // Node fs module for writing temp print files
 const os = require('os');                                      // Node os module for temp directory path
 const log = require('electron-log');                           // Persistent file logger — writes to AppData/Roaming/StockFlow/logs/main.log
+const { autoUpdater } = require('electron-updater');           // Auto-update — checks GitHub Releases for new versions
 const { initDatabase } = require('./database/init.cjs');       // Our custom function to initialize SQLite and create tables
 const { registerAllHandlers } = require('./database/ipc-handlers.cjs'); // Registers all IPC handlers for CRUD operations
 
@@ -255,6 +256,35 @@ app.whenReady().then(() => {
 
   // Create the main application window
   createWindow();
+
+  // ── Auto-update ────────────────────────────────────────────────────────
+  // Only runs in production (packaged .exe) — skipped entirely during dev.
+  // All errors are caught so a broken update server or no internet connection
+  // never prevents the app from opening normally.
+  if (!isDev) {
+    try {
+      // When an update has been fully downloaded, prompt the user in French
+      autoUpdater.on('update-downloaded', () => {
+        dialog.showMessageBox(mainWindow, {
+          type: 'info',
+          title: 'Mise à jour disponible',
+          message: 'Une mise à jour est disponible. L\'application va redémarrer pour installer la mise à jour.',
+          buttons: ['OK'],
+          defaultId: 0,
+        }).then(() => {
+          autoUpdater.quitAndInstall(); // Quit and apply the downloaded update
+        });
+      });
+
+      // Silently check for updates — if none found or no internet, nothing happens
+      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+        // Network errors / no release found — log quietly, do not surface to user
+        log.warn('[AutoUpdate] Check skipped (no internet or no release found):', err.message);
+      });
+    } catch (err) {
+      log.error('[AutoUpdate] Unexpected error during update setup:', err);
+    }
+  }
 
   // macOS: re-create window when dock icon is clicked and no windows are open
   app.on('activate', () => {

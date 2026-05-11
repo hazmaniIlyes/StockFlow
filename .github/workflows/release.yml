@@ -1,0 +1,56 @@
+name: Build and Release
+
+# ── Trigger ────────────────────────────────────────────────────────────────────
+# Runs only when a tag starting with "v" is pushed (e.g. v1.0.0, v2.1.3).
+# Normal branch pushes are ignored — this workflow is release-only.
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    # Required so GITHUB_TOKEN can create and upload to GitHub Releases
+    permissions:
+      contents: write
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── 2. Node.js ───────────────────────────────────────────────────────────
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'           # Caches node_modules between runs for faster CI
+
+      # ── 3. Install dependencies ───────────────────────────────────────────────
+      - name: Install dependencies
+        run: npm install
+
+      # ── 4. Build ─────────────────────────────────────────────────────────────
+      # Runs: vite build (compiles React app → dist/)
+      #   then: electron-builder --win --x64 (packages into release/*.exe)
+      # GH_TOKEN is exposed so electron-builder can resolve GitHub assets if needed
+      - name: Build Electron app
+        run: npm run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 5. Publish to GitHub Releases ────────────────────────────────────────
+      # Creates a GitHub Release for the tag and uploads the NSIS installer .exe
+      # Release notes are auto-generated from commits since the last tag
+      - name: Create GitHub Release and upload installer
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.exe
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
