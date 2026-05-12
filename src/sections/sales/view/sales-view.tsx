@@ -9,7 +9,7 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { useClients, useInventory, useTranslation } from 'src/contexts';
+import { useClients, useInventory, useTranslation, useBusiness } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 import { useSnackbar } from 'src/components/snackbar';
@@ -20,12 +20,13 @@ import { SalesInvoiceList } from '../sales-invoice-list';
 import { SalesSummaryCard } from '../sales-summary-card';
 import { SalesNewInvoiceDialog } from '../sales-new-invoice-dialog';
 import { SalesRecordPaymentDialog } from '../sales-record-payment-dialog';
+import { SalesReceiptPreviewDialog, buildReceiptHtml } from '../sales-receipt-preview-dialog';
 
 // ======================================================================
 
 export function SalesView() {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { showSuccess, showError, showWarning } = useSnackbar();
   const {
     invoices,
@@ -38,6 +39,7 @@ export function SalesView() {
   } = useInvoices();
   const { updateClientFromInvoice, recordPayment: recordClientPayment, getClientByName, updateClient, addClient } = useClients();
   const { deductStockForInvoice, restoreStockForInvoice } = useInventory();
+  const { businessInfo } = useBusiness();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
@@ -49,6 +51,10 @@ export function SalesView() {
   // Record payment
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [invoiceForPayment, setInvoiceForPayment] = useState<Invoice | null>(null);
+
+  // Retail receipt preview
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [receiptInvoice, setReceiptInvoice] = useState<Invoice | null>(null);
 
   // Dynamic summary
   const summary = useMemo(() => getSummary(), [getSummary]);
@@ -66,7 +72,7 @@ export function SalesView() {
   const handleSave = useCallback(
     (
       data: Omit<Invoice, 'id'>,
-      options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery' }
+      options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery'; isRetail?: boolean; autoPrint?: boolean }
     ) => {
       try {
         const productItems = data.products.map((p) => ({ name: p.name, quantity: p.quantity }));
@@ -169,17 +175,19 @@ export function SalesView() {
           const newInvoice = addInvoice(data);
           savedInvoiceId = newInvoice.id;
 
-          // Update client record
-          updateClientFromInvoice(
-            data.client.name,
-            data.client.phone,
-            data.client.address,
-            data.total,
-            data.amountPaid,
-            { nif: data.client.nif, nis: data.client.nis, rc: data.client.rc, ai: data.client.ai }
-          );
+          // Update client record (skip for retail walk-in sales)
+          if (!options.isRetail) {
+            updateClientFromInvoice(
+              data.client.name,
+              data.client.phone,
+              data.client.address,
+              data.total,
+              data.amountPaid,
+              { nif: data.client.nif, nis: data.client.nis, rc: data.client.rc, ai: data.client.ai }
+            );
+          }
 
-          showSuccess(t('sales.invoiceCreated'), !options.printMode && savedInvoiceId ? {
+          showSuccess(t('sales.invoiceCreated'), !options.printMode && !options.isRetail && savedInvoiceId ? {
             label: t('common.view'),
             onClick: () => navigate(`/sales/${savedInvoiceId}`),
           } : undefined);
@@ -188,7 +196,21 @@ export function SalesView() {
         setDialogOpen(false);
         setEditingInvoice(null);
 
-        // Navigate to print if requested
+        // Show receipt for retail sales
+        if (options.isRetail && savedInvoiceId) {
+          const savedInvoice = { ...data, id: savedInvoiceId } as Invoice;
+          if (options.autoPrint) {
+            // Save & Print: silently print without opening the preview
+            const html = buildReceiptHtml(savedInvoice, businessInfo, language);
+            (window as any).database?.printHtml(html);
+          } else {
+            // Save only: open the preview dialog
+            setReceiptInvoice(savedInvoice);
+            setReceiptDialogOpen(true);
+          }
+        }
+
+        // Navigate to print if requested (wholesale)
         if (options.printMode && savedInvoiceId) {
           navigate(`/sales/${savedInvoiceId}?printMode=${options.printMode}`);
         }
@@ -272,12 +294,26 @@ export function SalesView() {
     showSuccess(`${invoice.invoiceNumber} - ${t('sales.paid')}`);
   };
 
+  const WALKIN_NAMES = ['Walk-in Customer', 'Client de passage', 'زبون عابر'];
+  const isRetailInvoice = (invoice: Invoice) =>
+    invoice.type === 'retail' || WALKIN_NAMES.includes(invoice.client.name);
+
   const handleRowClick = (invoice: Invoice) => {
-    navigate(`/sales/${invoice.id}`);
+    if (isRetailInvoice(invoice)) {
+      setReceiptInvoice(invoice);
+      setReceiptDialogOpen(true);
+    } else {
+      navigate(`/sales/${invoice.id}`);
+    }
   };
 
   const handlePrint = (invoice: Invoice) => {
-    navigate(`/sales/${invoice.id}?print=true`);
+    if (isRetailInvoice(invoice)) {
+      setReceiptInvoice(invoice);
+      setReceiptDialogOpen(true);
+    } else {
+      navigate(`/sales/${invoice.id}?print=true`);
+    }
   };
 
   return (
@@ -386,6 +422,17 @@ export function SalesView() {
           setInvoiceForPayment(null);
         }}
         onSave={handleRecordPayment}
+      />
+
+      {/* Retail Receipt Preview Dialog */}
+      <SalesReceiptPreviewDialog
+        open={receiptDialogOpen}
+        onClose={() => {
+          setReceiptDialogOpen(false);
+          setReceiptInvoice(null);
+        }}
+        invoice={receiptInvoice}
+        businessInfo={businessInfo}
       />
     </DashboardContent>
   );

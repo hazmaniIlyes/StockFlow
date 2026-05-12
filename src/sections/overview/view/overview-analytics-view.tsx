@@ -346,7 +346,7 @@ export function OverviewAnalyticsView() {
   const handleInvoiceSave = useCallback(
     (
       data: Omit<Invoice, 'id'>,
-      options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery' }
+      options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery'; isRetail?: boolean }
     ) => {
       try {
         const productItems = data.products.map((p) => ({ name: p.name, quantity: p.quantity }));
@@ -360,15 +360,17 @@ export function OverviewAnalyticsView() {
 
         const newInvoice = addInvoice(data);
 
-        // Update client record
-        updateClientFromInvoice(
-          data.client.name,
-          data.client.phone,
-          data.client.address,
-          data.total,
-          data.amountPaid,
-          { nif: data.client.nif, nis: data.client.nis, rc: data.client.rc, ai: data.client.ai }
-        );
+        // Update client record (skip for retail walk-in sales)
+        if (!options.isRetail) {
+          updateClientFromInvoice(
+            data.client.name,
+            data.client.phone,
+            data.client.address,
+            data.total,
+            data.amountPaid,
+            { nif: data.client.nif, nis: data.client.nis, rc: data.client.rc, ai: data.client.ai }
+          );
+        }
 
         showSuccess(t('sales.invoiceCreated'), !options.printMode ? {
           label: t('common.view'),

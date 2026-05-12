@@ -234,6 +234,10 @@ const translations: Record<Language, Translations> = {
       bonDeLivraison: 'Delivery Note',
       saveAndPrintInvoice: 'Save & Print Invoice',
       saveAndPrintDelivery: 'Save & Print Delivery Note',
+      wholesaleTab: 'Wholesale',
+      retailTab: 'Retail',
+      printReceipt: 'Print Receipt',
+      walkInCustomer: 'Walk-in Customer',
     },
     // Clients
     clients: {
@@ -1411,6 +1415,10 @@ const translations: Record<Language, Translations> = {
       bonDeLivraison: 'Bon de Livraison',
       saveAndPrintInvoice: 'Enregistrer et imprimer la facture',
       saveAndPrintDelivery: 'Enregistrer et imprimer le bon de livraison',
+      wholesaleTab: 'Gros',
+      retailTab: 'Détail',
+      printReceipt: 'Imprimer le reçu',
+      walkInCustomer: 'Client de passage',
     },
     // Clients
     clients: {
@@ -2578,6 +2586,10 @@ const translations: Record<Language, Translations> = {
       bonDeLivraison: 'وصل التسليم',
       saveAndPrintInvoice: 'حفظ وطباعة الفاتورة',
       saveAndPrintDelivery: 'حفظ وطباعة وصل التسليم',
+      wholesaleTab: 'بالجملة',
+      retailTab: 'بالتجزئة',
+      printReceipt: 'طباعة الوصل',
+      walkInCustomer: 'زبون عابر',
     },
     // Clients
     clients: {

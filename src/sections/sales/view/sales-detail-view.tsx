@@ -497,7 +497,7 @@ ${pagesHtml}
 
   const handleEdit = (
     data: Omit<Invoice, 'id'>,
-    options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery' }
+    options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery'; isRetail?: boolean }
   ) => {
     const oldInvoice = invoice;
     const oldAmountPaid = invoice.amountPaid;

@@ -11,7 +11,7 @@ import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
 import TablePagination from '@mui/material/TablePagination';
 
-import { fDate } from 'src/utils/format-time';
+import { fDateLocale } from 'src/utils/format-time';
 import { fCurrency } from 'src/utils/format-number';
 
 import { DashboardContent } from 'src/layouts/dashboard';
@@ -42,7 +42,8 @@ export function ClientsDetailView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
-  const { t, dir } = useTranslation();
+  const { t, dir, language } = useTranslation();
+  const dateLocale = language === 'ar' ? 'ar-DZ' : language === 'fr' ? 'fr-FR' : 'en';
   const { showSuccess } = useSnackbar();
   const { getClient, recordPayment } = useClients();
   const { invoices, recordPayment: recordInvoicePayment } = useInvoices();
@@ -481,7 +482,7 @@ export function ClientsDetailView() {
                             }}
                           >
                             <Typography variant="caption" color="text.secondary">
-                              {fDate(activity.date)}
+                              {fDateLocale(activity.date, dateLocale)}
                             </Typography>
                             {activity.type === 'invoice' && activity.status && (
                               <Label
@@ -563,7 +564,7 @@ export function ClientsDetailView() {
                   {t('clients.lastPurchase')}
                 </Typography>
                 <Typography variant="subtitle1">
-                  {stats.lastPurchase ? fDate(stats.lastPurchase) : '—'}
+                  {stats.lastPurchase ? fDateLocale(stats.lastPurchase, dateLocale) : '—'}
                 </Typography>
               </Box>
               {nearestDueDate && (() => {
@@ -585,7 +586,7 @@ export function ClientsDetailView() {
                       </Typography>
                     </Box>
                     <Typography variant="subtitle1" color={isOverdue ? 'error.main' : isSoon ? 'warning.main' : 'text.primary'} fontWeight={isOverdue || isSoon ? 700 : 400}>
-                      {isOverdue ? `${Math.abs(diffDays)}d ago` : isSoon ? `In ${diffDays}d` : fDate(nearestDueDate)}
+                      {isOverdue ? `${Math.abs(diffDays)}d ago` : isSoon ? `In ${diffDays}d` : fDateLocale(nearestDueDate, dateLocale)}
                     </Typography>
                   </Box>
                 );

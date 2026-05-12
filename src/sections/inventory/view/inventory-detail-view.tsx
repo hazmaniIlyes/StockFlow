@@ -18,7 +18,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
 
-import { fDate } from 'src/utils/format-time';
+import { fDateLocale } from 'src/utils/format-time';
 import { fCurrency } from 'src/utils/format-number';
 
 import { DashboardContent } from 'src/layouts/dashboard';
@@ -38,7 +38,8 @@ export function InventoryDetailView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
-  const { t, dir } = useTranslation();
+  const { t, dir, language } = useTranslation();
+  const dateLocale = language === 'ar' ? 'ar-DZ' : language === 'fr' ? 'fr-FR' : 'en';
   const { showSuccess, showError } = useSnackbar();
   const { getProduct, adjustStock } = useInventory();
   const { getSupplier } = useSuppliers();
@@ -403,7 +404,7 @@ export function InventoryDetailView() {
                     return (
                       <TableRow key={invoice.id} hover>
                         <TableCell>
-                          <Typography variant="body2">{fDate(invoice.createdAt)}</Typography>
+                          <Typography variant="body2">{fDateLocale(invoice.createdAt, dateLocale)}</Typography>
                         </TableCell>
                         <TableCell>
                           <Typography variant="subtitle2">{invoice.client.name}</Typography>

@@ -3,9 +3,11 @@ import type { Client, Invoice, ProductUnit, InvoiceProduct, InventoryProduct } f
 import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
+import Tab from '@mui/material/Tab';
 import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
 import Menu from '@mui/material/Menu';
+import Tabs from '@mui/material/Tabs';
 import Radio from '@mui/material/Radio';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -49,7 +51,7 @@ type Props = {
   onClose: () => void;
   onSave: (
     invoice: Omit<Invoice, 'id'>,
-    options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery' }
+    options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery'; isRetail?: boolean; autoPrint?: boolean }
   ) => void;
   editInvoice?: Invoice | null;
 };
@@ -104,6 +106,7 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
   const [products, setProducts] = useState<ProductRow[]>([emptyProduct()]);
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState(false);
+  const [activeTab, setActiveTab] = useState<'wholesale' | 'retail'>('wholesale');
 
   // SKU scan state
   const [skuInput, setSkuInput] = useState('');
@@ -167,6 +170,7 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
       }
       setErrors({});
       setTouched(false);
+      setActiveTab('wholesale');
     }
   }, [open, editInvoice, clients, inventoryProducts]);
 
@@ -326,7 +330,7 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
     const newErrors: FormErrors = {};
     const stockErrors: string[] = [];
 
-    if (!clientName.trim()) {
+    if (activeTab === 'wholesale' && !clientName.trim()) {
       newErrors.clientName = 'Client name is required';
     }
 
@@ -353,7 +357,7 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = (printMode?: 'invoice' | 'delivery') => {
+  const handleSave = (printMode?: 'invoice' | 'delivery', autoPrint?: boolean) => {
     setTouched(true);
 
     if (!validate()) return;
@@ -369,21 +373,27 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
         unit: p.unit,
       }));
 
-    const finalAmountPaid =
-      paymentStatus === 'paid' ? total : paymentStatus === 'unpaid' ? 0 : amountPaid;
+    const isRetail = activeTab === 'retail';
+    const finalAmountPaid = isRetail
+      ? total
+      : paymentStatus === 'paid' ? total : paymentStatus === 'unpaid' ? 0 : amountPaid;
+    const finalStatus = isRetail ? 'paid' : paymentStatus;
 
     onSave(
       {
         invoiceNumber: editInvoice?.invoiceNumber ?? getNextInvoiceNumber(),
-        client: { 
-          name: clientName, 
-          phone: clientPhone, 
-          address: clientAddress,
-          nif: clientNif || undefined,
-          nis: clientNis || undefined,
-          rc: clientRc || undefined,
-          ai: clientAi || undefined,
-        },
+        type: isRetail ? 'retail' : 'wholesale',
+        client: isRetail
+          ? { name: t('sales.walkInCustomer'), phone: '', address: '' }
+          : {
+              name: clientName,
+              phone: clientPhone,
+              address: clientAddress,
+              nif: clientNif || undefined,
+              nis: clientNis || undefined,
+              rc: clientRc || undefined,
+              ai: clientAi || undefined,
+            },
         products: invoiceProducts,
         subtotal: subtotalHT,
         tvaRate,
@@ -391,11 +401,11 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
         total,
         amountPaid: finalAmountPaid,
         amountDue: total - finalAmountPaid,
-        status: paymentStatus,
+        status: finalStatus,
         createdAt: editInvoice?.createdAt ?? new Date().toISOString().split('T')[0],
         dueDate: dueDate ? new Date(dueDate).toISOString().split('T')[0] : (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().split('T')[0]; })(),
       },
-      { isEdit, originalProducts: editInvoice?.products, printMode }
+      { isEdit, originalProducts: editInvoice?.products, printMode, isRetail, autoPrint }
     );
   };
 
@@ -408,10 +418,36 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{isEdit ? t('common.edit') : t('sales.newInvoice')}</DialogTitle>
+      <DialogTitle sx={{ pb: isEdit ? 2 : 0 }}>
+        {isEdit ? t('common.edit') : t('sales.newInvoice')}
+        {!isEdit && (
+          <Tabs
+            value={activeTab}
+            onChange={(_, v) => setActiveTab(v)}
+            sx={{ mt: 1 }}
+          >
+            <Tab
+              value="wholesale"
+              label={t('sales.wholesaleTab')}
+              icon={<Iconify icon="solar:bill-list-bold-duotone" width={18} />}
+              iconPosition="start"
+              sx={{ minHeight: 42 }}
+            />
+            <Tab
+              value="retail"
+              label={t('sales.retailTab')}
+              icon={<Iconify icon="solar:shop-bold-duotone" width={18} />}
+              iconPosition="start"
+              sx={{ minHeight: 42 }}
+            />
+          </Tabs>
+        )}
+      </DialogTitle>
 
       <DialogContent dividers sx={{ pt: 3 }}>
-        {/* Client Info */}
+        {/* Client Info — wholesale only */}
+        {activeTab === 'wholesale' && (
+          <>
         <Typography variant="subtitle1" sx={{ mb: 2 }}>
           {t('clients.title')}
         </Typography>
@@ -523,6 +559,8 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
         </Grid>
 
         <Divider sx={{ mb: 3 }} />
+          </>
+        )}
 
         {/* Products */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
@@ -794,7 +832,9 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
 
         <Divider sx={{ my: 3 }} />
 
-        {/* Payment Status */}
+        {/* Payment Status — wholesale only */}
+        {activeTab === 'wholesale' && (
+          <>
         <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
           {t('sales.paymentStatus')}
         </Typography>
@@ -841,16 +881,35 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
             </Typography>
           </Box>
         )}
+          </>
+        )}
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2 }}>
         <Button variant="outlined" color="inherit" onClick={onClose}>
           {t('common.cancel')}
         </Button>
-        <PrintDropdownButton onSelect={(mode) => handleSave(mode)} t={t} />
-        <Button variant="contained" onClick={() => handleSave()}>
-          {t('common.save')}
-        </Button>
+        {activeTab === 'wholesale' ? (
+          <>
+            <PrintDropdownButton onSelect={(mode) => handleSave(mode)} t={t} />
+            <Button variant="contained" onClick={() => handleSave()}>
+              {t('common.save')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="outlined"
+              startIcon={<Iconify icon="solar:printer-bold-duotone" width={20} />}
+              onClick={() => handleSave(undefined, true)}
+            >
+              {t('common.saveAndPrint')}
+            </Button>
+            <Button variant="contained" onClick={() => handleSave()}>
+              {t('common.save')}
+            </Button>
+          </>
+        )}
       </DialogActions>
     </Dialog>
   );

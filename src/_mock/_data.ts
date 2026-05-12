@@ -24,6 +24,7 @@ export type InvoiceProduct = {
 export type Invoice = {
   id: string;
   invoiceNumber: string;
+  type?: 'wholesale' | 'retail';
   client: {
     name: string;
     phone: string;

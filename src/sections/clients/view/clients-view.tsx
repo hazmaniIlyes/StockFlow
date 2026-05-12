@@ -30,6 +30,10 @@ export function ClientsView() {
   const { clients, addClient, updateClient, deleteClient, recordPayment } = useClients();
   const { invoices, recordPayment: recordInvoicePayment } = useInvoices();
 
+  // Walk-in retail clients should never appear in the wholesale clients page
+  const WALKIN_NAMES = ['Walk-in Customer', 'Client de passage', 'زبون عابر'];
+  const wholesaleClients = clients.filter((c) => !WALKIN_NAMES.includes(c.name));
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [paymentClient, setPaymentClient] = useState<Client | null>(null);
@@ -40,18 +44,18 @@ export function ClientsView() {
 
   // KPI calculations - now dynamic from actual data
   const kpis = useMemo(() => {
-    const totalClients = clients.length;
-    const unpaidClients = clients.filter((c) => c.status === 'unpaid' || c.status === 'partly-paid').length;
-    const totalCredit = clients.reduce((sum, c) => sum + c.remainingBalance, 0);
+    const totalClients = wholesaleClients.length;
+    const unpaidClients = wholesaleClients.filter((c) => c.status === 'unpaid' || c.status === 'partly-paid').length;
+    const totalCredit = wholesaleClients.reduce((sum, c) => sum + c.remainingBalance, 0);
 
-    // Overdue = unpaid invoices past their due date
+    // Overdue = unpaid invoices past their due date (wholesale only)
     const now = new Date();
     const overdueAmount = invoices
-      .filter((inv) => inv.amountDue > 0 && new Date(inv.dueDate) < now)
+      .filter((inv) => inv.type !== 'retail' && !WALKIN_NAMES.includes(inv.client.name) && inv.amountDue > 0 && new Date(inv.dueDate) < now)
       .reduce((sum, inv) => sum + inv.amountDue, 0);
 
     return { totalClients, unpaidClients, totalCredit, overdueAmount };
-  }, [clients, invoices]);
+  }, [wholesaleClients, invoices]);
 
   const handleNewClient = () => {
     setEditingClient(null);
@@ -172,7 +176,7 @@ export function ClientsView() {
 
       {/* Client List */}
       <ClientsTable
-        clients={clients}
+        clients={wholesaleClients}
         invoices={invoices}
         onView={handleView}
         onViewInvoices={handleViewInvoices}
