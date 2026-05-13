@@ -45,7 +45,8 @@ function initDatabase() {
       supplierId TEXT NOT NULL DEFAULT '',     /* Foreign reference to the supplier who provides this product */
       supplierName TEXT NOT NULL DEFAULT '',   /* Denormalized supplier name for display without joins */
       buyingPrice REAL NOT NULL DEFAULT 0,    /* Cost price — what we pay to buy this product */
-      sellPrice REAL NOT NULL DEFAULT 0,      /* Selling price — what we charge customers */
+      sellPrice REAL NOT NULL DEFAULT 0,      /* Selling price — what we charge customers (wholesale / default) */
+      retailPrice REAL,                       /* Optional retail sell price — falls back to sellPrice if NULL */
       stock REAL NOT NULL DEFAULT 0,          /* Current stock quantity (REAL to support fractional units like kg) */
       minStock REAL NOT NULL DEFAULT 0,       /* Minimum stock threshold — triggers low-stock alerts */
       unit TEXT NOT NULL DEFAULT 'pcs',       /* Unit of measurement (pcs, kg, l, m, etc.) */
@@ -161,6 +162,7 @@ function initDatabase() {
     CREATE TABLE IF NOT EXISTS invoices (
       id TEXT PRIMARY KEY,                    /* Unique invoice ID */
       invoiceNumber TEXT NOT NULL,            /* Human-readable invoice number (e.g., 'INV-0001') */
+      type TEXT NOT NULL DEFAULT 'wholesale', /* 'wholesale' or 'retail' */
       clientName TEXT NOT NULL DEFAULT '',    /* Client name (denormalized for quick access) */
       clientPhone TEXT NOT NULL DEFAULT '',   /* Client phone at time of invoice */
       clientAddress TEXT NOT NULL DEFAULT '', /* Client address at time of invoice */
@@ -257,6 +259,25 @@ function initDatabase() {
 
   insertSetting.run('invoice_counter', '1');    // Start invoice numbering at 1
   insertSetting.run('tva_reset_date', '');       // No TVA reset date initially (empty = count from beginning)
+
+  // ── Runtime column migration — retailPrice (added for wholesale/retail dual pricing) ──
+  // ALTER TABLE IF NOT EXISTS is not supported in SQLite; use pragma table_info instead.
+  const productColumns = db.pragma('table_info(products)');
+  const hasRetailPrice = productColumns.some((col) => col.name === 'retailPrice');
+  if (!hasRetailPrice) {
+    db.exec('ALTER TABLE products ADD COLUMN retailPrice REAL;');
+    console.log('[SQLite] Migration: added retailPrice column to products table');
+  }
+
+  // ── Runtime column migration — type column on invoices (retail vs wholesale) ──
+  const invoiceColumns = db.pragma('table_info(invoices)');
+  const hasInvoiceType = invoiceColumns.some((col) => col.name === 'type');
+  if (!hasInvoiceType) {
+    db.exec("ALTER TABLE invoices ADD COLUMN type TEXT NOT NULL DEFAULT 'wholesale';");
+    // Back-fill existing retail receipts by detecting the walk-in customer name
+    db.exec("UPDATE invoices SET type = 'retail' WHERE clientName IN ('Walk-in Customer', 'عميل عابر', 'Client de passage');");
+    console.log('[SQLite] Migration: added type column to invoices table');
+  }
 
   // Log the database path for debugging
   console.log(`[SQLite] Database initialized at: ${dbPath}`); // Helps the developer find the .db file

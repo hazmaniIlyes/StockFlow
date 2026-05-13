@@ -319,34 +319,34 @@ export function OverviewAnalyticsView() {
 
   // ============ LOW STOCK ALERTS ============
   const lowStockAlerts = useMemo(() => products
-      .filter((p) => p.stock <= p.minStock)
-      .map((p) => ({
-        id: p.id,
-        name: p.name,
-        currentStock: p.stock,
-        minStock: p.minStock,
-        status: (p.stock === 0 ? 'critical' : 'warning') as 'critical' | 'warning',
-      }))
-      .sort((a, b) => a.currentStock - b.currentStock), [products]);
+    .filter((p) => p.stock <= p.minStock)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      currentStock: p.stock,
+      minStock: p.minStock,
+      status: (p.stock === 0 ? 'critical' : 'warning') as 'critical' | 'warning',
+    }))
+    .sort((a, b) => a.currentStock - b.currentStock), [products]);
 
   // ============ RECENT SALES ============
   const recentSales = useMemo(() => invoices
-      .slice()
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .map((inv) => ({
-        id: inv.id,
-        orderNumber: inv.invoiceNumber,
-        customer: inv.client.name,
-        amount: inv.total,
-        date: inv.createdAt,
-        status: (inv.status === 'paid' ? 'completed' : 'pending') as 'completed' | 'pending' | 'shipped',
-      })), [invoices]);
+    .slice()
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .map((inv) => ({
+      id: inv.id,
+      orderNumber: inv.invoiceNumber,
+      customer: inv.client.name,
+      amount: inv.total,
+      date: inv.createdAt,
+      status: (inv.status === 'paid' ? 'completed' : 'pending') as 'completed' | 'pending' | 'shipped',
+    })), [invoices]);
 
   // --- Invoice Save Handler (same as sales-view) ---
   const handleInvoiceSave = useCallback(
     (
       data: Omit<Invoice, 'id'>,
-      options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery' }
+      options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery'; isRetail?: boolean }
     ) => {
       try {
         const productItems = data.products.map((p) => ({ name: p.name, quantity: p.quantity }));
@@ -360,15 +360,17 @@ export function OverviewAnalyticsView() {
 
         const newInvoice = addInvoice(data);
 
-        // Update client record
-        updateClientFromInvoice(
-          data.client.name,
-          data.client.phone,
-          data.client.address,
-          data.total,
-          data.amountPaid,
-          { nif: data.client.nif, nis: data.client.nis, rc: data.client.rc, ai: data.client.ai }
-        );
+        // Update client record (skip for retail walk-in sales)
+        if (!options.isRetail) {
+          updateClientFromInvoice(
+            data.client.name,
+            data.client.phone,
+            data.client.address,
+            data.total,
+            data.amountPaid,
+            { nif: data.client.nif, nis: data.client.nis, rc: data.client.rc, ai: data.client.ai }
+          );
+        }
 
         showSuccess(t('sales.invoiceCreated'), !options.printMode ? {
           label: t('common.view'),
@@ -522,17 +524,17 @@ export function OverviewAnalyticsView() {
         </Grid>
 
         {role !== 'worker' && (
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <AnalyticsWidgetSummary
-            title={t('dashboard.thisMonthRevenue')}
-            percent={0}
-            total={metrics.thisMonthRevenue}
-            isCurrency
-            color="info"
-            icon={<Iconify icon="solar:graph-up-bold-duotone" width={40} />}
-            chart={kpiChartData.thisMonthRevenue}
-          />
-        </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <AnalyticsWidgetSummary
+              title={t('dashboard.thisMonthRevenue')}
+              percent={0}
+              total={metrics.thisMonthRevenue}
+              isCurrency
+              color="info"
+              icon={<Iconify icon="solar:graph-up-bold-duotone" width={40} />}
+              chart={kpiChartData.thisMonthRevenue}
+            />
+          </Grid>
         )}
 
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -548,17 +550,17 @@ export function OverviewAnalyticsView() {
         </Grid>
 
         {role !== 'worker' && (
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <AnalyticsWidgetSummary
-            title={t('dashboard.todayProfit')}
-            percent={0}
-            total={metrics.todayProfit}
-            isCurrency
-            color="success"
-            icon={<Iconify icon="solar:graph-new-up-bold-duotone" width={40} />}
-            chart={kpiChartData.todayProfit}
-          />
-        </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <AnalyticsWidgetSummary
+              title={t('dashboard.todayProfit')}
+              percent={0}
+              total={metrics.todayProfit}
+              isCurrency
+              color="success"
+              icon={<Iconify icon="solar:graph-new-up-bold-duotone" width={40} />}
+              chart={kpiChartData.todayProfit}
+            />
+          </Grid>
         )}
 
         {/* ============ COLLAPSIBLE SECONDARY CARDS ============ */}
@@ -591,53 +593,53 @@ export function OverviewAnalyticsView() {
           <Collapse in={showSecondary}>
             <Grid container spacing={3} sx={{ mt: 0 }}>
               {role !== 'worker' && (
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <AnalyticsWidgetSecondary
-                  title={t('dashboard.suppliersOwed')}
-                  percent={0}
-                  total={metrics.suppliersOwed}
-                  isCurrency
-                  icon={<Iconify icon="solar:delivery-bold-duotone" width={22} />}
-                  chart={{
-                    categories: [],
-                    series: [],
-                  }}
-                />
-              </Grid>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                  <AnalyticsWidgetSecondary
+                    title={t('dashboard.suppliersOwed')}
+                    percent={0}
+                    total={metrics.suppliersOwed}
+                    isCurrency
+                    icon={<Iconify icon="solar:delivery-bold-duotone" width={22} />}
+                    chart={{
+                      categories: [],
+                      series: [],
+                    }}
+                  />
+                </Grid>
               )}
 
               {role !== 'worker' && (
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <AnalyticsWidgetSecondary
-                  title={t('dashboard.tvaCollected')}
-                  percent={0}
-                  total={metrics.tvaCollected}
-                  isCurrency
-                  color="success"
-                  icon={<Iconify icon="solar:check-circle-bold-duotone" width={22} />}
-                  chart={{
-                    categories: [],
-                    series: [],
-                  }}
-                />
-              </Grid>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                  <AnalyticsWidgetSecondary
+                    title={t('dashboard.tvaCollected')}
+                    percent={0}
+                    total={metrics.tvaCollected}
+                    isCurrency
+                    color="success"
+                    icon={<Iconify icon="solar:check-circle-bold-duotone" width={22} />}
+                    chart={{
+                      categories: [],
+                      series: [],
+                    }}
+                  />
+                </Grid>
               )}
 
               {role !== 'worker' && (
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <AnalyticsWidgetSecondary
-                  title={t('dashboard.lastMonthRevenue')}
-                  percent={0}
-                  total={metrics.lastMonthRevenue}
-                  isCurrency
-                  color="info"
-                  icon={<Iconify icon="solar:pie-chart-2-bold-duotone" width={22} />}
-                  chart={{
-                    categories: [],
-                    series: [],
-                  }}
-                />
-              </Grid>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                  <AnalyticsWidgetSecondary
+                    title={t('dashboard.lastMonthRevenue')}
+                    percent={0}
+                    total={metrics.lastMonthRevenue}
+                    isCurrency
+                    color="info"
+                    icon={<Iconify icon="solar:pie-chart-2-bold-duotone" width={22} />}
+                    chart={{
+                      categories: [],
+                      series: [],
+                    }}
+                  />
+                </Grid>
               )}
 
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -703,8 +705,8 @@ export function OverviewAnalyticsView() {
 
         {/* ============ RECENT SALES ROW ============ */}
         <Grid size={{ xs: 12 }}>
-          <AnalyticsRecentSales 
-            title={t('dashboard.recentSales')} 
+          <AnalyticsRecentSales
+            title={t('dashboard.recentSales')}
             list={recentSales}
           />
         </Grid>

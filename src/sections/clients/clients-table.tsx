@@ -20,7 +20,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
 
-import { fDate } from 'src/utils/format-time';
+import { fDateLocale } from 'src/utils/format-time';
 import { fCurrency } from 'src/utils/format-number';
 
 import { useSettings, useTranslation } from 'src/contexts';
@@ -43,6 +43,7 @@ type Props = {
 
 export function ClientsTable({ clients, invoices, onView, onViewInvoices, onRecordPayment, onEdit, onDelete }: Props) {
   const { t, dir, language } = useTranslation();
+  const dateLocale = language === 'ar' ? 'ar-DZ' : language === 'fr' ? 'fr-FR' : 'en';
   const numLocale = language === 'ar' ? 'ar-DZ' : 'fr-DZ';
   const fmtCurrency = (v: any) => `${Number(v).toLocaleString(numLocale)} ${language === 'ar' ? 'دج' : 'DA'}`;
   const { role } = useSettings();
@@ -211,7 +212,7 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
                     </Box>
                   </TableCell>
                   )}
-                  <TableCell>{client.lastInvoiceDate ? fDate(client.lastInvoiceDate) : <Typography variant="caption" color="text.disabled">—</Typography>}</TableCell>
+                  <TableCell>{client.lastInvoiceDate ? fDateLocale(client.lastInvoiceDate, dateLocale) : <Typography variant="caption" color="text.disabled">—</Typography>}</TableCell>
                   <TableCell>
                     {(() => {
                       const entry = clientDueMap.get(client.name);
@@ -231,7 +232,7 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
                             variant="caption"
                             sx={{ fontWeight: isOverdue || isSoon ? 700 : 400, color: isOverdue ? 'error.main' : isSoon ? 'warning.main' : 'text.primary' }}
                           >
-                            {isOverdue ? `Overdue ${Math.abs(diffDays)}d` : isSoon ? `Due in ${diffDays}d` : fDate(entry.label)}
+                            {isOverdue ? `Overdue ${Math.abs(diffDays)}d` : isSoon ? `Due in ${diffDays}d` : fDateLocale(entry.label, dateLocale)}
                           </Typography>
                         </Box>
                       );

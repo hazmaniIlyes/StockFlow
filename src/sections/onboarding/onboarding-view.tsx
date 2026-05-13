@@ -1,4 +1,5 @@
-﻿import type { Language } from 'src/contexts';
+import type { Language } from 'src/contexts';
+import type { BusinessMode } from 'src/contexts/settings-context';
 
 import { useRef, useState, useEffect } from 'react';
 
@@ -18,7 +19,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import LinearProgress from '@mui/material/LinearProgress';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
-import { settingsDB, isElectron } from 'src/services/db'; // Import SQLite interface
+import { settingsDB, isElectron } from 'src/services/db';
 import { useI18n, useBusiness, useSettings } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
@@ -43,7 +44,9 @@ type OnboardingData = {
   logo: string;
   // Page 4 — TVA
   tvaRate: number | null; // null = not answered
-  // Page 5 — Preferences
+  // Page 5 — Business Type
+  businessMode: BusinessMode;
+  // Page 6 — Preferences
   colorMode: 'light' | 'dark';
   defaultUnits: string[];
   lowStockThreshold: number;
@@ -52,7 +55,7 @@ type OnboardingData = {
   expenseCategories: string[];
 };
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 
 const ONBOARDING_KEY = 'onboarding_complete';
 
@@ -99,7 +102,16 @@ const ob: Record<Language, Record<string, string>> = {
     tvaCustom: 'Custom rate',
     tvaCustomDesc: 'Enter your applicable TVA rate',
     tvaCustomLabel: 'TVA Rate (%)',
-    // Page 5
+    // Business type
+    bizTitle: 'Business Type',
+    bizSubtitle: 'How do you run your business?',
+    bizBoth: 'Both',
+    bizBothDesc: 'You sell wholesale and retail — full app access',
+    bizWholesale: 'Wholesale only',
+    bizWholesaleDesc: 'You sell to businesses — invoices, clients, delivery notes',
+    bizRetail: 'Retail only',
+    bizRetailDesc: 'You sell directly to customers — fast POS receipts',
+    // Page 6
     prefsTitle: 'Preferences',
     prefsSubtitle: 'Customize the app to your needs',
     theme: 'Theme',
@@ -153,6 +165,15 @@ const ob: Record<Language, Record<string, string>> = {
     tvaCustom: 'Taux personnalisé',
     tvaCustomDesc: 'Saisissez votre taux de TVA applicable',
     tvaCustomLabel: 'Taux TVA (%)',
+    // Business type
+    bizTitle: 'Type d\'activité',
+    bizSubtitle: 'Comment exercez-vous votre activité ?',
+    bizBoth: 'Les deux',
+    bizBothDesc: 'Vous vendez en gros et au détail — accès complet',
+    bizWholesale: 'Gros uniquement',
+    bizWholesaleDesc: 'Vous vendez à des entreprises — factures, clients, bons de livraison',
+    bizRetail: 'Détail uniquement',
+    bizRetailDesc: 'Vous vendez directement aux clients — reçus POS rapides',
     prefsTitle: 'Préférences',
     prefsSubtitle: 'Personnalisez l\'application selon vos besoins',
     theme: 'Thème',
@@ -205,6 +226,15 @@ const ob: Record<Language, Record<string, string>> = {
     tvaCustom: 'معدل مخصص',
     tvaCustomDesc: 'أدخل معدل الضريبة المطبق',
     tvaCustomLabel: 'معدل TVA (%)',
+    // Business type
+    bizTitle: 'نوع النشاط التجاري',
+    bizSubtitle: 'كيف تمارس نشاطك التجاري؟',
+    bizBoth: 'كلاهما',
+    bizBothDesc: 'تبيع بالجملة وبالتجزئة — وصول كامل للتطبيق',
+    bizWholesale: 'الجملة فقط',
+    bizWholesaleDesc: 'تبيع للشركات — فواتير وعملاء وبوليصات تسليم',
+    bizRetail: 'التجزئة فقط',
+    bizRetailDesc: 'تبيع مباشرة للزبائن — وصولات POS سريعة',
     prefsTitle: 'التفضيلات',
     prefsSubtitle: 'خصّص التطبيق وفق احتياجاتك',
     theme: 'المظهر',
@@ -268,7 +298,7 @@ export function OnboardingView({ onComplete }: Props) {
   const theme = useTheme();
   const { language, setLanguage } = useI18n();
   const { updateBusinessInfo } = useBusiness();
-  const { updateInvoiceSettings, updatePreferences, addProductCategory, productCategories, deleteProductCategory, addExpenseCategory, deleteExpenseCategory, expenseCategories: existingExpCategories } = useSettings();
+  const { updateInvoiceSettings, updatePreferences, addProductCategory, productCategories, deleteProductCategory, addExpenseCategory, deleteExpenseCategory, expenseCategories: existingExpCategories, setBusinessMode } = useSettings();
 
   const dir = language === 'ar' ? 'rtl' : 'ltr';
   const i = (key: string) => ob[language]?.[key] ?? ob.fr[key] ?? key;
@@ -289,6 +319,7 @@ export function OnboardingView({ onComplete }: Props) {
     ai: '',
     logo: '',
     tvaRate: null,
+    businessMode: 'both',
     colorMode: 'light',
     defaultUnits: ['pcs'],
     lowStockThreshold: 10,
@@ -369,7 +400,7 @@ export function OnboardingView({ onComplete }: Props) {
   };
 
   const handleRemoveCategory = (idx: number) => {
-    setData((prev) => ({ ...prev, categories: prev.categories.filter((_, i) => i !== idx) }));
+    setData((prev) => ({ ...prev, categories: prev.categories.filter((_, _idx) => _idx !== idx) }));
   };
 
   const handleAddExpenseCategory = () => {
@@ -379,7 +410,7 @@ export function OnboardingView({ onComplete }: Props) {
   };
 
   const handleRemoveExpenseCategory = (idx: number) => {
-    setData((prev) => ({ ...prev, expenseCategories: prev.expenseCategories.filter((_, i) => i !== idx) }));
+    setData((prev) => ({ ...prev, expenseCategories: prev.expenseCategories.filter((_, _idx) => _idx !== idx) }));
   };
 
   const handleComplete = async () => {
@@ -389,6 +420,7 @@ export function OnboardingView({ onComplete }: Props) {
       displayName: data.displayName,
       role: 'admin',
       workerModeEnabled: false,
+      businessMode: data.businessMode,
     });
     if (isElectron()) await settingsDB.set('account', accountStr);
     localStorage.setItem('account', accountStr);
@@ -473,6 +505,9 @@ export function OnboardingView({ onComplete }: Props) {
     // ── 6. Mark onboarding complete ────────────────────────────────────
     if (isElectron()) await settingsDB.set(ONBOARDING_KEY, 'true');
     localStorage.setItem(ONBOARDING_KEY, 'true');
+
+    // ── 7. Update in-memory businessMode so the first session is correct ──
+    setBusinessMode(data.businessMode);
 
     onComplete();
   };
@@ -895,9 +930,9 @@ export function OnboardingView({ onComplete }: Props) {
   }
 
   // ──────────────────────────────────────────────────────────────────────
-  // PAGE 5 — Preferences
+  // PAGE 6 — Preferences
   // ──────────────────────────────────────────────────────────────────────
-  if (step === 5) {
+  if (step === 6) {
     return shell(
       <Box>
         <Box sx={{ px: 3, pt: 3, pb: 2 }}>
@@ -1052,9 +1087,71 @@ export function OnboardingView({ onComplete }: Props) {
   }
 
   // ──────────────────────────────────────────────────────────────────────
-  // PAGE 6 — Ready!
+  // PAGE 5 — Business Type
   // ──────────────────────────────────────────────────────────────────────
-  if (step === 6) {
+  if (step === 5) {
+    const bizOptions: { value: BusinessMode; titleKey: string; descKey: string; icon: string; color: string }[] = [
+      { value: 'both',      titleKey: 'bizBoth',      descKey: 'bizBothDesc',      icon: 'solar:users-group-rounded-bold-duotone', color: theme.palette.primary.main },
+      { value: 'wholesale', titleKey: 'bizWholesale', descKey: 'bizWholesaleDesc', icon: 'solar:bill-list-bold-duotone',           color: theme.palette.info.main },
+      { value: 'retail',    titleKey: 'bizRetail',    descKey: 'bizRetailDesc',    icon: 'solar:shop-bold-duotone',               color: theme.palette.success.main },
+    ];
+
+    return shell(
+      <Box>
+        <Box sx={{ px: 3, pt: 3, pb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+            <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: (t) => alpha(t.palette.primary.main, 0.12), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'primary.main' }}>
+              <Iconify icon="solar:shop-2-bold-duotone" width={20} />
+            </Box>
+            <Typography variant="h6">{i('bizTitle')}</Typography>
+          </Box>
+          <Typography variant="body2" color="text.secondary">{i('bizSubtitle')}</Typography>
+        </Box>
+
+        <Divider />
+
+        <Box sx={{ px: 3, py: 3, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {bizOptions.map((opt) => {
+            const selected = data.businessMode === opt.value;
+            return (
+              <Box
+                key={opt.value}
+                onClick={() => setData((prev) => ({ ...prev, businessMode: opt.value }))}
+                sx={{
+                  p: 2,
+                  borderRadius: 2.5,
+                  border: `2px solid ${selected ? opt.color : 'transparent'}`,
+                  bgcolor: selected ? alpha(opt.color, 0.07) : (t) => alpha(t.palette.grey[500], 0.06),
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  transition: 'all 180ms',
+                  '&:hover': { borderColor: opt.color, bgcolor: alpha(opt.color, 0.05) },
+                }}
+              >
+                <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: selected ? alpha(opt.color, 0.15) : (t) => alpha(t.palette.grey[500], 0.1), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 180ms' }}>
+                  <Iconify icon={opt.icon} width={22} sx={{ color: selected ? opt.color : 'text.disabled' }} />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="subtitle2" fontWeight={selected ? 700 : 500}>{i(opt.titleKey)}</Typography>
+                  <Typography variant="caption" color="text.secondary">{i(opt.descKey)}</Typography>
+                </Box>
+                {selected && <Iconify icon="eva:checkmark-circle-2-fill" width={20} sx={{ color: opt.color, flexShrink: 0 }} />}
+              </Box>
+            );
+          })}
+        </Box>
+
+        {navRow()}
+      </Box>
+    );
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // PAGE 7 — Ready!
+  // ──────────────────────────────────────────────────────────────────────
+  if (step === 7) {
     const tips = [
       { icon: 'solar:box-bold-duotone', text: i('tip1'), color: theme.palette.primary.main },
       { icon: 'solar:bill-list-bold-duotone', text: i('tip2'), color: theme.palette.success.main },

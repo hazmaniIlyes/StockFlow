@@ -18,7 +18,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
 
-import { fDate } from 'src/utils/format-time';
+import { fDateLocale } from 'src/utils/format-time';
 import { fCurrency } from 'src/utils/format-number';
 
 import { DashboardContent } from 'src/layouts/dashboard';
@@ -37,7 +37,8 @@ export function SuppliersDetailView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
-  const { t, dir } = useTranslation();
+  const { t, dir, language } = useTranslation();
+  const dateLocale = language === 'ar' ? 'ar-DZ' : language === 'fr' ? 'fr-FR' : 'en';
   const { showSuccess } = useSnackbar();
   const { getSupplier, recordPayment, recordPurchase } = useSuppliers();
   const { products, updateProduct, addProduct } = useInventory();
@@ -386,7 +387,7 @@ export function SuppliersDetailView() {
                   {purchases.slice(purchasesPage * detailRowsPerPage, (purchasesPage + 1) * detailRowsPerPage).map((purchase) => (
                     <TableRow key={purchase.id}>
                       <TableCell>
-                        <Typography variant="body2">{fDate(purchase.date)}</Typography>
+                        <Typography variant="body2">{fDateLocale(purchase.date, dateLocale)}</Typography>
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
@@ -598,7 +599,7 @@ export function SuppliersDetailView() {
                           {fCurrency(payment.amount)}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {fDate(payment.date)}
+                          {fDateLocale(payment.date, dateLocale)}
                         </Typography>
                         {payment.note && (
                           <Typography variant="caption" color="text.secondary" display="block">

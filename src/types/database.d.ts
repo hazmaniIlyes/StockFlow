@@ -91,6 +91,12 @@ interface DatabaseAPI {
   addActionItem: (data: { id: string; title: string; completed: boolean }) => Promise<void>;
   toggleActionItem: (id: string) => Promise<void>;
   deleteActionItem: (id: string) => Promise<void>;
+
+  // ── Printing ──────────────────────────────────────────────────────────
+  printHtml: (html: string) => Promise<boolean>;
+  getPrinters: () => Promise<{ name: string; displayName: string; isDefault: boolean }[]>;
+  printHtmlSilent: (html: string, printerName: string) => Promise<boolean>;
+  savePdf: (html: string, name: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 /** Shell/OS actions exposed on window.appShell by the Electron preload script */

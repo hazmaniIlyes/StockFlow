@@ -36,6 +36,7 @@ type ProductFormData = {
   supplierName: string;
   buyingPrice: number;
   sellPrice: number;
+  retailPrice?: number;
   stock: number;
   minStock: number;
   unit: ProductUnit;
@@ -57,7 +58,7 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
   const { t, language } = useTranslation();
   const currencySymbol = language === 'ar' ? 'د.ج' : 'DA';
   const isEdit = Boolean(product);
-  const { productCategories, preferences, invoice: invoiceSettings } = useSettings();
+  const { productCategories, preferences, invoice: invoiceSettings, businessMode } = useSettings();
   const { activeSuppliers, addSupplier, getSupplier, addProductToCatalog, recordPurchase, updateSupplier } = useSuppliers();
   const { getProductByName, updateProduct, addBatch, adjustStock, products } = useInventory();
   const { showError } = useSnackbar();
@@ -78,6 +79,7 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
   const [unit, setUnit] = useState<ProductUnit>(product?.unit ?? 'pcs');
   const [buyingPrice, setBuyingPrice] = useState(product?.buyingPrice ?? 0);
   const [sellPrice, setSellPrice] = useState(product?.sellPrice ?? 0);
+  const [retailPrice, setRetailPrice] = useState(product?.retailPrice ?? 0);
   const [stock, setStock] = useState(product?.stock ?? 0);
   const [minStock, setMinStock] = useState(product?.minStock ?? 10);
   const [sku, setSku] = useState('');
@@ -108,6 +110,7 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
         setUnit(product.unit ?? 'pcs');
         setBuyingPrice(product.buyingPrice);
         setSellPrice(product.sellPrice);
+        setRetailPrice(product.retailPrice ?? 0);
         setStock(product.stock);
         setMinStock(product.minStock);
         setSku(product.sku ?? '');
@@ -120,6 +123,7 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
         setUnit('pcs');
         setBuyingPrice(0);
         setSellPrice(0);
+        setRetailPrice(0);
         setStock(0);
         setMinStock(preferences.lowStockThreshold);
 
@@ -233,6 +237,7 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
       if (existingProduct) {
         setBuyingPrice(existingProduct.buyingPrice); // Bug 1 fix: use live inventory price, not stale catalog price
         setSellPrice(existingProduct.sellPrice);
+        setRetailPrice(existingProduct.retailPrice ?? 0);
         setMinStock(existingProduct.minStock);
       }
     }
@@ -247,16 +252,21 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
   const hasPriceConflict =
     !isEdit &&
     !!existingInventoryProduct &&
-    (buyingPrice !== existingInventoryProduct.buyingPrice || sellPrice !== existingInventoryProduct.sellPrice);
+    (buyingPrice !== existingInventoryProduct.buyingPrice ||
+      sellPrice !== existingInventoryProduct.sellPrice ||
+      (retailPrice > 0 && retailPrice !== (existingInventoryProduct.retailPrice ?? 0)));
 
   const margin =
     buyingPrice > 0 ? ((sellPrice - buyingPrice) / buyingPrice) * 100 : 0;
+  const retailMargin =
+    buyingPrice > 0 && retailPrice > 0 ? ((retailPrice - buyingPrice) / buyingPrice) * 100 : 0;
 
-  // Validation
+  // Validation — in retail mode, retailPrice replaces sellPrice as the required sell field
+  const effectiveSellPrice = businessMode === 'retail' ? retailPrice : sellPrice;
   const isValid =
     customName.trim() !== '' &&
     buyingPrice > 0 &&
-    sellPrice > 0 &&
+    effectiveSellPrice > 0 &&
     minStock >= 0;
 
   const handleSubmit = () => {
@@ -274,6 +284,7 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
     setUnit('pcs');
     setBuyingPrice(0);
     setSellPrice(0);
+    setRetailPrice(0);
     setStock(0);
     setMinStock(preferences.lowStockThreshold);
     setSku('');
@@ -338,12 +349,15 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
 
     onSubmit({
       name: customName.trim(),
-      sku: sku.trim(), // User-entered SKU (may be empty; context will auto-generate if so)
+      sku: sku.trim(),
       category: finalCategory,
       supplierId: supplierId || '',
       supplierName: selectedSupplier?.name ?? '',
       buyingPrice,
-      sellPrice,
+      // In retail-only mode: the user fills retailPrice as their sell price;
+      // store it as sellPrice so inventory display/FIFO work, and clear retailPrice.
+      sellPrice: businessMode === 'retail' ? retailPrice : sellPrice,
+      retailPrice: businessMode === 'both' && retailPrice > 0 ? retailPrice : undefined,
       stock,
       minStock,
       unit,
@@ -596,27 +610,52 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
             </TextField>
 
             {/* Buying Price (auto-filled, editable) */}
-            <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <TextField
-                fullWidth
+                sx={{ flex: 1, minWidth: 150 }}
                 label={unit !== 'pcs' ? `${t('inventory.buyingPrice')} (DA/${unit})` : t('inventory.buyingPrice')}
                 type="number"
                 value={buyingPrice || ''}
                 onChange={(e) => setBuyingPrice(Number(e.target.value))}
                 slotProps={{ htmlInput: { min: 0 } }}
               />
-              <TextField
-                fullWidth
-                label={unit !== 'pcs' ? `${t('inventory.sellPrice')} (DA/${unit})` : t('inventory.sellPrice')}
-                type="number"
-                value={sellPrice || ''}
-                onChange={(e) => setSellPrice(Number(e.target.value))}
-                slotProps={{ htmlInput: { min: 0 } }}
-                helperText={sellPrice > 0 ? `TVA (${invoiceSettings.tvaRate}%): ${(sellPrice * (1 + invoiceSettings.tvaRate / 100)).toFixed(2)} DA TTC` : undefined}
-              />
+              {/* Wholesale sell price — wholesale and both modes */}
+              {businessMode !== 'retail' && (
+                <TextField
+                  sx={{ flex: 1, minWidth: 150 }}
+                  label={
+                    businessMode === 'both'
+                      ? (unit !== 'pcs' ? `${t('inventory.sellPriceWholesale')} (DA/${unit})` : t('inventory.sellPriceWholesale'))
+                      : (unit !== 'pcs' ? `${t('inventory.sellPrice')} (DA/${unit})` : t('inventory.sellPrice'))
+                  }
+                  type="number"
+                  value={sellPrice || ''}
+                  onChange={(e) => setSellPrice(Number(e.target.value))}
+                  slotProps={{ htmlInput: { min: 0 } }}
+                  helperText={sellPrice > 0 ? `TVA (${invoiceSettings.tvaRate}%): ${(sellPrice * (1 + invoiceSettings.tvaRate / 100)).toFixed(2)} DA TTC` : undefined}
+                />
+              )}
+              {/* Retail sell price — retail and both modes */}
+              {(businessMode === 'retail' || businessMode === 'both') && (
+                <TextField
+                  sx={{ flex: 1, minWidth: 150 }}
+                  label={
+                    businessMode === 'retail'
+                      ? (unit !== 'pcs' ? `${t('inventory.sellPrice')} (DA/${unit})` : t('inventory.sellPrice'))
+                      : (unit !== 'pcs' ? `${t('inventory.retailPrice')} (DA/${unit})` : t('inventory.retailPrice'))
+                  }
+                  type="number"
+                  value={retailPrice || ''}
+                  onChange={(e) => setRetailPrice(Number(e.target.value))}
+                  slotProps={{ htmlInput: { min: 0 } }}
+                  helperText={retailPrice > 0 && buyingPrice > 0
+                    ? `${t('inventory.margin')}: ${retailMargin.toFixed(1)}%`
+                    : (businessMode === 'both' ? t('inventory.retailPriceOptional') : undefined)}
+                />
+              )}
             </Box>
 
-            {/* Margin Display */}
+            {/* Wholesale margin */}
             {sellPrice > 0 && buyingPrice > 0 && (
               <Box
                 sx={{
@@ -628,7 +667,7 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
                 }}
               >
                 <Typography variant="subtitle2" color={margin > 0 ? 'success.dark' : 'error.dark'}>
-                  {t('inventory.margin')}: {margin.toFixed(1)}%
+                  {businessMode === 'both' ? `${t('inventory.sellPriceWholesale')} ${t('inventory.margin')}` : t('inventory.margin')}: {margin.toFixed(1)}%
                 </Typography>
                 <Typography variant="subtitle2" color={margin > 0 ? 'success.dark' : 'error.dark'}>
                   {t('inventory.profitPerUnit')}: {fCurrency(sellPrice - buyingPrice).replace('DA', currencySymbol)} / {t(`units.${unit}`).split('(')[0].trim()}
@@ -799,6 +838,11 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
               <Typography variant="subtitle2">
                 {t('inventory.sellPrice')}: {fCurrency(existingInventoryProduct?.sellPrice ?? 0)}
               </Typography>
+              {existingInventoryProduct?.retailPrice && (
+                <Typography variant="subtitle2">
+                  {t('inventory.retailPrice')}: {fCurrency(existingInventoryProduct.retailPrice)}
+                </Typography>
+              )}
             </Box>
 
             <Iconify icon={language === 'ar' ? 'solar:arrow-left-bold' : 'solar:arrow-right-bold'} width={20} sx={{ color: 'text.disabled', flexShrink: 0 }} />
@@ -817,8 +861,13 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
                 {t('inventory.buyingPrice')}: {fCurrency(buyingPrice)}
               </Typography>
               <Typography variant="subtitle2" color="primary.dark">
-                {t('inventory.sellPrice')}: {fCurrency(sellPrice)}
+                {t('inventory.sellPrice')}: {fCurrency(effectiveSellPrice)}
               </Typography>
+              {businessMode === 'both' && retailPrice > 0 && (
+                <Typography variant="subtitle2" color="primary.dark">
+                  {t('inventory.retailPrice')}: {fCurrency(retailPrice)}
+                </Typography>
+              )}
             </Box>
           </Box>
 
@@ -835,7 +884,8 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
 
                 updateProduct(existingInventoryProduct.id, {
                   buyingPrice,
-                  sellPrice,
+                  sellPrice: effectiveSellPrice,
+                  retailPrice: businessMode === 'both' && retailPrice > 0 ? retailPrice : undefined,
                   stock: mergedTotal,
                   batches: undefined,
                 });
@@ -890,10 +940,14 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
                 // Add new batch to the existing product (no price change to old stock)
                 addBatch(existingInventoryProduct.id, {
                   buyingPrice,
-                  sellPrice,
+                  sellPrice: effectiveSellPrice, // always the correct price for the active mode
                   quantity: stock,
                   purchaseDate: new Date().toISOString().split('T')[0],
                 });
+                // In both mode, also update the product-level retailPrice
+                if (businessMode === 'both' && retailPrice > 0) {
+                  updateProduct(existingInventoryProduct.id, { retailPrice });
+                }
                 // Record the purchase with the supplier if one is selected
                 if (supplierId && stock > 0) {
                   const totalCost = buyingPrice * stock;

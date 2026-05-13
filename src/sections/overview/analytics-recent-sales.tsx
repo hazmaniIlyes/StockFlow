@@ -14,7 +14,7 @@ import CardHeader from '@mui/material/CardHeader';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
 
-import { fDate } from 'src/utils/format-time';
+import { fDateLocale } from 'src/utils/format-time';
 import { fCurrency } from 'src/utils/format-number';
 
 import { useTranslation } from 'src/contexts';
@@ -43,7 +43,8 @@ export function AnalyticsRecentSales({
   sx,
   ...other
 }: Props) {
-  const { t, dir } = useTranslation();
+  const { t, dir, language } = useTranslation();
+  const dateLocale = language === 'ar' ? 'ar-DZ' : language === 'fr' ? 'fr-FR' : 'en';
   const [page, setPage] = useState(0);
   const rowsPerPage = 10;
 
@@ -87,7 +88,7 @@ export function AnalyticsRecentSales({
                 <TableCell align="right">
                   <Box sx={{ typography: 'subtitle2' }}>{fCurrency(row.amount)}</Box>
                 </TableCell>
-                <TableCell>{fDate(row.date)}</TableCell>
+                <TableCell>{fDateLocale(row.date, dateLocale)}</TableCell>
                 <TableCell align="center">
                   <Chip
                     label={statusConfig[row.status].label}

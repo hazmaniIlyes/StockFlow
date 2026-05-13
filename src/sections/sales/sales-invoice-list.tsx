@@ -20,7 +20,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
 
-import { fDate } from 'src/utils/format-time';
+import { fDateLocale } from 'src/utils/format-time';
 import { fCurrency } from 'src/utils/format-number';
 
 import { useTranslation } from 'src/contexts';
@@ -52,9 +52,15 @@ export function SalesInvoiceList({
 }: Props) {
   const { t, dir, language } = useTranslation();
   const numLocale = language === 'ar' ? 'ar-DZ' : 'fr-DZ';
+  const dateLocale = language === 'ar' ? 'ar-DZ' : language === 'fr' ? 'fr-FR' : 'en';
   const fmtCurrency = (v: any) => `${Number(v).toLocaleString(numLocale)} ${language === 'ar' ? 'دج' : 'DA'}`;
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'wholesale' | 'retail'>('all');
+
+  const WALKIN_NAMES = ['Walk-in Customer', 'Client de passage', 'زبون عابر'];
+  const displayClientName = (name: string) =>
+    WALKIN_NAMES.includes(name) ? t('sales.walkInCustomer') : name;
 
   const STATUS_OPTIONS = [
     { value: 'all', label: t('common.all') },
@@ -95,11 +101,19 @@ export function SalesInvoiceList({
       result = result.filter((inv) => inv.status === statusFilter);
     }
 
+    if (typeFilter !== 'all') {
+      result = result.filter((inv) => {
+        const isRetail = inv.type === 'retail' || WALKIN_NAMES.includes(inv.client.name);
+        return typeFilter === 'retail' ? isRetail : !isRetail;
+      });
+    }
+
     return result;
-  }, [invoices, search, statusFilter]);
+  }, [invoices, search, statusFilter, typeFilter]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => { setSearch(e.target.value); setPage(0); };
   const handleStatusChange = (e: React.ChangeEvent<HTMLInputElement>) => { setStatusFilter(e.target.value); setPage(0); };
+  const handleTypeChange = (e: React.ChangeEvent<HTMLInputElement>) => { setTypeFilter(e.target.value as 'all' | 'wholesale' | 'retail'); setPage(0); };
 
   const paginated = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
@@ -154,6 +168,18 @@ export function SalesInvoiceList({
           ))}
         </TextField>
 
+        <TextField
+          select
+          size="small"
+          value={typeFilter}
+          onChange={handleTypeChange}
+          sx={{ minWidth: 140 }}
+        >
+          <MenuItem value="all">{t('common.all')}</MenuItem>
+          <MenuItem value="wholesale">{t('sales.wholesaleTab')}</MenuItem>
+          <MenuItem value="retail">{t('sales.retailTab')}</MenuItem>
+        </TextField>
+
         <ExportButtons
           data={filtered}
           columns={[
@@ -202,8 +228,8 @@ export function SalesInvoiceList({
                   <TableCell>
                     <Box sx={{ typography: 'subtitle2' }}>{invoice.invoiceNumber}</Box>
                   </TableCell>
-                  <TableCell>{invoice.client.name}</TableCell>
-                  <TableCell>{fDate(invoice.createdAt)}</TableCell>
+                  <TableCell>{displayClientName(invoice.client.name)}</TableCell>
+                  <TableCell>{fDateLocale(invoice.createdAt, dateLocale)}</TableCell>
                   <TableCell align="right">
                     <Box sx={{ typography: 'subtitle2' }}>{fCurrency(invoice.total)}</Box>
                   </TableCell>

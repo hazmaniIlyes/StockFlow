@@ -19,10 +19,12 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 
 import { useSettings, useTranslation } from 'src/contexts';
-import { tvaDB, clientsDB, settingsDB, isElectron, productsDB, invoicesDB, expensesDB, suppliersDB } from 'src/services/db'; // Import our new database service
+import type { BusinessMode } from 'src/contexts/settings-context';
+import { tvaDB, clientsDB, settingsDB, isElectron, productsDB, invoicesDB, expensesDB, suppliersDB } from 'src/services/db';
 
 import { Iconify } from 'src/components/iconify';
 import { useSnackbar } from 'src/components/snackbar';
+import { PrinterPickerDialog } from 'src/components/printer-picker-dialog';
 
 // ======================================================================
 
@@ -57,10 +59,12 @@ export function SettingsAccount() {
   const navigate = useNavigate();
   const { showSuccess, showError } = useSnackbar();
   const { t } = useTranslation();
-  const { role, setRole, workerModeEnabled, setWorkerModeEnabled } = useSettings();
+  const { role, setRole, workerModeEnabled, setWorkerModeEnabled, businessMode, setBusinessMode } = useSettings();
   const isWorker = workerModeEnabled;
 
   const [resetOnboardingOpen, setResetOnboardingOpen] = useState(false);
+  const [printerPickerOpen, setPrinterPickerOpen] = useState(false);
+  const [savedPrinter, setSavedPrinter] = useState<string | null>(null);
 
   const [profile, setProfile] = useState(() => {
     try {
@@ -86,11 +90,14 @@ export function SettingsAccount() {
     if (!isElectron()) return;
     async function loadData() {
       try {
-        const accStr = await settingsDB.get(ACCOUNT_STORAGE_KEY); // Fetch new unified object natively
+        const accStr = await settingsDB.get(ACCOUNT_STORAGE_KEY);
         if (accStr) {
           const acc = JSON.parse(accStr);
-          if (acc.displayName) setProfile({ displayName: acc.displayName }); // Hydrate explicit property correctly
+          if (acc.displayName) setProfile({ displayName: acc.displayName });
         }
+        // Also load saved receipt printer
+        const printer = await settingsDB.get('receipt_printer');
+        setSavedPrinter(printer ?? null);
       } catch (e) {
         window.appLog?.error('Failed to reload profile from DB:', e);
       }
@@ -260,6 +267,149 @@ export function SettingsAccount() {
           </Button>
         </Box>
       </Card>
+
+      {/* Business Mode Card */}
+      <Card
+        sx={{
+          p: 3,
+          boxShadow: theme.vars.customShadows.z8,
+          border: `1px solid ${theme.vars.palette.divider}`,
+          borderRadius: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
+          <Box
+            sx={{
+              width: 44, height: 44, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', borderRadius: 1.5,
+              bgcolor: 'primary.lighter', color: 'primary.dark', flexShrink: 0,
+            }}
+          >
+            <Iconify icon="solar:shop-2-bold-duotone" width={26} />
+          </Box>
+          <Box>
+            <Typography variant="subtitle1">{t('settings.businessMode')}</Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {t('settings.businessModeDesc')}
+            </Typography>
+          </Box>
+        </Box>
+
+        <Divider sx={{ mb: 2.5 }} />
+
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+          {([
+            { value: 'both',      labelKey: 'settings.businessModeBoth',      icon: 'solar:users-group-rounded-bold-duotone' },
+            { value: 'wholesale', labelKey: 'settings.businessModeWholesale', icon: 'solar:bill-list-bold-duotone' },
+            { value: 'retail',    labelKey: 'settings.businessModeRetail',    icon: 'solar:shop-bold-duotone' },
+          ] as { value: BusinessMode; labelKey: string; icon: string }[]).map((opt) => {
+            const active = businessMode === opt.value;
+            return (
+              <Button
+                key={opt.value}
+                variant={active ? 'contained' : 'outlined'}
+                color={active ? 'primary' : 'inherit'}
+                startIcon={<Iconify icon={opt.icon} width={18} />}
+                onClick={() => setBusinessMode(opt.value)}
+                sx={{ flex: '1 1 120px' }}
+              >
+                {t(opt.labelKey)}
+              </Button>
+            );
+          })}
+        </Box>
+
+        <Box sx={{ mt: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {businessMode === 'both'      && t('settings.businessModeNotesBoth')}
+            {businessMode === 'wholesale' && t('settings.businessModeNotesWholesale')}
+            {businessMode === 'retail'    && t('settings.businessModeNotesRetail')}
+          </Typography>
+        </Box>
+      </Card>
+
+      {/* Receipt Printer Card */}
+      <Card
+        sx={{
+          p: 3,
+          boxShadow: theme.vars.customShadows.z8,
+          border: `1px solid ${theme.vars.palette.divider}`,
+          borderRadius: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+          <Box
+            sx={{
+              width: 44, height: 44, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', borderRadius: 1.5,
+              bgcolor: savedPrinter ? 'success.lighter' : 'action.selected',
+              color: savedPrinter ? 'success.dark' : 'text.secondary',
+              flexShrink: 0,
+            }}
+          >
+            <Iconify icon="solar:printer-bold-duotone" width={26} />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="subtitle1">{t('settings.receiptPrinter')}</Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {t('settings.receiptPrinterDesc')}
+            </Typography>
+          </Box>
+        </Box>
+
+        <Divider sx={{ mb: 2 }} />
+
+        <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, mb: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Iconify
+            icon={savedPrinter ? 'solar:check-circle-bold-duotone' : 'solar:danger-triangle-bold-duotone'}
+            width={18}
+            sx={{ color: savedPrinter ? 'success.main' : 'warning.main', flexShrink: 0 }}
+          />
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {savedPrinter ? savedPrinter : t('settings.receiptPrinterNotSet')}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<Iconify icon="solar:printer-bold-duotone" width={16} />}
+            onClick={() => setPrinterPickerOpen(true)}
+            sx={{ flex: 1 }}
+          >
+            {savedPrinter ? t('settings.receiptPrinterChange') : t('settings.receiptPrinterSet')}
+          </Button>
+          {savedPrinter && (
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              startIcon={<Iconify icon="solar:trash-bin-trash-bold-duotone" width={16} />}
+              onClick={async () => {
+                if (isElectron()) await settingsDB.set('receipt_printer', '');
+                setSavedPrinter(null);
+                showSuccess(t('settings.receiptPrinterCleared'));
+              }}
+            >
+              {t('settings.receiptPrinterClear')}
+            </Button>
+          )}
+        </Box>
+      </Card>
+
+      <PrinterPickerDialog
+        open={printerPickerOpen}
+        title={t('settings.receiptPrinter')}
+        subtitle={t('settings.receiptPrinterPickerSubtitle')}
+        onClose={() => setPrinterPickerOpen(false)}
+        onSelect={async (name) => {
+          if (isElectron()) await settingsDB.set('receipt_printer', name);
+          setSavedPrinter(name);
+          setPrinterPickerOpen(false);
+          showSuccess(t('settings.receiptPrinterSaved'));
+        }}
+      />
 
       {/* Worker Access Card */}
       <Card

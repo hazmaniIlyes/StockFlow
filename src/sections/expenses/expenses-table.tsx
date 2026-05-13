@@ -20,7 +20,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
 
-import { fDate } from 'src/utils/format-time';
+import { fDateLocale } from 'src/utils/format-time';
 import { fCurrency } from 'src/utils/format-number';
 
 import { useSettings, useTranslation } from 'src/contexts';
@@ -41,6 +41,7 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
   const { expenseCategories } = useSettings();
   const { t, dir, language } = useTranslation();
   const numLocale = language === 'ar' ? 'ar-DZ' : 'fr-DZ';
+  const dateLocale = language === 'ar' ? 'ar-DZ' : language === 'fr' ? 'fr-FR' : 'en';
   const fmtCurrency = (v: any) => `${Number(v).toLocaleString(numLocale)} ${language === 'ar' ? 'دج' : 'DA'}`;
 
   const DATE_FILTER_OPTIONS = [
@@ -209,7 +210,7 @@ export function ExpensesTable({ expenses, onEdit, onDelete }: Props) {
               )}
               {paginated.map((expense) => (
                 <TableRow key={expense.id} hover>
-                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{fDate(expense.date)}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{fDateLocale(expense.date, dateLocale)}</TableCell>
                   <TableCell>
                     <Box sx={{ typography: 'subtitle2' }}>{expense.description}</Box>
                     {expense.note && (
