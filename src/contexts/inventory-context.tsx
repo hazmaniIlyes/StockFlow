@@ -493,7 +493,7 @@ export function InventoryProvider({ children }: ProviderProps) {
         const newStock = p.stock + item.quantity;
         const newStatus = computeStockStatus(newStock, p.minStock);
         // For FIFO products, add restored qty back to the oldest remaining batch, or create a new one
-        let updatedBatches = p.batches ? [...p.batches] : undefined;
+        const updatedBatches = p.batches ? [...p.batches] : undefined;
         let newBatchId: string | undefined;
 
         if (updatedBatches) {

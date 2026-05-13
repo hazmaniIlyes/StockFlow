@@ -377,7 +377,8 @@ export type InventoryProduct = {
   supplierId: string;
   supplierName: string;
   buyingPrice: number;
-  sellPrice: number;
+  sellPrice: number;       // wholesale / default sell price
+  retailPrice?: number;   // retail sell price (optional — falls back to sellPrice if not set)
   stock: number;
   minStock: number;
   unit: ProductUnit;

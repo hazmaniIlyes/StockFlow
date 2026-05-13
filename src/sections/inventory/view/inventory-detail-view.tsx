@@ -44,7 +44,7 @@ export function InventoryDetailView() {
   const { getProduct, adjustStock } = useInventory();
   const { getSupplier } = useSuppliers();
   const { invoices } = useInvoices();
-  const { invoice: invoiceSettings } = useSettings();
+  const { invoice: invoiceSettings, businessMode } = useSettings();
 
   const product = getProduct(id || '');
   const supplier = product ? getSupplier(product.supplierId) : undefined;
@@ -114,6 +114,14 @@ export function InventoryDetailView() {
       : 0;
   const profitPerUnit = product.sellPrice - product.buyingPrice;
 
+  const retailMargin =
+    product.retailPrice && product.buyingPrice > 0
+      ? ((product.retailPrice - product.buyingPrice) / product.buyingPrice) * 100
+      : null;
+  const retailProfitPerUnit = product.retailPrice
+    ? product.retailPrice - product.buyingPrice
+    : null;
+
   return (
     <DashboardContent maxWidth="xl">
       {/* Back button */}
@@ -177,13 +185,14 @@ export function InventoryDetailView() {
       </Box>
 
       {/* Financial Summary */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid container spacing={3} sx={{ mb: 4, alignItems: 'stretch' }}>
         <Grid size={{ xs: 12, sm: 3 }}>
           <Card
             sx={{
               p: 3,
+              height: '100%',
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               gap: 2,
               bgcolor: alpha(theme.palette.warning.main, 0.16),
               boxShadow: theme.vars.customShadows.z8,
@@ -219,8 +228,9 @@ export function InventoryDetailView() {
           <Card
             sx={{
               p: 3,
+              height: '100%',
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               gap: 2,
               bgcolor: alpha(theme.palette.primary.main, 0.16),
               boxShadow: theme.vars.customShadows.z8,
@@ -245,13 +255,24 @@ export function InventoryDetailView() {
             </Box>
             <Box>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                {t('inventory.sellingPrice')}
+                {businessMode === 'both' ? t('inventory.sellPriceWholesale') : t('inventory.sellingPrice')}
               </Typography>
               <Typography variant="h5">{fCurrency(product.sellPrice)}</Typography>
               {invoiceSettings.tvaRate > 0 && (
                 <Typography variant="caption" color="text.secondary">
                   TVA ({invoiceSettings.tvaRate}%): {fCurrency(product.sellPrice * (1 + invoiceSettings.tvaRate / 100))} TTC
                 </Typography>
+              )}
+              {/* Show retail price when in both mode */}
+              {businessMode === 'both' && product.retailPrice && (
+                <Box sx={{ mt: 1, pt: 1, borderTop: '1px dashed', borderColor: 'divider' }}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.25 }}>
+                    {t('inventory.retailPrice')}
+                  </Typography>
+                  <Typography variant="h6" color="info.main">
+                    {fCurrency(product.retailPrice)}
+                  </Typography>
+                </Box>
               )}
             </Box>
           </Card>
@@ -261,8 +282,9 @@ export function InventoryDetailView() {
           <Card
             sx={{
               p: 3,
+              height: '100%',
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               gap: 2,
               bgcolor: alpha(theme.palette.success.main, 0.16),
               boxShadow: theme.vars.customShadows.z8,
@@ -287,7 +309,7 @@ export function InventoryDetailView() {
             </Box>
             <Box>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                {t('inventory.margin')}
+                {businessMode === 'both' ? `${t('inventory.sellPriceWholesale')} ${t('inventory.margin')}` : t('inventory.margin')}
               </Typography>
               <Typography variant="h5" color="success.main">
                 {margin.toFixed(1)}%
@@ -295,6 +317,20 @@ export function InventoryDetailView() {
               <Typography variant="caption" color="text.secondary">
                 {fCurrency(profitPerUnit)}{product.unit !== 'pcs' ? ` / ${product.unit}` : t('inventory.unitSuffix')}
               </Typography>
+              {/* Retail margin when in both mode */}
+              {businessMode === 'both' && retailMargin !== null && (
+                <Box sx={{ mt: 1, pt: 1, borderTop: '1px dashed', borderColor: 'divider' }}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.25 }}>
+                    {t('inventory.retailPrice')} {t('inventory.margin')}
+                  </Typography>
+                  <Typography variant="h6" color="info.main">
+                    {retailMargin.toFixed(1)}%
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {fCurrency(retailProfitPerUnit ?? 0)}{product.unit !== 'pcs' ? ` / ${product.unit}` : t('inventory.unitSuffix')}
+                  </Typography>
+                </Box>
+              )}
             </Box>
           </Card>
         </Grid>
@@ -303,8 +339,9 @@ export function InventoryDetailView() {
           <Card
             sx={{
               p: 3,
+              height: '100%',
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               gap: 2,
               bgcolor: alpha(theme.palette.info.main, 0.16),
               boxShadow: theme.vars.customShadows.z8,
@@ -582,12 +619,22 @@ export function InventoryDetailView() {
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Typography variant="body2" color="text.secondary">
-                  {t('inventory.stockValueSell')}
+                  {businessMode === 'both' ? `${t('inventory.stockValueSell')} (${t('inventory.sellPriceWholesale')})` : t('inventory.stockValueSell')}
                 </Typography>
                 <Typography variant="subtitle2" color="success.main">
                   {fCurrency(product.stock * product.sellPrice)}
                 </Typography>
               </Box>
+              {businessMode === 'both' && product.retailPrice && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('inventory.stockValueSell')} ({t('inventory.retailPrice')})
+                  </Typography>
+                  <Typography variant="subtitle2" color="info.main">
+                    {fCurrency(product.stock * product.retailPrice)}
+                  </Typography>
+                </Box>
+              )}
               {product.expiryDate && (() => {
                 const today = new Date();
                 today.setHours(0,0,0,0);

@@ -47,9 +47,9 @@ function registerAllHandlers(ipcMain, db) {
     }
 
     const stmt = db.prepare(`
-      INSERT INTO products (id, sku, name, category, supplierId, supplierName, buyingPrice, sellPrice, stock, minStock, unit, expiryDate, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `); // All 13 columns must be provided for a complete product row
+      INSERT INTO products (id, sku, name, category, supplierId, supplierName, buyingPrice, sellPrice, retailPrice, stock, minStock, unit, expiryDate, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `); // 14 columns — retailPrice is nullable (NULL when not set)
     stmt.run(
       data.id,           // Pre-generated ID from the context layer
       data.sku,          // SKU code
@@ -58,7 +58,8 @@ function registerAllHandlers(ipcMain, db) {
       data.supplierId,   // Supplier reference
       data.supplierName, // Denormalized supplier name
       data.buyingPrice,  // Cost price
-      data.sellPrice,    // Selling price
+      data.sellPrice,    // Selling price (wholesale / default)
+      data.retailPrice ?? null, // Retail price — NULL if not set (falls back to sellPrice in the UI)
       data.stock,        // Initial stock quantity
       data.minStock,     // Minimum stock threshold
       data.unit,         // Unit of measurement
@@ -372,9 +373,9 @@ function registerAllHandlers(ipcMain, db) {
   // ADD — Inserts a new invoice and its product line items (wrapped in a transaction)
   ipcMain.handle('db:invoices:add', (_event, data) => {
     const insertInvoice = db.prepare(`
-      INSERT INTO invoices (id, invoiceNumber, clientName, clientPhone, clientAddress, clientNif, clientNis, clientRc, clientAi,
+      INSERT INTO invoices (id, invoiceNumber, type, clientName, clientPhone, clientAddress, clientNif, clientNis, clientRc, clientAi,
         subtotal, tvaRate, tvaAmount, total, amountPaid, amountDue, status, createdAt, dueDate)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const insertProduct = db.prepare(`
       INSERT INTO invoice_products (id, invoiceId, name, quantity, unitPrice, total, unit)
@@ -385,6 +386,7 @@ function registerAllHandlers(ipcMain, db) {
     const insertTransaction = db.transaction((invoiceData) => {
       insertInvoice.run(
         invoiceData.id, invoiceData.invoiceNumber,
+        invoiceData.type || 'wholesale',
         invoiceData.client.name, invoiceData.client.phone, invoiceData.client.address,
         invoiceData.client.nif || null, invoiceData.client.nis || null,
         invoiceData.client.rc || null, invoiceData.client.ai || null,

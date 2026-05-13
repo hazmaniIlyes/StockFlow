@@ -1,6 +1,8 @@
 import type { Invoice } from 'src/_mock/_data';
 import type { BusinessInfo } from 'src/contexts/business-context';
 
+import { useState, useEffect } from 'react';
+
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -128,13 +130,26 @@ type Props = {
 };
 
 export function SalesReceiptPreviewDialog({ open, onClose, invoice, businessInfo }: Props) {
-  const { language } = useTranslation();
+  const { language, t } = useTranslation();
+  const [receiptPrinter, setReceiptPrinter] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    window.database?.getSetting('receipt_printer').then((val) => {
+      if (val) setReceiptPrinter(val);
+    });
+  }, [open]);
+
   if (!invoice) return null;
 
   const htmlContent = buildReceiptHtml(invoice, businessInfo, language);
 
   const handlePrint = () => {
-    (window as any).database?.printHtml(htmlContent);
+    if (receiptPrinter) {
+      window.database?.printHtmlSilent(htmlContent, receiptPrinter);
+    } else {
+      window.database?.printHtml(htmlContent);
+    }
   };
 
   return (
@@ -179,7 +194,7 @@ export function SalesReceiptPreviewDialog({ open, onClose, invoice, businessInfo
 
       <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', gap: 1 }}>
         <Button variant="outlined" color="inherit" onClick={onClose} sx={{ ml: 'auto' }}>
-          Close
+          {t('common.close')}
         </Button>
         <Button
           variant="contained"
@@ -187,7 +202,7 @@ export function SalesReceiptPreviewDialog({ open, onClose, invoice, businessInfo
           startIcon={<Iconify icon="solar:printer-bold-duotone" width={18} />}
           onClick={handlePrint}
         >
-          Print
+          {t('sales.printReceipt')}
         </Button>
       </DialogActions>
     </Dialog>

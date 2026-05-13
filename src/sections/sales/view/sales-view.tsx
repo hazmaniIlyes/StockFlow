@@ -1,7 +1,7 @@
 import type { Invoice, InvoiceProduct } from 'src/_mock/_data';
 
 import { useNavigate } from 'react-router-dom';
-import { useMemo, useState, useCallback } from 'react';
+import { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -14,6 +14,9 @@ import { useClients, useInventory, useTranslation, useBusiness } from 'src/conte
 import { Iconify } from 'src/components/iconify';
 import { useSnackbar } from 'src/components/snackbar';
 import { ConfirmDialog } from 'src/components/confirm-dialog';
+import { PrinterPickerDialog } from 'src/components/printer-picker-dialog';
+
+import { settingsDB } from 'src/services/db';
 
 import { useInvoices } from '../context';
 import { SalesInvoiceList } from '../sales-invoice-list';
@@ -55,6 +58,18 @@ export function SalesView() {
   // Retail receipt preview
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [receiptInvoice, setReceiptInvoice] = useState<Invoice | null>(null);
+
+  // Printer picker for retail auto-print
+  const [printerPickerOpen, setPrinterPickerOpen] = useState(false);
+  const pendingPrintInvoiceRef = useRef<Invoice | null>(null);
+  const [receiptPrinter, setReceiptPrinter] = useState<string | null>(null);
+
+  // Load saved receipt printer on mount
+  useEffect(() => {
+    settingsDB.get('receipt_printer').then((val) => {
+      if (val) setReceiptPrinter(val);
+    });
+  }, []);
 
   // Dynamic summary
   const summary = useMemo(() => getSummary(), [getSummary]);
@@ -200,9 +215,16 @@ export function SalesView() {
         if (options.isRetail && savedInvoiceId) {
           const savedInvoice = { ...data, id: savedInvoiceId } as Invoice;
           if (options.autoPrint) {
-            // Save & Print: silently print without opening the preview
-            const html = buildReceiptHtml(savedInvoice, businessInfo, language);
-            (window as any).database?.printHtml(html);
+            // Save & Print path
+            if (receiptPrinter) {
+              // Printer already saved — print silently
+              const html = buildReceiptHtml(savedInvoice, businessInfo, language);
+              window.database?.printHtmlSilent(html, receiptPrinter);
+            } else {
+              // First time — show printer picker
+              pendingPrintInvoiceRef.current = savedInvoice;
+              setPrinterPickerOpen(true);
+            }
           } else {
             // Save only: open the preview dialog
             setReceiptInvoice(savedInvoice);
@@ -230,7 +252,29 @@ export function SalesView() {
       showSuccess,
       showError,
       navigate,
+      receiptPrinter,
+      language,
+      businessInfo,
     ]
+  );
+
+  // Called when the user picks a printer from the first-time dialog
+  const handlePrinterSelected = useCallback(
+    (printerName: string) => {
+      // Save the choice permanently
+      setReceiptPrinter(printerName);
+      settingsDB.set('receipt_printer', printerName);
+      setPrinterPickerOpen(false);
+
+      // Now print the pending invoice silently
+      const invoice = pendingPrintInvoiceRef.current;
+      if (invoice) {
+        const html = buildReceiptHtml(invoice, businessInfo, language);
+        window.database?.printHtmlSilent(html, printerName);
+        pendingPrintInvoiceRef.current = null;
+      }
+    },
+    [businessInfo, language]
   );
 
   const handleDeleteRequest = (invoiceId: string) => {
@@ -433,6 +477,18 @@ export function SalesView() {
         }}
         invoice={receiptInvoice}
         businessInfo={businessInfo}
+      />
+
+      {/* First-time receipt printer picker */}
+      <PrinterPickerDialog
+        open={printerPickerOpen}
+        title={t('sales.chooseReceiptPrinter')}
+        subtitle={t('sales.chooseReceiptPrinterSubtitle')}
+        onSelect={handlePrinterSelected}
+        onClose={() => {
+          setPrinterPickerOpen(false);
+          pendingPrintInvoiceRef.current = null;
+        }}
       />
     </DashboardContent>
   );

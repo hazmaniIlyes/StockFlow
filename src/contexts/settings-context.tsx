@@ -27,6 +27,7 @@ type InvoiceSettings = {
 
 export type ColorMode = 'light' | 'dark';
 export type AppRole = 'admin' | 'worker';
+export type BusinessMode = 'both' | 'wholesale' | 'retail';
 
 type Preferences = {
   lowStockThreshold: number;
@@ -53,6 +54,8 @@ type SettingsContextType = SettingsState & {
   setRole: (role: AppRole) => void;
   workerModeEnabled: boolean;
   setWorkerModeEnabled: (enabled: boolean) => void;
+  businessMode: BusinessMode;
+  setBusinessMode: (mode: BusinessMode) => void;
 };
 
 // ======================================================================
@@ -117,10 +120,11 @@ type ProviderProps = {
 };
 
 export function SettingsProvider({ children }: ProviderProps) {
-  const [role, setRole] = useState<AppRole>('admin'); // Default role, populated on mount
-  const [workerModeEnabled, setWorkerModeEnabledState] = useState(false); // Default mode, populated on mount
-  const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS); // Default settings
-  const [isInitialized, setIsInitialized] = useState(false); // Flag prevents overwriting database with component defaults
+  const [role, setRole] = useState<AppRole>('admin');
+  const [workerModeEnabled, setWorkerModeEnabledState] = useState(false);
+  const [businessMode, setBusinessModeState] = useState<BusinessMode>('both');
+  const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Load from SQLite on mount
   useEffect(() => {
@@ -145,9 +149,10 @@ export function SettingsProvider({ children }: ProviderProps) {
 
         // Apply loaded variables natively (New Explicit Object Only)
         if (storedAccountSettings) {
-          const parsedAcc = JSON.parse(storedAccountSettings); // Parse JSON unified payload
-          setRole(parsedAcc.role ?? 'admin'); // Default string if unavailable
-          setWorkerModeEnabledState(parsedAcc.workerModeEnabled ?? false); // Default boolean if unavailable
+          const parsedAcc = JSON.parse(storedAccountSettings);
+          setRole(parsedAcc.role ?? 'admin');
+          setWorkerModeEnabledState(parsedAcc.workerModeEnabled ?? false);
+          setBusinessModeState((parsedAcc.businessMode as BusinessMode) ?? 'both');
         }
         
         let newInvoice = { ...DEFAULT_SETTINGS.invoice }; // Temporary holding variables
@@ -195,6 +200,23 @@ export function SettingsProvider({ children }: ProviderProps) {
   const setWorkerModeEnabled = useCallback((enabled: boolean) => {
     setWorkerModeEnabledState(enabled);
     if (!enabled) setRole('admin');
+  }, []);
+
+  const setBusinessMode = useCallback(async (mode: BusinessMode) => {
+    setBusinessModeState(mode);
+    // Persist alongside the existing account JSON blob
+    let accountObj: Record<string, any> = {};
+    if (isElectron()) {
+      const existing = await settingsDB.get(ACCOUNT_STORAGE_KEY);
+      if (existing) accountObj = JSON.parse(existing);
+    } else {
+      const existing = localStorage.getItem(ACCOUNT_STORAGE_KEY);
+      if (existing) accountObj = JSON.parse(existing);
+    }
+    accountObj.businessMode = mode;
+    const json = JSON.stringify(accountObj);
+    if (isElectron()) await settingsDB.set(ACCOUNT_STORAGE_KEY, json);
+    localStorage.setItem(ACCOUNT_STORAGE_KEY, json);
   }, []);
 
   // Persist the newly isolated invoice settings precisely onto its own SQLite key
@@ -331,6 +353,8 @@ export function SettingsProvider({ children }: ProviderProps) {
       setRole,
       workerModeEnabled,
       setWorkerModeEnabled,
+      businessMode,
+      setBusinessMode,
     }),
     [
       settings,
@@ -344,6 +368,8 @@ export function SettingsProvider({ children }: ProviderProps) {
       setRole,
       workerModeEnabled,
       setWorkerModeEnabled,
+      businessMode,
+      setBusinessMode,
     ]
   );
 

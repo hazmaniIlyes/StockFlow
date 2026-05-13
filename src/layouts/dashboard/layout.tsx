@@ -52,7 +52,7 @@ export function DashboardLayout({
   layoutQuery = 'lg',
 }: DashboardLayoutProps) {
   const theme = useTheme();
-  const { preferences, role } = useSettings();
+  const { preferences, role, businessMode } = useSettings();
   const { dir } = useI18n();
   const isRTL = dir === 'rtl';
 
@@ -69,8 +69,11 @@ export function DashboardLayout({
       const workerHiddenPaths = ['/suppliers', '/expenses', '/reports', '/settings'];
       items = items.filter((item) => !workerHiddenPaths.includes(item.path));
     }
+    if (businessMode === 'retail') {
+      items = items.filter((item) => item.path !== '/clients');
+    }
     return items;
-  }, [preferences.showExpenses, role]);
+  }, [preferences.showExpenses, role, businessMode]);
 
   const renderHeader = () => {
     const headerSlotProps: HeaderSectionProps['slotProps'] = {

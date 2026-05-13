@@ -247,6 +247,41 @@ ipcMain.handle('print-html', async (_event, htmlContent) => {
   });
 });
 
+// ── List available printers ──────────────────────────────────────────
+ipcMain.handle('get-printers', async () => {
+  if (!mainWindow) return [];
+  const printers = await mainWindow.webContents.getPrintersAsync();
+  return printers.map((p) => ({
+    name: p.name,
+    displayName: p.displayName || p.name,
+    isDefault: p.isDefault,
+  }));
+});
+
+// ── Silent print to a specific named printer ─────────────────────────
+ipcMain.handle('print-html-silent', async (_event, htmlContent, printerName) => {
+  const tmpFile = path.join(os.tmpdir(), `stockflow-print-${Date.now()}.html`);
+  fs.writeFileSync(tmpFile, htmlContent, 'utf-8');
+
+  const printWin = new BrowserWindow({
+    show: false,
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+  });
+
+  await printWin.loadFile(tmpFile);
+
+  return new Promise((resolve) => {
+    printWin.webContents.print(
+      { silent: true, printBackground: true, deviceName: printerName },
+      (success) => {
+        printWin.close();
+        try { fs.unlinkSync(tmpFile); } catch {}
+        resolve(success);
+      }
+    );
+  });
+});
+
 app.whenReady().then(() => {
   // Initialize SQLite database — creates the .db file and all tables on first launch
   const db = initDatabase();

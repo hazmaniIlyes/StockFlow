@@ -112,6 +112,8 @@ contextBridge.exposeInMainWorld('database', {
   // ── Printing ─────────────────────────────────────────────────────────
 
   printHtml: (html) => ipcRenderer.invoke('print-html', html), // Print HTML content via a hidden BrowserWindow (Electron-native)
+  getPrinters: () => ipcRenderer.invoke('get-printers'),       // List all installed printers
+  printHtmlSilent: (html, printerName) => ipcRenderer.invoke('print-html-silent', html, printerName), // Print silently to a named printer
   savePdf: (html, name) => ipcRenderer.invoke('save-pdf', html, name), // Save HTML as PDF via printToPDF with a Save dialog
 
 });

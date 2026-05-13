@@ -12,6 +12,7 @@ import Radio from '@mui/material/Radio';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import Divider from '@mui/material/Divider';
+import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
@@ -44,6 +45,7 @@ type ProductRow = {
   inventoryId?: string;
   availableStock?: number;
   unit?: ProductUnit;
+  reversePriceMode?: boolean; // when true: user types total price → quantity auto-calculates
 };
 
 type Props = {
@@ -76,7 +78,7 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
   const { clients } = useClients();
   const { products: inventoryProducts } = useInventory();
   const { getNextInvoiceNumber } = useInvoices();
-  const { invoice: invoiceSettings } = useSettings();
+  const { invoice: invoiceSettings, businessMode } = useSettings();
   const { showError } = useSnackbar();
   const { setFormOpen } = useGlobalScan();
   const theme = useTheme();
@@ -113,6 +115,9 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
   const [scanModalOpen, setScanModalOpen] = useState(false);
   const [lastFilledId, setLastFilledId] = useState<string | null>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
+
+  // Reverse pricing: maps product row id → the typed total-price string
+  const [reversePriceInputs, setReversePriceInputs] = useState<Record<string, string>>({});
 
   // Reset form when dialog opens or editInvoice changes
   useEffect(() => {
@@ -162,7 +167,8 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
         setClientNis('');
         setClientRc('');
         setClientAi('');
-        setTvaRate(invoiceSettings.tvaRate);
+        // Retail = typically forfait/no TVA → default to 0; wholesale uses the configured global rate
+        setTvaRate(businessMode === 'retail' ? 0 : invoiceSettings.tvaRate);
         setPaymentStatus('paid');
         setAmountPaid(0);
         setDueDate(defaultDueDate());
@@ -170,9 +176,15 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
       }
       setErrors({});
       setTouched(false);
-      setActiveTab('wholesale');
+      // Set tab based on: the invoice being edited (if any), then fall back to business mode
+      if (editInvoice?.type === 'retail' || businessMode === 'retail') {
+        setActiveTab('retail');
+        setTvaRate(editInvoice?.tvaRate ?? 0);
+      } else {
+        setActiveTab('wholesale');
+      }
     }
-  }, [open, editInvoice, clients, inventoryProducts]);
+  }, [open, editInvoice, clients, inventoryProducts, businessMode]);
 
   const handleClientSelect = (client: Client | null) => {
     setSelectedClient(client);
@@ -217,10 +229,15 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
         if (!product) {
           return { ...p, name: '', unitPrice: 0, inventoryId: undefined, availableStock: undefined };
         }
+        // On retail tab: use retailPrice (fallback to sellPrice). No FIFO batching for retail.
+        // On wholesale tab: use FIFO-weighted average price across batches.
+        const price = activeTab === 'retail'
+          ? (product.retailPrice ?? product.sellPrice)
+          : computeFifoInfo(product, p.quantity).weightedPrice;
         return {
           ...p,
           name: product.name,
-          unitPrice: computeFifoInfo(product, p.quantity).weightedPrice, // added: FIFO-weighted average for the current quantity; equals sellPrice when only one batch is consumed
+          unitPrice: price,
           inventoryId: product.id,
           availableStock: product.stock,
           unit: product.unit,
@@ -243,7 +260,10 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
             updated.inventoryId = invProduct.id;
             updated.availableStock = invProduct.stock;
             if (!updated.unitPrice) {
-              updated.unitPrice = invProduct.sellPrice;
+              // Use retailPrice on retail tab, fall back to sellPrice
+              updated.unitPrice = activeTab === 'retail'
+                ? (invProduct.retailPrice ?? invProduct.sellPrice)
+                : invProduct.sellPrice;
             }
           } else {
             updated.inventoryId = undefined;
@@ -295,7 +315,9 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
         id: targetId,
         name: matched.name,
         quantity: 1,
-        unitPrice: matched.sellPrice,
+        unitPrice: activeTab === 'retail'
+          ? (matched.retailPrice ?? matched.sellPrice)
+          : matched.sellPrice,
         inventoryId: matched.id,
         availableStock: matched.stock,
         unit: matched.unit,
@@ -386,14 +408,14 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
         client: isRetail
           ? { name: t('sales.walkInCustomer'), phone: '', address: '' }
           : {
-              name: clientName,
-              phone: clientPhone,
-              address: clientAddress,
-              nif: clientNif || undefined,
-              nis: clientNis || undefined,
-              rc: clientRc || undefined,
-              ai: clientAi || undefined,
-            },
+            name: clientName,
+            phone: clientPhone,
+            address: clientAddress,
+            nif: clientNif || undefined,
+            nis: clientNis || undefined,
+            rc: clientRc || undefined,
+            ai: clientAi || undefined,
+          },
         products: invoiceProducts,
         subtotal: subtotalHT,
         tvaRate,
@@ -420,10 +442,26 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ pb: isEdit ? 2 : 0 }}>
         {isEdit ? t('common.edit') : t('sales.newInvoice')}
-        {!isEdit && (
+        {!isEdit && businessMode === 'both' && (
           <Tabs
             value={activeTab}
-            onChange={(_, v) => setActiveTab(v)}
+            onChange={(_, v) => {
+              setActiveTab(v);
+              // Retail = forfait/no TVA; wholesale = restore global rate
+              setTvaRate(v === 'retail' ? 0 : invoiceSettings.tvaRate);
+              // Re-price all inventory-linked products for the new tab
+              setProducts((prev) =>
+                prev.map((p) => {
+                  if (!p.inventoryId) return p; // manual product — leave price as-is
+                  const invProduct = inventoryProducts.find((ip) => ip.id === p.inventoryId);
+                  if (!invProduct) return p;
+                  const newPrice = v === 'retail'
+                    ? (invProduct.retailPrice ?? invProduct.sellPrice)
+                    : computeFifoInfo(invProduct, p.quantity).weightedPrice;
+                  return { ...p, unitPrice: newPrice };
+                })
+              );
+            }}
             sx={{ mt: 1 }}
           >
             <Tab
@@ -448,117 +486,117 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
         {/* Client Info — wholesale only */}
         {activeTab === 'wholesale' && (
           <>
-        <Typography variant="subtitle1" sx={{ mb: 2 }}>
-          {t('clients.title')}
-        </Typography>
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <Autocomplete
-              freeSolo
-              options={clients}
-              getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
-              value={selectedClient}
-              onChange={(_, newValue) => {
-                if (typeof newValue === 'string') {
-                  setClientName(newValue);
-                  setSelectedClient(null);
-                } else {
-                  handleClientSelect(newValue);
-                }
-              }}
-              onInputChange={(_, newInputValue) => {
-                if (!selectedClient || selectedClient.name !== newInputValue) {
-                  setClientName(newInputValue);
-                }
-              }}
-              inputValue={clientName}
-              renderOption={(props, option) => (
-                <Box component="li" {...props} key={option.id}>
-                  <Box>
-                    <Typography variant="subtitle2">{option.name}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {option.phone} • Balance: {fCurrency(option.remainingBalance)}
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label={t('clients.clientName')}
-                  required
-                  error={touched && !!errors.clientName}
-                  helperText={touched && errors.clientName}
-                />
-              )}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField
-              fullWidth
-              label={t('common.phone')}
-              value={clientPhone}
-              onChange={(e) => setClientPhone(e.target.value)}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField
-              fullWidth
-              label={t('common.address')}
-              value={clientAddress}
-              onChange={(e) => setClientAddress(e.target.value)}
-            />
-          </Grid>
-
-          {/* Tax Information - show when not selecting existing client or always show input */}
-          <Grid size={{ xs: 12 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-              {t('clients.taxFields.nif')}
+            <Typography variant="subtitle1" sx={{ mb: 2 }}>
+              {t('clients.title')}
             </Typography>
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <TextField
-              fullWidth
-              size="small"
-              label="NIF"
-              value={clientNif}
-              onChange={(e) => setClientNif(e.target.value)}
-              placeholder="Numéro d'Identification Fiscale"
-            />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <TextField
-              fullWidth
-              size="small"
-              label="NIS"
-              value={clientNis}
-              onChange={(e) => setClientNis(e.target.value)}
-              placeholder="Numéro d'Identification Statistique"
-            />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <TextField
-              fullWidth
-              size="small"
-              label="RC"
-              value={clientRc}
-              onChange={(e) => setClientRc(e.target.value)}
-              placeholder="Registre de Commerce"
-            />
-          </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}>
-            <TextField
-              fullWidth
-              size="small"
-              label="AI"
-              value={clientAi}
-              onChange={(e) => setClientAi(e.target.value)}
-              placeholder="Article d'Imposition"
-            />
-          </Grid>
-        </Grid>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <Autocomplete
+                  freeSolo
+                  options={clients}
+                  getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+                  value={selectedClient}
+                  onChange={(_, newValue) => {
+                    if (typeof newValue === 'string') {
+                      setClientName(newValue);
+                      setSelectedClient(null);
+                    } else {
+                      handleClientSelect(newValue);
+                    }
+                  }}
+                  onInputChange={(_, newInputValue) => {
+                    if (!selectedClient || selectedClient.name !== newInputValue) {
+                      setClientName(newInputValue);
+                    }
+                  }}
+                  inputValue={clientName}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props} key={option.id}>
+                      <Box>
+                        <Typography variant="subtitle2">{option.name}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.phone} • Balance: {fCurrency(option.remainingBalance)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('clients.clientName')}
+                      required
+                      error={touched && !!errors.clientName}
+                      helperText={touched && errors.clientName}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField
+                  fullWidth
+                  label={t('common.phone')}
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField
+                  fullWidth
+                  label={t('common.address')}
+                  value={clientAddress}
+                  onChange={(e) => setClientAddress(e.target.value)}
+                />
+              </Grid>
 
-        <Divider sx={{ mb: 3 }} />
+              {/* Tax Information - show when not selecting existing client or always show input */}
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                  {t('clients.taxFields.nif')}
+                </Typography>
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="NIF"
+                  value={clientNif}
+                  onChange={(e) => setClientNif(e.target.value)}
+                  placeholder="Numéro d'Identification Fiscale"
+                />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="NIS"
+                  value={clientNis}
+                  onChange={(e) => setClientNis(e.target.value)}
+                  placeholder="Numéro d'Identification Statistique"
+                />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="RC"
+                  value={clientRc}
+                  onChange={(e) => setClientRc(e.target.value)}
+                  placeholder="Registre de Commerce"
+                />
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="AI"
+                  value={clientAi}
+                  onChange={(e) => setClientAi(e.target.value)}
+                  placeholder="Article d'Imposition"
+                />
+              </Grid>
+            </Grid>
+
+            <Divider sx={{ mb: 3 }} />
           </>
         )}
 
@@ -629,7 +667,11 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
                     <Box>
                       <Typography variant="body2">{option.name}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {fCurrency(option.sellPrice)} / {option.unit ?? 'pcs'}
+                        {fCurrency(
+                          activeTab === 'retail'
+                            ? (option.retailPrice ?? option.sellPrice)
+                            : option.sellPrice
+                        )} / {option.unit ?? 'pcs'}
                       </Typography>
                     </Box>
                     <Chip
@@ -668,41 +710,139 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
                 )}
               />
             </Grid>
+            {/* ── Quantity column ── */}
             <Grid size={{ xs: 6, sm: 2 }}>
-              <TextField
-                fullWidth
-                size="small"
-                label={product.unit && product.unit !== 'pcs' ? `${t('common.quantity')} (${product.unit})` : t('common.quantity')}
-                type="number"
-                value={product.quantity}
-                onChange={(e) =>
-                  handleProductChange(product.id, 'quantity', Math.max(product.unit === 'pcs' || !product.unit ? 1 : 0.001, Number(e.target.value)))
-                }
-                error={
-                  product.availableStock !== undefined && product.quantity > product.availableStock
-                }
-                slotProps={{
-                  htmlInput: {
-                    min: product.unit === 'pcs' || !product.unit ? 1 : 0.001,
-                    step: product.unit === 'pcs' || !product.unit ? 1 : 0.001,
-                    // Attach the focus ref directly to the quantity field that was just filled by a scan
-                    ...(product.id === lastFilledId ? { ref: quantityInputRef } : {}),
-                  },
-                }}
-              />
+              {product.reversePriceMode ? (
+                // Reverse mode: show computed qty (read-only)
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={product.unit && product.unit !== 'pcs' ? `${t('common.quantity')} (${product.unit})` : t('common.quantity')}
+                  value={
+                    product.unitPrice > 0
+                      ? parseFloat(product.quantity.toFixed(4))
+                      : '—'
+                  }
+                  slotProps={{ input: { readOnly: true } }}
+                  sx={{ '& .MuiInputBase-input': { color: 'text.secondary', fontStyle: 'italic' } }}
+                />
+              ) : (
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={product.unit && product.unit !== 'pcs' ? `${t('common.quantity')} (${product.unit})` : t('common.quantity')}
+                  type="number"
+                  value={product.quantity}
+                  onChange={(e) =>
+                    handleProductChange(product.id, 'quantity', Math.max(product.unit === 'pcs' || !product.unit ? 1 : 0.001, Number(e.target.value)))
+                  }
+                  error={
+                    product.availableStock !== undefined && product.quantity > product.availableStock
+                  }
+                  slotProps={{
+                    htmlInput: {
+                      min: product.unit === 'pcs' || !product.unit ? 1 : 0.001,
+                      step: product.unit === 'pcs' || !product.unit ? 1 : 0.001,
+                      ...(product.id === lastFilledId ? { ref: quantityInputRef } : {}),
+                    },
+                  }}
+                />
+              )}
             </Grid>
-            <Grid size={{ xs: 6, sm: 3 }}>
-              <TextField
-                fullWidth
-                size="small"
-                label={product.unit && product.unit !== 'pcs' ? `${t('common.price')} DA/${product.unit}` : t('common.price')}
-                type="number"
-                value={product.unitPrice || ''}
-                onChange={(e) =>
-                  handleProductChange(product.id, 'unitPrice', Math.max(0, Number(e.target.value)))
-                }
-                slotProps={{ htmlInput: { min: 0 } }}
-              />
+            {/* ── Unit price / Total price column ── */}
+            <Grid size={{ xs: 6, sm: 3 }} sx={{ position: 'relative' }}>
+              <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'flex-start' }}>
+                {product.reversePriceMode ? (
+                  // Reverse mode: user types total amount → qty computed
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label={`${t('common.total')} DA`}
+                    type="number"
+                    value={reversePriceInputs[product.id] ?? ''}
+                    onChange={(e) => {
+                      const totalStr = e.target.value;
+                      setReversePriceInputs((prev) => ({ ...prev, [product.id]: totalStr }));
+                      const inputTotal = parseFloat(totalStr);
+                      if (!Number.isNaN(inputTotal) && product.unitPrice > 0) {
+                        const computedQty = inputTotal / product.unitPrice;
+                        setProducts((prev) =>
+                          prev.map((p) =>
+                            p.id === product.id ? { ...p, quantity: parseFloat(computedQty.toFixed(4)) } : p
+                          )
+                        );
+                      }
+                    }}
+                    slotProps={{ htmlInput: { min: 0 } }}
+                    sx={{ flex: 1 }}
+                  />
+                ) : (
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label={product.unit && product.unit !== 'pcs' ? `${t('common.price')} DA/${product.unit}` : t('common.price')}
+                    type="number"
+                    value={product.unitPrice || ''}
+                    onChange={(e) =>
+                      handleProductChange(product.id, 'unitPrice', Math.max(0, Number(e.target.value)))
+                    }
+                    slotProps={{ htmlInput: { min: 0 } }}
+                    sx={{ flex: 1 }}
+                  />
+                )}
+                {/* ⇄ Reverse pricing toggle — visible as soon as a weight unit is picked */}
+                {product.unit && product.unit !== 'pcs' && (
+                  <Tooltip
+                    title={
+                      product.unitPrice <= 0
+                        ? t('common.price') + ' → 0'
+                        : product.reversePriceMode
+                          ? t('sales.reverseOff')
+                          : t('sales.reverseOn')
+                    }
+                    placement="top"
+                  >
+                    <span>
+                      <Button
+                        size="small"
+                        variant={product.reversePriceMode ? 'contained' : 'outlined'}
+                        color="info"
+                        disabled={product.unitPrice <= 0}
+                        onClick={() => {
+                          setProducts((prev) =>
+                            prev.map((p) =>
+                              p.id === product.id
+                                ? { ...p, reversePriceMode: !p.reversePriceMode }
+                                : p
+                            )
+                          );
+                          if (product.reversePriceMode) {
+                            setReversePriceInputs((prev) => { const next = { ...prev }; delete next[product.id]; return next; });
+                          }
+                        }}
+                        startIcon={<Iconify icon="solar:transfer-horizontal-bold-duotone" width={16} />}
+                        sx={{
+                          mt: 0.25,
+                          minWidth: 0,
+                          px: 1,
+                          whiteSpace: 'nowrap',
+                          fontSize: '0.7rem',
+                          lineHeight: 1.2,
+                          ...(product.reversePriceMode && {
+                            animation: 'priceModeGlow 2s ease-in-out infinite',
+                            '@keyframes priceModeGlow': {
+                              '0%, 100%': { boxShadow: (thm: any) => `0 0 0 0 ${alpha(thm.palette.info.main, 0.4)}` },
+                              '50%': { boxShadow: (thm: any) => `0 0 0 4px ${alpha(thm.palette.info.main, 0)}` },
+                            },
+                          }),
+                        }}
+                      >
+                        {product.reversePriceMode ? t('sales.reverseOff').split(' ').slice(0, 2).join(' ') : `DA→${product.unit ?? ''}`}
+                      </Button>
+                    </span>
+                  </Tooltip>
+                )}
+              </Box>
             </Grid>
             <Grid size={{ xs: 12, sm: 2 }} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Box sx={{ typography: 'subtitle2', flexGrow: 1 }}>
@@ -835,52 +975,52 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
         {/* Payment Status — wholesale only */}
         {activeTab === 'wholesale' && (
           <>
-        <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
-          {t('sales.paymentStatus')}
-        </Typography>
-        <RadioGroup
-          row
-          value={paymentStatus}
-          onChange={(e) => setPaymentStatus(e.target.value as Invoice['status'])}
-        >
-          <FormControlLabel value="paid" control={<Radio />} label={t('sales.paid')} />
-          <FormControlLabel value="partly-paid" control={<Radio />} label={t('sales.partial')} />
-          <FormControlLabel value="unpaid" control={<Radio />} label={t('sales.unpaid')} />
-        </RadioGroup>
+            <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
+              {t('sales.paymentStatus')}
+            </Typography>
+            <RadioGroup
+              row
+              value={paymentStatus}
+              onChange={(e) => setPaymentStatus(e.target.value as Invoice['status'])}
+            >
+              <FormControlLabel value="paid" control={<Radio />} label={t('sales.paid')} />
+              <FormControlLabel value="partly-paid" control={<Radio />} label={t('sales.partial')} />
+              <FormControlLabel value="unpaid" control={<Radio />} label={t('sales.unpaid')} />
+            </RadioGroup>
 
-        {paymentStatus === 'partly-paid' && (
-          <Box sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-            <TextField
-              label={t('sales.amountPaid')}
-              type="number"
-              size="small"
-              value={amountPaid}
-              onChange={(e) => setAmountPaid(Math.max(0, Math.min(total, Number(e.target.value))))}
-              slotProps={{ htmlInput: { min: 0, max: total } }}
-              sx={{ width: 200 }}
-            />
-            <Typography variant="body2" color="text.secondary">
-              {t('sales.amountDue')}: <strong>{fCurrency(total - amountPaid)}</strong>
-            </Typography>
-          </Box>
-        )}
-        {(paymentStatus === 'partly-paid' || paymentStatus === 'unpaid') && (
-          <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Iconify icon="solar:calendar-bold-duotone" width={20} sx={{ color: 'text.secondary' }} />
-            <TextField
-              label={t('sales.dueDate')}
-              type="date"
-              size="small"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              slotProps={{ inputLabel: { shrink: true } }}
-              sx={{ width: 200 }}
-            />
-            <Typography variant="caption" color="text.secondary">
-              {t('sales.dueDateHelper')}
-            </Typography>
-          </Box>
-        )}
+            {paymentStatus === 'partly-paid' && (
+              <Box sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                <TextField
+                  label={t('sales.amountPaid')}
+                  type="number"
+                  size="small"
+                  value={amountPaid}
+                  onChange={(e) => setAmountPaid(Math.max(0, Math.min(total, Number(e.target.value))))}
+                  slotProps={{ htmlInput: { min: 0, max: total } }}
+                  sx={{ width: 200 }}
+                />
+                <Typography variant="body2" color="text.secondary">
+                  {t('sales.amountDue')}: <strong>{fCurrency(total - amountPaid)}</strong>
+                </Typography>
+              </Box>
+            )}
+            {(paymentStatus === 'partly-paid' || paymentStatus === 'unpaid') && (
+              <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Iconify icon="solar:calendar-bold-duotone" width={20} sx={{ color: 'text.secondary' }} />
+                <TextField
+                  label={t('sales.dueDate')}
+                  type="date"
+                  size="small"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  sx={{ width: 200 }}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  {t('sales.dueDateHelper')}
+                </Typography>
+              </Box>
+            )}
           </>
         )}
       </DialogContent>
@@ -897,18 +1037,13 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
             </Button>
           </>
         ) : (
-          <>
-            <Button
-              variant="outlined"
-              startIcon={<Iconify icon="solar:printer-bold-duotone" width={20} />}
-              onClick={() => handleSave(undefined, true)}
-            >
-              {t('common.saveAndPrint')}
-            </Button>
-            <Button variant="contained" onClick={() => handleSave()}>
-              {t('common.save')}
-            </Button>
-          </>
+          <Button
+            variant="contained"
+            startIcon={<Iconify icon="solar:printer-bold-duotone" width={20} />}
+            onClick={() => handleSave(undefined, true)}
+          >
+            {t('common.saveAndPrint')}
+          </Button>
         )}
       </DialogActions>
     </Dialog>
