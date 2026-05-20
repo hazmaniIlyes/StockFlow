@@ -65,7 +65,6 @@ export function SuppliersProvider({ children }: ProviderProps) {
     if (isElectron()) {
       // Load all suppliers from SQLite, then enrich each with catalog/purchases/payments
       suppliersDB.getAll().then(async (dbSuppliers) => {
-        console.log('[SuppliersContext] Loaded suppliers from SQLite:', dbSuppliers.length);
         // For each supplier, load their catalog, purchases, and payments from related tables
         const enrichedSuppliers: Supplier[] = await Promise.all(
           dbSuppliers.map(async (sup: any) => {
@@ -111,7 +110,6 @@ export function SuppliersProvider({ children }: ProviderProps) {
         purchases: [],
         payments: [],
       };
-      console.log('Adding supplier:', newSupplier);
 
       // ── Persist supplier to SQLite ─────────────────────────────────
       if (isElectron()) {
@@ -145,10 +143,7 @@ export function SuppliersProvider({ children }: ProviderProps) {
         });
       }
 
-      setSuppliers((prev) => {
-        console.log('Previous suppliers:', prev.length, 'New total:', prev.length + 1);
-        return [newSupplier, ...prev]; // Add to front of list
-      });
+      setSuppliers((prev) => [newSupplier, ...prev]); // Add to front of list
       return newSupplier;
     },
     []

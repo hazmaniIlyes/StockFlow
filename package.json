@@ -107,6 +107,10 @@
     "directories": {
       "output": "release"
     },
+    "asarUnpack": [
+      "**/*.node",
+      "node_modules/better-sqlite3/**"
+    ],
     "win": {
       "target": [
         {
@@ -114,11 +118,11 @@
           "arch": ["x64"]
         }
       ],
-      "icon": "public/favicon.ico"
+      "icon": "public/assets/sfapp.png"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Stockflow"

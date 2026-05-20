@@ -44,7 +44,7 @@ export function InventoryDetailView() {
   const { getProduct, adjustStock } = useInventory();
   const { getSupplier } = useSuppliers();
   const { invoices } = useInvoices();
-  const { invoice: invoiceSettings, businessMode } = useSettings();
+  const { invoice: invoiceSettings, businessMode, role } = useSettings();
 
   const product = getProduct(id || '');
   const supplier = product ? getSupplier(product.supplierId) : undefined;
@@ -186,6 +186,8 @@ export function InventoryDetailView() {
 
       {/* Financial Summary */}
       <Grid container spacing={3} sx={{ mb: 4, alignItems: 'stretch' }}>
+        {/* Buying Price — hidden from workers */}
+        {role !== 'worker' && (
         <Grid size={{ xs: 12, sm: 3 }}>
           <Card
             sx={{
@@ -223,6 +225,7 @@ export function InventoryDetailView() {
             </Box>
           </Card>
         </Grid>
+        )}
 
         <Grid size={{ xs: 12, sm: 3 }}>
           <Card
@@ -278,6 +281,8 @@ export function InventoryDetailView() {
           </Card>
         </Grid>
 
+        {/* Margin — hidden from workers */}
+        {role !== 'worker' && (
         <Grid size={{ xs: 12, sm: 3 }}>
           <Card
             sx={{
@@ -334,6 +339,7 @@ export function InventoryDetailView() {
             </Box>
           </Card>
         </Grid>
+        )}
 
         <Grid size={{ xs: 12, sm: 3 }}>
           <Card
@@ -395,7 +401,11 @@ export function InventoryDetailView() {
           <Card sx={{ mb: 3 }}>
             <CardHeader
               title={t('inventory.salesHistory')}
-              subheader={t('inventory.unitsSoldRevenue', { sold: totalSold, revenue: fCurrency(totalRevenue) })}
+              subheader={
+                role !== 'worker'
+                  ? t('inventory.unitsSoldRevenue', { sold: totalSold, revenue: fCurrency(totalRevenue) })
+                  : t('inventory.unitsSold', { sold: totalSold })
+              }
               avatar={
                 <Box
                   sx={{
@@ -420,15 +430,15 @@ export function InventoryDetailView() {
                     <TableCell>{t('common.date')}</TableCell>
                     <TableCell>{t('sales.client')}</TableCell>
                     <TableCell align="center">{t('inventory.qtySold')}</TableCell>
-                    <TableCell align="right">{t('inventory.unitPrice')}</TableCell>
-                    <TableCell align="right">{t('common.total')}</TableCell>
+                    {role !== 'worker' && <TableCell align="right">{t('inventory.unitPrice')}</TableCell>}
+                    {role !== 'worker' && <TableCell align="right">{t('common.total')}</TableCell>}
                     <TableCell align="center">{t('inventory.invoice')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {productInvoices.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    <TableCell colSpan={role !== 'worker' ? 6 : 4} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                         {t('inventory.noSalesRecorded')}
                       </TableCell>
                     </TableRow>
@@ -449,12 +459,16 @@ export function InventoryDetailView() {
                         <TableCell align="center">
                           <Chip label={item.quantity} size="small" />
                         </TableCell>
-                        <TableCell align="right">{fCurrency(item.unitPrice)}</TableCell>
-                        <TableCell align="right">
-                          <Typography variant="subtitle2">
-                            {fCurrency(item.quantity * item.unitPrice)}
-                          </Typography>
-                        </TableCell>
+                        {role !== 'worker' && (
+                          <TableCell align="right">{fCurrency(item.unitPrice)}</TableCell>
+                        )}
+                        {role !== 'worker' && (
+                          <TableCell align="right">
+                            <Typography variant="subtitle2">
+                              {fCurrency(item.quantity * item.unitPrice)}
+                            </Typography>
+                          </TableCell>
+                        )}
                         <TableCell align="center">
                           <Button
                             size="small"
@@ -483,7 +497,8 @@ export function InventoryDetailView() {
             />
           </Card>
 
-          {/* Performance Summary */}
+          {/* Total Profit card — hidden from workers */}
+          {role !== 'worker' && (
           <Card sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Box
@@ -511,6 +526,7 @@ export function InventoryDetailView() {
               </Typography>
             </Box>
           </Card>
+          )}
         </Grid>
 
         {/* Right column - Supplier Info + Stock Info */}
@@ -575,7 +591,7 @@ export function InventoryDetailView() {
           </Card>
 
           {/* Stock Details */}
-          <Card sx={{ mb: product.batches && product.batches.length > 1 ? 3 : 0 }}>
+          <Card sx={{ mb: product.batches && product.batches.length > 0 ? 3 : 0 }}>
             <CardHeader
               title={t('inventory.stockDetails')}
               avatar={
@@ -637,7 +653,7 @@ export function InventoryDetailView() {
               )}
               {product.expiryDate && (() => {
                 const today = new Date();
-                today.setHours(0,0,0,0);
+                today.setHours(0, 0, 0, 0);
                 const exp = new Date(product.expiryDate);
                 const daysLeft = Math.ceil((exp.getTime() - today.getTime()) / 86400000);
                 const color = daysLeft < 0 ? 'error.main' : daysLeft <= 30 ? 'warning.main' : 'success.main';
@@ -673,7 +689,7 @@ export function InventoryDetailView() {
           </Card>
 
           {/* FIFO Batches — only shown when product has multiple batches */}
-          {product.batches && product.batches.length > 1 && (
+          {product.batches && product.batches.length > 0 && (
             <Card sx={{ mt: 3 }}>
               <CardHeader
                 title={t('inventory.fifoBatches')}

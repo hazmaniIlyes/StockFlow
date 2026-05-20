@@ -18,6 +18,7 @@ import { Chart, useChart } from 'src/components/chart';
 type Props = CardProps & {
   title?: string;
   subheader?: string;
+  hideStats?: boolean;
   chart: {
     categories: string[];
     moneyIn: number[];
@@ -26,7 +27,7 @@ type Props = CardProps & {
   };
 };
 
-export function AnalyticsCashFlow({ title, subheader, chart, sx, ...other }: Props) {
+export function AnalyticsCashFlow({ title, subheader, chart, hideStats, sx, ...other }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
 
@@ -43,10 +44,11 @@ export function AnalyticsCashFlow({ title, subheader, chart, sx, ...other }: Pro
       min: 0,
       forceNiceScale: true,
       labels: {
-        formatter: (value: number) => fCurrency(value),
+        formatter: (value: number) => (hideStats ? '' : fCurrency(value)),
       },
     },
     tooltip: {
+      enabled: !hideStats,
       y: {
         formatter: (value: number) => fCurrency(value),
       },
@@ -70,17 +72,19 @@ export function AnalyticsCashFlow({ title, subheader, chart, sx, ...other }: Pro
         title={title}
         subheader={subheader}
         action={
-          <Box sx={{ textAlign: 'end', paddingInlineEnd: 1 }}>
-            <Typography
-              variant="subtitle2"
-              sx={{ color: netFlow >= 0 ? 'success.main' : 'error.main' }}
-            >
-              Net: {fCurrency(netFlow)}
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {t('dashboard.moneyIn')}: {fCurrency(totalIn)} · {t('dashboard.moneyOut')}: {fCurrency(totalOut)}
-            </Typography>
-          </Box>
+          !hideStats ? (
+            <Box sx={{ textAlign: 'end', paddingInlineEnd: 1 }}>
+              <Typography
+                variant="subtitle2"
+                sx={{ color: netFlow >= 0 ? 'success.main' : 'error.main' }}
+              >
+                Net: {fCurrency(netFlow)}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {t('dashboard.moneyIn')}: {fCurrency(totalIn)} · {t('dashboard.moneyOut')}: {fCurrency(totalOut)}
+              </Typography>
+            </Box>
+          ) : undefined
         }
       />
 

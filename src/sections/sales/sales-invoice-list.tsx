@@ -60,7 +60,7 @@ export function SalesInvoiceList({
 
   const WALKIN_NAMES = ['Walk-in Customer', 'Client de passage', 'زبون عابر'];
   const displayClientName = (name: string) =>
-    WALKIN_NAMES.includes(name) ? t('sales.walkInCustomer') : name;
+    WALKIN_NAMES.includes(name) ? '—' : name;
 
   const STATUS_OPTIONS = [
     { value: 'all', label: t('common.all') },

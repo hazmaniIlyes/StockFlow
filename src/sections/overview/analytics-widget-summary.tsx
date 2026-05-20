@@ -88,30 +88,30 @@ export function AnalyticsWidgetSummary({
   return (
     <Card
       sx={[
-        (theme) => {
-          const isDark = theme.palette.mode === 'dark';
+        (th) => {
+          const isDark = th.palette.mode === 'dark';
           return {
             p: 3,
             height: '100%',
             position: 'relative',
             color: isDark ? `${color}.lighter` : `${color}.darker`,
-            backgroundColor: isDark ? theme.vars.palette.grey[900] : 'common.white',
+            backgroundColor: isDark ? th.vars.palette.grey[900] : 'common.white',
             backgroundImage: isDark
-              ? `linear-gradient(135deg, ${varAlpha(theme.vars.palette[color].darkerChannel, 0.72)}, ${varAlpha(theme.vars.palette[color].darkChannel, 0.48)})`
-              : `linear-gradient(135deg, ${varAlpha(theme.vars.palette[color].lighterChannel, 0.88)}, ${varAlpha(theme.vars.palette[color].lightChannel, 0.56)})`,
+              ? `linear-gradient(135deg, ${varAlpha(th.vars.palette[color].darkerChannel, 0.72)}, ${varAlpha(th.vars.palette[color].darkChannel, 0.48)})`
+              : `linear-gradient(135deg, ${varAlpha(th.vars.palette[color].lighterChannel, 0.88)}, ${varAlpha(th.vars.palette[color].lightChannel, 0.56)})`,
             boxShadow: isDark
-              ? `inset 0 1px 0 0 rgba(255, 255, 255, 0.1), ${theme.vars.customShadows.z4}`
-              : `inset 0 1px 0 0 rgba(255, 255, 255, 0.9), ${theme.vars.customShadows.z4}`,
+              ? `inset 0 1px 0 0 rgba(255, 255, 255, 0.1), ${th.vars.customShadows.z4}`
+              : `inset 0 1px 0 0 rgba(255, 255, 255, 0.9), ${th.vars.customShadows.z4}`,
             border: isDark
-              ? `1px solid ${varAlpha(theme.vars.palette[color].darkChannel, 0.32)}`
-              : `1px solid ${varAlpha(theme.vars.palette[color].lightChannel, 0.4)}`,
+              ? `1px solid ${varAlpha(th.vars.palette[color].darkChannel, 0.32)}`
+              : `1px solid ${varAlpha(th.vars.palette[color].lightChannel, 0.4)}`,
             borderRadius: 3,
             transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
             '&:hover': {
               transform: 'translateY(-2px)',
               boxShadow: isDark
-                ? `inset 0 1px 0 0 rgba(255, 255, 255, 0.18), ${theme.vars.customShadows.z8}`
-                : `inset 0 1px 0 0 rgba(255, 255, 255, 0.8), ${theme.vars.customShadows.z8}`,
+                ? `inset 0 1px 0 0 rgba(255, 255, 255, 0.18), ${th.vars.customShadows.z8}`
+                : `inset 0 1px 0 0 rgba(255, 255, 255, 0.8), ${th.vars.customShadows.z8}`,
             },
             '&::after': {
               content: '""',
@@ -193,7 +193,7 @@ export function AnalyticsWidgetSummary({
       </Box>
 
       <SvgColor
-        src="/assets/background/shape-square.svg"
+        src="./assets/background/shape-square.svg"
         sx={{
           top: 0,
           insetInlineStart: -20,

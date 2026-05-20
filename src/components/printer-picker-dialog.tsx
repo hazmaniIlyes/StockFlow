@@ -28,11 +28,13 @@ type Props = {
   open: boolean;
   title: string;
   subtitle: string;
+  noPrinterLabel?: string;
   onSelect: (printerName: string) => void;
+  onNoPrinter?: () => void;
   onClose: () => void;
 };
 
-export function PrinterPickerDialog({ open, title, subtitle, onSelect, onClose }: Props) {
+export function PrinterPickerDialog({ open, title, subtitle, noPrinterLabel, onSelect, onNoPrinter, onClose }: Props) {
   const [printers, setPrinters] = useState<PrinterInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
@@ -101,17 +103,30 @@ export function PrinterPickerDialog({ open, title, subtitle, onSelect, onClose }
           </List>
         )}
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button variant="outlined" color="inherit" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          disabled={!selected}
-          onClick={() => { if (selected) onSelect(selected); }}
-        >
-          Use this printer
-        </Button>
+      <DialogActions sx={{ px: 3, pb: 2, justifyContent: onNoPrinter ? 'space-between' : 'flex-end' }}>
+        {onNoPrinter && (
+          <Button
+            variant="text"
+            color="inherit"
+            onClick={onNoPrinter}
+            startIcon={<Iconify icon="solar:close-circle-bold-duotone" width={18} />}
+            sx={{ color: 'text.secondary', mr: 'auto' }}
+          >
+            {noPrinterLabel || "I don't have a printer"}
+          </Button>
+        )}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="outlined" color="inherit" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disabled={!selected}
+            onClick={() => { if (selected) onSelect(selected); }}
+          >
+            Use this printer
+          </Button>
+        </Box>
       </DialogActions>
     </Dialog>
   );

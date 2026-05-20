@@ -110,7 +110,9 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
         setUnit(product.unit ?? 'pcs');
         setBuyingPrice(product.buyingPrice);
         setSellPrice(product.sellPrice);
-        setRetailPrice(product.retailPrice ?? 0);
+        // In retail mode, the price is stored as sellPrice (see submit logic).
+        // Load it back into retailPrice so the visible field is populated.
+        setRetailPrice(businessMode === 'retail' ? product.sellPrice : (product.retailPrice ?? 0));
         setStock(product.stock);
         setMinStock(product.minStock);
         setSku(product.sku ?? '');
@@ -237,7 +239,7 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
       if (existingProduct) {
         setBuyingPrice(existingProduct.buyingPrice); // Bug 1 fix: use live inventory price, not stale catalog price
         setSellPrice(existingProduct.sellPrice);
-        setRetailPrice(existingProduct.retailPrice ?? 0);
+        setRetailPrice(businessMode === 'retail' ? existingProduct.sellPrice : (existingProduct.retailPrice ?? 0));
         setMinStock(existingProduct.minStock);
       }
     }
@@ -253,8 +255,11 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
     !isEdit &&
     !!existingInventoryProduct &&
     (buyingPrice !== existingInventoryProduct.buyingPrice ||
-      sellPrice !== existingInventoryProduct.sellPrice ||
-      (retailPrice > 0 && retailPrice !== (existingInventoryProduct.retailPrice ?? 0)));
+      // In retail mode: price lives in sellPrice, compare retailPrice state against it
+      (businessMode === 'retail'
+        ? retailPrice !== existingInventoryProduct.sellPrice
+        : sellPrice !== existingInventoryProduct.sellPrice ||
+        (retailPrice > 0 && retailPrice !== (existingInventoryProduct.retailPrice ?? 0))));
 
   const margin =
     buyingPrice > 0 ? ((sellPrice - buyingPrice) / buyingPrice) * 100 : 0;
@@ -550,8 +555,21 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
               placeholder={t('inventory.productNamePlaceholder')}
               value={customName}
               onChange={(e) => {
-                setCustomName(e.target.value);
+                const newName = e.target.value;
+                setCustomName(newName);
                 setIsCustom(true);
+                // Auto-fill prices if this name matches an existing inventory product
+                if (!isEdit) {
+                  const matched = getProductByName(newName.trim());
+                  if (matched) {
+                    setBuyingPrice(matched.buyingPrice);
+                    setSellPrice(matched.sellPrice);
+                    setRetailPrice(businessMode === 'retail' ? matched.sellPrice : (matched.retailPrice ?? 0));
+                    setMinStock(matched.minStock);
+                    if (matched.unit) setUnit(matched.unit);
+                    if (matched.category) setCategory(matched.category);
+                  }
+                }
               }}
             />
 
@@ -937,10 +955,10 @@ export function InventoryFormDialog({ open, product, onClose, onSubmit }: Props)
           <Box
             onClick={() => {
               if (existingInventoryProduct) {
-                // Add new batch to the existing product (no price change to old stock)
+                // Add new batch at new price (old stock stays in existing batches)
                 addBatch(existingInventoryProduct.id, {
                   buyingPrice,
-                  sellPrice: effectiveSellPrice, // always the correct price for the active mode
+                  sellPrice: effectiveSellPrice,
                   quantity: stock,
                   purchaseDate: new Date().toISOString().split('T')[0],
                 });

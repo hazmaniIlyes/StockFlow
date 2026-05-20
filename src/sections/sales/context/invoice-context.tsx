@@ -33,6 +33,7 @@ type InvoiceContextType = {
   getSummary: () => SalesSummary;
   getInvoicesForClient: (clientName: string) => Invoice[];
   getNextInvoiceNumber: () => string;
+  getNextTicketNumber: () => string;
   resetInvoiceCounter: () => void;
   tvaDeclarations: TvaDeclaration[];
   tvaResetDate: string | null;
@@ -58,7 +59,8 @@ type ProviderProps = {
 
 export function InvoiceProvider({ children }: ProviderProps) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [invoiceCounter, setInvoiceCounter] = useState(1);
+  const [invoiceCounter, setInvoiceCounter] = useState(1); // Wholesale: INV-XXXX
+  const [ticketCounter, setTicketCounter] = useState(1);   // Retail: T-XXXX
   const [tvaDeclarations, setTvaDeclarations] = useState<TvaDeclaration[]>([]);
   const [tvaResetDate, setTvaResetDate] = useState<string | null>(null);
 
@@ -70,7 +72,6 @@ export function InvoiceProvider({ children }: ProviderProps) {
     if (isElectron()) {
       // Load all invoices from the database
       invoicesDB.getAll().then((dbInvoices) => {
-        console.log('[InvoiceContext] Loaded invoices from SQLite:', dbInvoices.length);
         setInvoices(dbInvoices); // Populate React state
       }).catch((err) => {
         window.appLog?.error('[InvoiceContext] Failed to load invoices from SQLite:', err);
@@ -78,15 +79,21 @@ export function InvoiceProvider({ children }: ProviderProps) {
 
       // Load the current invoice counter from the settings table
       invoicesDB.getCounter().then((counter) => {
-        console.log('[InvoiceContext] Loaded invoice counter from SQLite:', counter);
-        setInvoiceCounter(counter); // Set the counter so getNextInvoiceNumber works correctly
+        setInvoiceCounter(counter);
       }).catch((err) => {
         window.appLog?.error('[InvoiceContext] Failed to load invoice counter from SQLite:', err);
       });
 
+      // Load the retail ticket counter from settings
+      settingsDB.get('ticket_counter').then((val) => {
+        const parsed = parseInt(val ?? '1', 10);
+        setTicketCounter(Number.isFinite(parsed) && parsed > 0 ? parsed : 1);
+      }).catch((err) => {
+        window.appLog?.error('[InvoiceContext] Failed to load ticket counter from SQLite:', err);
+      });
+
       // Load all TVA declarations
       tvaDB.getAll().then((dbTva) => {
-        console.log('[InvoiceContext] Loaded TVA declarations from SQLite:', dbTva.length);
         setTvaDeclarations(dbTva); // Populate TVA declaration history
       }).catch((err) => {
         window.appLog?.error('[InvoiceContext] Failed to load TVA declarations from SQLite:', err);
@@ -107,24 +114,41 @@ export function InvoiceProvider({ children }: ProviderProps) {
   );
 
   const addInvoice = useCallback((data: Omit<Invoice, 'id'>) => {
-    const newInvoice: Invoice = { ...data, id: `inv-${Date.now()}` }; // Generate unique invoice ID
-    const newCounter = invoiceCounter + 1; // Increment the counter for the next invoice
+    const newInvoice: Invoice = { ...data, id: `inv-${Date.now()}` };
+    const isRetail = data.type === 'retail';
 
-    // ── Persist invoice to SQLite ────────────────────────────────────
     if (isElectron()) {
       invoicesDB.add(newInvoice).catch((err) => {
         window.appLog?.error('[InvoiceContext] Failed to add invoice to SQLite:', err);
       });
-      // Save the updated counter to settings so it persists across restarts
-      invoicesDB.setCounter(newCounter).catch((err) => {
-        window.appLog?.error('[InvoiceContext] Failed to update invoice counter in SQLite:', err);
-      });
+
+      if (isRetail) {
+        // Retail: increment ticket counter
+        const newTicket = ticketCounter + 1;
+        settingsDB.set('ticket_counter', String(newTicket)).catch((err) => {
+          window.appLog?.error('[InvoiceContext] Failed to update ticket counter in SQLite:', err);
+        });
+        setTicketCounter(newTicket);
+      } else {
+        // Wholesale: increment invoice counter
+        const newCounter = invoiceCounter + 1;
+        invoicesDB.setCounter(newCounter).catch((err) => {
+          window.appLog?.error('[InvoiceContext] Failed to update invoice counter in SQLite:', err);
+        });
+        setInvoiceCounter(newCounter);
+      }
+    } else {
+      // Non-Electron fallback
+      if (isRetail) {
+        setTicketCounter((prev) => prev + 1);
+      } else {
+        setInvoiceCounter((prev) => prev + 1);
+      }
     }
 
-    setInvoices((prev) => [newInvoice, ...prev]); // Add to front of list
-    setInvoiceCounter(newCounter);
+    setInvoices((prev) => [newInvoice, ...prev]);
     return newInvoice;
-  }, [invoiceCounter]);
+  }, [invoiceCounter, ticketCounter]);
 
   const updateInvoice = useCallback((id: string, data: Partial<Invoice>) => {
     // ── Persist invoice update to SQLite ──────────────────────────────
@@ -286,9 +310,13 @@ export function InvoiceProvider({ children }: ProviderProps) {
     [invoices]
   );
 
-  const getNextInvoiceNumber = useCallback(() => 
-     `INV-${String(invoiceCounter).padStart(4, '0')}` // Format: INV-0001, INV-0002, etc.
+  const getNextInvoiceNumber = useCallback(() =>
+     `INV-${String(invoiceCounter).padStart(4, '0')}`
   , [invoiceCounter]);
+
+  const getNextTicketNumber = useCallback(() =>
+     `T-${String(ticketCounter).padStart(4, '0')}`
+  , [ticketCounter]);
 
   const resetInvoiceCounter = useCallback(() => {
     // ── Reset counter in SQLite ──────────────────────────────────────
@@ -372,6 +400,8 @@ export function InvoiceProvider({ children }: ProviderProps) {
 
     setInvoices([]);
     setInvoiceCounter(1);
+    setTicketCounter(1);
+    settingsDB.set('ticket_counter', '1').catch(() => {});
     setTvaDeclarations([]);
     setTvaResetDate(null);
   }, []);
@@ -388,6 +418,7 @@ export function InvoiceProvider({ children }: ProviderProps) {
       getSummary,
       getInvoicesForClient,
       getNextInvoiceNumber,
+      getNextTicketNumber,
       resetInvoiceCounter,
       tvaDeclarations,
       tvaResetDate,
@@ -407,6 +438,7 @@ export function InvoiceProvider({ children }: ProviderProps) {
       getSummary,
       getInvoicesForClient,
       getNextInvoiceNumber,
+      getNextTicketNumber,
       resetInvoiceCounter,
       tvaDeclarations,
       tvaResetDate,

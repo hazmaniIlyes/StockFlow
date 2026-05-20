@@ -39,7 +39,6 @@ export function ExpensesProvider({ children }: ProviderProps) {
     if (isElectron()) {
       // Load all expenses from SQLite database when provider mounts
       expensesDB.getAll().then((dbExpenses) => {
-        console.log('[ExpensesContext] Loaded expenses from SQLite:', dbExpenses.length);
         setExpenses(dbExpenses); // Populate React state with database data
       }).catch((err) => {
         window.appLog?.error('[ExpensesContext] Failed to load expenses from SQLite:', err);

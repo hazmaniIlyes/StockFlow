@@ -28,6 +28,7 @@ export default defineConfig({
       },
     ],
   },
+  base: './',
   server: { port: PORT, host: true, strictPort: true },
   preview: { port: PORT, host: true },
 });

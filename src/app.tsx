@@ -14,6 +14,7 @@ import { ThemeProvider } from 'src/theme/theme-provider';
 import { I18nProvider, ClientsProvider, BusinessProvider, ExpensesProvider, SettingsProvider, InventoryProvider, SuppliersProvider, GlobalScanProvider } from 'src/contexts';
 
 import { SnackbarProvider } from 'src/components/snackbar';
+import { DiskSpaceMonitor } from 'src/components/disk-space-monitor';
 
 import { InvoiceProvider } from 'src/sections/sales/context';
 import { isOnboardingComplete } from 'src/sections/onboarding/onboarding-view';
@@ -77,6 +78,7 @@ export default function App({ children }: AppProps) {
                           <ActivationGuard>
                             <OnboardingGuard>
                               <GlobalBarcodeScanListener />
+                              <DiskSpaceMonitor />
                               {children}
                             </OnboardingGuard>
                           </ActivationGuard>

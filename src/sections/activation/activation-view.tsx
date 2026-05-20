@@ -154,8 +154,8 @@ export function ActivationView({ onComplete }: Props) {
             <img
               src={
                 theme.palette.mode === 'dark'
-                  ? '/assets/stockflow-logoF.png'
-                  : '/assets/stockflow-dark.png'
+                  ? './assets/stockflow-logoF.png'
+                  : './assets/stockflow-dark.png'
               }
               alt="Stockflow"
               style={{ height: 56, objectFit: 'contain' }}
