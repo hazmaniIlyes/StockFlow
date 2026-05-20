@@ -1,3 +1,5 @@
+import type { BusinessMode } from 'src/contexts/settings-context';
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -19,7 +21,6 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 
 import { useSettings, useTranslation } from 'src/contexts';
-import type { BusinessMode } from 'src/contexts/settings-context';
 import { tvaDB, clientsDB, settingsDB, isElectron, productsDB, invoicesDB, expensesDB, suppliersDB } from 'src/services/db';
 
 import { Iconify } from 'src/components/iconify';
@@ -95,9 +96,9 @@ export function SettingsAccount() {
           const acc = JSON.parse(accStr);
           if (acc.displayName) setProfile({ displayName: acc.displayName });
         }
-        // Also load saved receipt printer
+        // Also load saved receipt printer ('none' = user opted out, treat as unset)
         const printer = await settingsDB.get('receipt_printer');
-        setSavedPrinter(printer ?? null);
+        setSavedPrinter(printer && printer !== 'none' ? printer : null);
       } catch (e) {
         window.appLog?.error('Failed to reload profile from DB:', e);
       }

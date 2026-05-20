@@ -64,7 +64,6 @@ export function InventoryProvider({ children }: ProviderProps) {
       // Without the second pass products always boot with batches: undefined, causing all
       // per-batch prices to be lost across every app restart (FIFO persistence bug fix).
       productsDB.getAll().then(async (dbProducts) => { // added async: needed to await batch loads inside the callback
-        console.log('[InventoryContext] Loaded products from SQLite:', dbProducts.length); // Log how many products were loaded
 
         // added: for every product, fetch its persisted rows from the stock_batches table in parallel
         const withBatches = await Promise.all( // added: run all batch lookups concurrently for performance
@@ -93,7 +92,6 @@ export function InventoryProvider({ children }: ProviderProps) {
   );
 
   const addProduct = useCallback((data: Omit<InventoryProduct, 'id' | 'status'>) => {
-    console.log('InventoryContext.addProduct called with:', data);
     const status = computeStockStatus(data.stock, data.minStock); // Compute initial status from stock/minStock values
 
     // Auto-generate SKU if not provided
@@ -113,10 +111,7 @@ export function InventoryProvider({ children }: ProviderProps) {
       });
     }
 
-    setProducts((prev) => {
-      console.log('Previous products count:', prev.length, 'Adding:', newProduct.name);
-      return [newProduct, ...prev]; // Add to front of array so newest appears first
-    });
+    setProducts((prev) => [newProduct, ...prev]); // Add to front of array so newest appears first
     return newProduct;
   }, [products.length]);
 

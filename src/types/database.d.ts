@@ -97,6 +97,11 @@ interface DatabaseAPI {
   getPrinters: () => Promise<{ name: string; displayName: string; isDefault: boolean }[]>;
   printHtmlSilent: (html: string, printerName: string) => Promise<boolean>;
   savePdf: (html: string, name: string) => Promise<{ success: boolean; error?: string }>;
+
+  // ── Disk Space ────────────────────────────────────────────────────────
+  checkDiskSpace: () => Promise<{ freeBytes: number } | null>;
+  onDiskWarning: (cb: (data: { level: 'low' | 'critical'; freeBytes: number }) => void) => void;
+  offDiskWarning: (cb: (data: { level: 'low' | 'critical'; freeBytes: number }) => void) => void;
 }
 
 /** Shell/OS actions exposed on window.appShell by the Electron preload script */

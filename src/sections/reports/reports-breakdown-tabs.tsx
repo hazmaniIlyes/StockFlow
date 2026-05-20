@@ -83,6 +83,11 @@ function SalesReport({ invoices }: { invoices: Invoice[] }) {
   const { t, dir } = useTranslation();
   const [page, setPage] = useState(0);
   const rowsPerPage = 20;
+
+  const WALKIN_NAMES = ['Walk-in Customer', 'Client de passage', 'زبون عابر'];
+  const displayClient = (inv: Invoice) =>
+    inv.type === 'retail' || WALKIN_NAMES.includes(inv.client.name) ? '—' : inv.client.name;
+
   const totalRevenue = invoices.reduce((s, i) => s + i.total, 0);
   const totalCollected = invoices.reduce((s, i) => s + i.amountPaid, 0);
   const totalPending = invoices.reduce((s, i) => s + i.amountDue, 0);
@@ -95,6 +100,7 @@ function SalesReport({ invoices }: { invoices: Invoice[] }) {
         <TableHead>
           <TableRow>
             <TableCell>{t('reports.invoiceNumber')}</TableCell>
+            <TableCell>{t('reports.type')}</TableCell>
             <TableCell>{t('reports.client')}</TableCell>
             <TableCell>{t('common.date')}</TableCell>
             <TableCell align="right">{t('common.total')}</TableCell>
@@ -107,7 +113,12 @@ function SalesReport({ invoices }: { invoices: Invoice[] }) {
           {paginated.map((inv) => (
             <TableRow key={inv.id} hover>
               <TableCell>{inv.invoiceNumber}</TableCell>
-              <TableCell>{inv.client.name}</TableCell>
+              <TableCell>
+                <Label color={inv.type === 'retail' ? 'success' : 'info'}>
+                  {inv.type === 'retail' ? t('reports.retail') : t('reports.wholesale')}
+                </Label>
+              </TableCell>
+              <TableCell>{displayClient(inv)}</TableCell>
               <TableCell>{inv.createdAt}</TableCell>
               <TableCell align="right">{fCurrency(inv.total)}</TableCell>
               <TableCell align="right">{fCurrency(inv.amountPaid)}</TableCell>
@@ -126,7 +137,7 @@ function SalesReport({ invoices }: { invoices: Invoice[] }) {
 
           {/* Totals row */}
           <TableRow sx={{ '& td': { fontWeight: 'bold', borderTop: '2px solid', borderColor: 'divider' } }}>
-            <TableCell colSpan={3}>{t('common.total')} ({invoices.length} {t('reports.invoices')})</TableCell>
+            <TableCell colSpan={4}>{t('common.total')} ({invoices.length} {t('reports.invoices')})</TableCell>
             <TableCell align="right">{fCurrency(totalRevenue)}</TableCell>
             <TableCell align="right">{fCurrency(totalCollected)}</TableCell>
             <TableCell align="right">{fCurrency(totalPending)}</TableCell>

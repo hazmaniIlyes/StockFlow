@@ -430,7 +430,7 @@ export const _stockAdjustments: StockAdjustment[] = [
 export const _myAccount = {
   displayName: 'Jaydon Frankie',
   email: 'demo@stockflow.app',
-  photoURL: '/assets/images/avatar/avatar-25.webp',
+  photoURL: './assets/images/avatar/avatar-25.webp',
 };
 
 // ----------------------------------------------------------------------
@@ -472,7 +472,7 @@ export const _notifications = [
     id: _id(2),
     title: _fullName(2),
     description: 'answered to your comment on the Minimal',
-    avatarUrl: '/assets/images/avatar/avatar-2.webp',
+    avatarUrl: './assets/images/avatar/avatar-2.webp',
     type: 'friend-interactive',
     postedAt: _times(2),
     isUnRead: true,

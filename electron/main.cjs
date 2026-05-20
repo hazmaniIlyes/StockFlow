@@ -1,11 +1,12 @@
-const { app, BrowserWindow, ipcMain, screen, dialog, shell } = require('electron'); // Core Electron modules for app lifecycle, window creation, and IPC
-const path = require('path');                                  // Node path module for resolving file paths cross-platform
-const fs = require('fs');                                      // Node fs module for writing temp print files
-const os = require('os');                                      // Node os module for temp directory path
-const log = require('electron-log');                           // Persistent file logger — writes to AppData/Roaming/StockFlow/logs/main.log
-const { autoUpdater } = require('electron-updater');           // Auto-update — checks GitHub Releases for new versions
-const { initDatabase } = require('./database/init.cjs');       // Our custom function to initialize SQLite and create tables
-const { registerAllHandlers } = require('./database/ipc-handlers.cjs'); // Registers all IPC handlers for CRUD operations
+const { app, BrowserWindow, ipcMain, screen, dialog, shell } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const { execSync } = require('child_process');
+const log = require('electron-log');
+const { autoUpdater } = require('electron-updater');
+const { initDatabase } = require('./database/init.cjs');
+const { registerAllHandlers } = require('./database/ipc-handlers.cjs');
 
 // ── Logging setup ──────────────────────────────────────────────────────
 // Route all console output through electron-log so errors are visible in
@@ -134,20 +135,68 @@ ipcMain.handle('app:resetActivation', () => {
 });
 
 // ── Open logs folder in File Explorer ────────────────────────────────
-// Registered at module level but only *called* after app is ready (user click),
-// so app.getPath('userData') is safe here.
 ipcMain.handle('app:openLogsFolder', () => {
   const logsDir = path.join(app.getPath('userData'), 'logs');
-  fs.mkdirSync(logsDir, { recursive: true }); // Ensure folder exists before opening
-  shell.openPath(logsDir); // Opens the logs folder in File Explorer
+  fs.mkdirSync(logsDir, { recursive: true });
+  shell.openPath(logsDir);
 });
+
+// ── Disk space check ─────────────────────────────────────────────────
+// Returns free bytes on the drive where the app data (SQLite DB) lives.
+// Uses wmic on Windows and df on macOS/Linux — no extra npm packages.
+const LOW_DISK_BYTES  = 200 * 1024 * 1024; // 200 MB — warn
+const CRIT_DISK_BYTES =  50 * 1024 * 1024; //  50 MB — critical
+
+function getFreeBytes() {
+  try {
+    const dataPath = app.getPath('userData');
+    if (process.platform === 'win32') {
+      const drive = path.parse(dataPath).root.charAt(0); // e.g. "C"
+      const out = execSync(
+        `powershell -NoProfile -Command "(Get-PSDrive ${drive}).Free"`,
+        { encoding: 'utf8', timeout: 4000 }
+      );
+      const bytes = parseInt(out.trim(), 10);
+      return isNaN(bytes) ? null : bytes;
+    }
+    // macOS / Linux
+    const out = execSync(`df -k "${dataPath}"`, { encoding: 'utf8', timeout: 4000 });
+    const parts = out.trim().split('\n')[1].trim().split(/\s+/);
+    return parseInt(parts[3], 10) * 1024;
+  } catch (e) {
+    log.warn('[DiskCheck] Failed to read free space:', e.message);
+    return null;
+  }
+}
+
+ipcMain.handle('check-disk-space', () => {
+  const free = getFreeBytes();
+  return { freeBytes: free, isLow: free !== null && free < LOW_DISK_BYTES, isCritical: free !== null && free < CRIT_DISK_BYTES };
+});
+
+// Called after window is shown — checks disk and starts periodic monitor
+function startDiskMonitor() {
+  const doCheck = () => {
+    const free = getFreeBytes();
+    if (free === null || !mainWindow) return;
+    if (free < CRIT_DISK_BYTES) {
+      mainWindow.webContents.send('disk:warning', { level: 'critical', freeBytes: free });
+    } else if (free < LOW_DISK_BYTES) {
+      mainWindow.webContents.send('disk:warning', { level: 'low', freeBytes: free });
+    }
+  };
+  // Check once on startup (after renderer loads)
+  setTimeout(doCheck, 3000);
+  // Then every 30 minutes
+  setInterval(doCheck, 30 * 60 * 1000);
+}
 
 // ======================================================================
 
-// Determine if we are in development mode by checking the NODE_ENV environment variable
-// app.isPackaged cannot be read at module load time (Electron hasn't initialized yet at that point),
-// so we use NODE_ENV which is reliably set to 'production' by electron-builder and undefined/development during dev
-const isDev = process.env.NODE_ENV !== 'production'; // true during dev, false in the packaged .exe
+// Determine if we are in development mode.
+// app.isPackaged is the most reliable check — it's true when running from
+// an ASAR archive (packaged .exe) and false when running via `electron .`
+const isDev = !app.isPackaged;
 
 let mainWindow = null; // Reference to the main BrowserWindow instance
 
@@ -291,6 +340,9 @@ app.whenReady().then(() => {
 
   // Create the main application window
   createWindow();
+
+  // Start disk space monitor after window is created
+  startDiskMonitor();
 
   // ── Auto-update ────────────────────────────────────────────────────────
   // Only runs in production (packaged .exe) — skipped entirely during dev.
