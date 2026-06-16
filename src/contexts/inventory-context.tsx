@@ -23,7 +23,7 @@ type InventoryContextType = {
   deductStockForInvoice: (items: { name: string; quantity: number }[]) => { // return type extended to carry FIFO-weighted prices
     success: boolean;
     errors: string[];
-    pricedItems?: { name: string; unitPrice: number; total: number }[]; // added: FIFO-weighted average sell price per batched product (absent for non-batched products)
+    pricedItems?: { name: string; unitPrice: number; total: number; buyingPrice: number }[]; // FIFO-weighted sell AND buy price per batched product
   };
   restoreStockForInvoice: (items: { name: string; quantity: number }[]) => void;
   resetAllStock: () => void;
@@ -190,6 +190,13 @@ export function InventoryProvider({ children }: ProviderProps) {
       productsDB.update(id, dbData).catch((err) => {
         window.appLog?.error('[InventoryContext] Failed to update product in SQLite:', err);
       });
+      // If batches are explicitly cleared (UpdateAll price merge), also delete them from SQLite
+      // so the merge persists after an app restart and old FIFO batches don't reload
+      if ('batches' in data && data.batches === undefined) {
+        batchesDB.clearByProduct(id).catch((err) => {
+          window.appLog?.error('[InventoryContext] Failed to clear batches for product in SQLite:', err);
+        });
+      }
     }
 
     setProducts((prev) =>
@@ -351,7 +358,7 @@ export function InventoryProvider({ children }: ProviderProps) {
       // added: compute FIFO-weighted sell prices BEFORE calling setProducts.
       // setProducts runs asynchronously and its updater function cannot return values,
       // so we walk the batches here using the 'products' array captured in this closure.
-      const pricedItems: { name: string; unitPrice: number; total: number }[] = []; // added: accumulates the weighted-price result for each batched product
+      const pricedItems: { name: string; unitPrice: number; total: number; buyingPrice: number }[] = []; // accumulates the FIFO-weighted sell AND buy price result for each batched product
 
       for (const item of items) { // added: process each invoice line item to determine its FIFO price
         const product = products.find( // added: look up the matching product in current in-memory state
@@ -359,20 +366,23 @@ export function InventoryProvider({ children }: ProviderProps) {
         );
         if (!product || !product.batches || product.batches.length === 0) continue; // added: no batch rows → the UI-entered sell price remains unchanged
 
-        // added: walk batches oldest-first to compute the blended sell cost for this quantity
+        // added: walk batches oldest-first to compute the blended sell cost AND buy cost for this quantity
         let remaining = item.quantity; // added: units still to be allocated across batches
-        let fifoTotal = 0; // added: running sell-price total across all consumed batch slices
+        let fifoTotal = 0;    // added: running sell-price total across all consumed batch slices
+        let fifoCost  = 0;    // running buy-price total across all consumed batch slices
 
         for (const batch of product.batches) { // added: batches are ordered oldest-first (ascending purchaseDate)
           if (remaining <= 0) break; // added: all quantity allocated — stop early
           const taken = Math.min(batch.quantity, remaining); // added: consume as many units as this batch holds, capped at remaining demand
-          fifoTotal += taken * batch.sellPrice; // added: add this batch slice's contribution at its own sell price
+          fifoTotal += taken * batch.sellPrice;    // added: add this batch slice's contribution at its own sell price
+          fifoCost  += taken * batch.buyingPrice;  // buy-cost contribution for this slice
           remaining -= taken; // added: deduct allocated units from the remaining demand counter
         }
 
         // added: weighted average = total FIFO revenue / total units ordered for this product
-        const weightedUnitPrice = item.quantity > 0 ? fifoTotal / item.quantity : 0; // added: guard against divide-by-zero
-        pricedItems.push({ name: item.name, unitPrice: weightedUnitPrice, total: fifoTotal }); // added: record the FIFO-weighted result for the caller to apply
+        const weightedUnitPrice   = item.quantity > 0 ? fifoTotal / item.quantity : 0; // added: guard against divide-by-zero
+        const weightedBuyingPrice = item.quantity > 0 ? fifoCost  / item.quantity : 0; // weighted buy cost per unit
+        pricedItems.push({ name: item.name, unitPrice: weightedUnitPrice, total: fifoTotal, buyingPrice: weightedBuyingPrice }); // added: record the FIFO-weighted result for the caller to apply
       }
 
       // Deduct stock

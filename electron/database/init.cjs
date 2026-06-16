@@ -279,6 +279,16 @@ function initDatabase() {
     console.log('[SQLite] Migration: added type column to invoices table');
   }
 
+  // ── Runtime column migration — buyingPrice on invoice_products ──────────────────
+  // Stores the buying price at time of sale so profit history never changes when
+  // product prices are updated later. Existing rows default to 0 (no history change).
+  const invoiceProductColumns = db.pragma('table_info(invoice_products)');
+  const hasBuyingPrice = invoiceProductColumns.some((col) => col.name === 'buyingPrice');
+  if (!hasBuyingPrice) {
+    db.exec('ALTER TABLE invoice_products ADD COLUMN buyingPrice REAL DEFAULT 0;');
+    console.log('[SQLite] Migration: added buyingPrice column to invoice_products table');
+  }
+
   // Log the database path for debugging
   console.log(`[SQLite] Database initialized at: ${dbPath}`); // Helps the developer find the .db file
 

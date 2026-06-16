@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, screen, dialog, shell } = require('electron
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { execSync } = require('child_process');
+const { exec } = require('child_process');
 const log = require('electron-log');
 const { autoUpdater } = require('electron-updater');
 const { initDatabase } = require('./database/init.cjs');
@@ -147,37 +147,52 @@ ipcMain.handle('app:openLogsFolder', () => {
 const LOW_DISK_BYTES  = 200 * 1024 * 1024; // 200 MB — warn
 const CRIT_DISK_BYTES =  50 * 1024 * 1024; //  50 MB — critical
 
+// Returns free bytes asynchronously — never blocks the main process
 function getFreeBytes() {
-  try {
-    const dataPath = app.getPath('userData');
-    if (process.platform === 'win32') {
-      const drive = path.parse(dataPath).root.charAt(0); // e.g. "C"
-      const out = execSync(
-        `powershell -NoProfile -Command "(Get-PSDrive ${drive}).Free"`,
-        { encoding: 'utf8', timeout: 4000 }
-      );
-      const bytes = parseInt(out.trim(), 10);
-      return isNaN(bytes) ? null : bytes;
+  return new Promise((resolve) => {
+    try {
+      const dataPath = app.getPath('userData');
+      if (process.platform === 'win32') {
+        const drive = path.parse(dataPath).root.charAt(0); // e.g. "C"
+        exec(
+          `powershell -NoProfile -Command "(Get-PSDrive ${drive}).Free"`,
+          { timeout: 5000 },
+          (err, stdout) => {
+            if (err) {
+              log.warn('[DiskCheck] Failed to read free space:', err.message);
+              return resolve(null);
+            }
+            const bytes = parseInt(stdout.trim(), 10);
+            resolve(isNaN(bytes) ? null : bytes);
+          }
+        );
+      } else {
+        // macOS / Linux
+        exec(`df -k "${dataPath}"`, { timeout: 5000 }, (err, stdout) => {
+          if (err) {
+            log.warn('[DiskCheck] Failed to read free space:', err.message);
+            return resolve(null);
+          }
+          const parts = stdout.trim().split('\n')[1].trim().split(/\s+/);
+          resolve(parseInt(parts[3], 10) * 1024);
+        });
+      }
+    } catch (e) {
+      log.warn('[DiskCheck] Failed to read free space:', e.message);
+      resolve(null);
     }
-    // macOS / Linux
-    const out = execSync(`df -k "${dataPath}"`, { encoding: 'utf8', timeout: 4000 });
-    const parts = out.trim().split('\n')[1].trim().split(/\s+/);
-    return parseInt(parts[3], 10) * 1024;
-  } catch (e) {
-    log.warn('[DiskCheck] Failed to read free space:', e.message);
-    return null;
-  }
+  });
 }
 
-ipcMain.handle('check-disk-space', () => {
-  const free = getFreeBytes();
+ipcMain.handle('check-disk-space', async () => {
+  const free = await getFreeBytes();
   return { freeBytes: free, isLow: free !== null && free < LOW_DISK_BYTES, isCritical: free !== null && free < CRIT_DISK_BYTES };
 });
 
 // Called after window is shown — checks disk and starts periodic monitor
 function startDiskMonitor() {
-  const doCheck = () => {
-    const free = getFreeBytes();
+  const doCheck = async () => {
+    const free = await getFreeBytes();
     if (free === null || !mainWindow) return;
     if (free < CRIT_DISK_BYTES) {
       mainWindow.webContents.send('disk:warning', { level: 'critical', freeBytes: free });
@@ -215,14 +230,20 @@ function createWindow() {
     },
   });
 
+  // Log critical renderer errors to the app log file for production debugging
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc) => log.error('[Window] did-fail-load:', code, desc));
+  mainWindow.webContents.on('render-process-gone', (_e, details) => log.error('[Window] render-process-gone:', JSON.stringify(details)));
+
   // Show the window maximized once the renderer has finished its first paint
   // Also apply a zoom factor based on the screen height so all content fits without clipping
   mainWindow.once('ready-to-show', () => {
     const { height } = screen.getPrimaryDisplay().workAreaSize; // Get usable screen height (excludes taskbar)
     const zoom = Math.min(1.0, height / 900); // 900px is the design baseline; clamp to 1.0 so we never zoom in
     mainWindow.webContents.setZoomFactor(zoom);
+    mainWindow.center();  // Ensure window appears on the primary monitor
     mainWindow.maximize();
     mainWindow.show();
+    mainWindow.focus();   // Bring to front in case another window is on top
   });
 
   if (isDev) {
@@ -333,7 +354,18 @@ ipcMain.handle('print-html-silent', async (_event, htmlContent, printerName) => 
 
 app.whenReady().then(() => {
   // Initialize SQLite database — creates the .db file and all tables on first launch
-  const db = initDatabase();
+  let db;
+  try {
+    db = initDatabase();
+  } catch (err) {
+    log.error('[StockFlow] Failed to initialize database:', err);
+    dialog.showErrorBox(
+      'StockFlow — Erreur de base de données',
+      `Impossible d'ouvrir la base de données.\n\nRaison : ${err?.message || err}\n\nVérifiez que le disque n'est pas plein et que l'application a les droits d'écriture, puis relancez StockFlow.`
+    );
+    app.quit();
+    return;
+  }
 
   // Register all IPC handlers so the renderer can perform CRUD operations via preload bridge
   registerAllHandlers(ipcMain, db);

@@ -358,6 +358,15 @@ export function OverviewAnalyticsView() {
           return;
         }
 
+        // Stamp buying price snapshot on every line item (for accurate profit history)
+        const stamped = data.products.map((p) => {
+          const fromFifo = stockResult.pricedItems?.find((pi) => pi.name.toLowerCase() === p.name.toLowerCase());
+          if (fromFifo) return { ...p, buyingPrice: fromFifo.buyingPrice };
+          const fromInventory = products.find((ip) => ip.name.toLowerCase() === p.name.toLowerCase());
+          return { ...p, buyingPrice: fromInventory?.buyingPrice ?? 0 };
+        });
+        data = { ...data, products: stamped };
+
         const newInvoice = addInvoice(data);
 
         // Update client record (skip for retail walk-in sales)

@@ -25,6 +25,8 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
+import { useBarcodeScan } from 'src/hooks/use-barcode-scan';
+
 import { fCurrency } from 'src/utils/format-number';
 
 import { useClients, useSettings, useInventory, useGlobalScan, useTranslation } from 'src/contexts';
@@ -115,6 +117,9 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
   const [scanModalOpen, setScanModalOpen] = useState(false);
   const [lastFilledId, setLastFilledId] = useState<string | null>(null);
   const quantityInputRef = useRef<HTMLInputElement>(null);
+  // Always-current snapshot of products for use inside stable callbacks (avoids stale closures)
+  const productsRef = useRef<ProductRow[]>(products);
+  productsRef.current = products;
 
   // Reverse pricing: maps product row id → the typed total-price string
   const [reversePriceInputs, setReversePriceInputs] = useState<Record<string, string>>({});
@@ -176,6 +181,7 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
       }
       setErrors({});
       setTouched(false);
+      setLastFilledId(null); // clear so Enter doesn't re-focus a stale qty row
       // Set tab based on: the invoice being edited (if any), then fall back to business mode
       if (editInvoice?.type === 'retail' || businessMode === 'retail') {
         setActiveTab('retail');
@@ -288,14 +294,12 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
     setProducts((prev) => [...prev, emptyProduct()]);
   };
 
-  // ── SKU lookup — shared by manual Enter key and scanner ─────────────
+  // ── SKU lookup — shared by manual Enter key and direct scanner input ──────
   const handleSkuLookup = useCallback((rawSku: string) => {
     const trimmed = rawSku.trim();
     if (!trimmed) return;
 
-    const matched = inventoryProducts.find(
-      (ip) => ip.sku === trimmed
-    );
+    const matched = inventoryProducts.find((ip) => ip.sku === trimmed);
 
     if (!matched) {
       showError('Product not found');
@@ -303,40 +307,82 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
       return;
     }
 
-    // Find the first empty product row, or capture the index for a new append
-    setProducts((prev) => {
-      const emptyIdx = prev.findIndex((p) => !p.name.trim());
-      const isAppend = emptyIdx === -1;
-      const targetId = isAppend
-        ? `new-${Date.now()}-${Math.random()}`
-        : prev[emptyIdx].id;
+    const currentProducts = productsRef.current;
 
-      const newRow: ProductRow = {
-        id: targetId,
-        name: matched.name,
-        quantity: 1,
-        unitPrice: activeTab === 'retail'
-          ? (matched.retailPrice ?? matched.sellPrice)
-          : matched.sellPrice,
-        inventoryId: matched.id,
-        availableStock: matched.stock,
-        unit: matched.unit,
-      };
+    // ── Same product scanned again → increment its quantity instead of duplicating ──
+    const existingIdx = currentProducts.findIndex((p) => p.inventoryId === matched.id);
+    if (existingIdx !== -1) {
+      const existingRow = currentProducts[existingIdx];
+      setProducts((prev) =>
+        prev.map((p, i) => i === existingIdx ? { ...p, quantity: p.quantity + 1 } : p)
+      );
+      setLastFilledId(existingRow.id);
+      setSkuInput('');
+      // No auto-focus — scanner stays ready for the next scan.
+      // Cashier can press Enter to focus this row's qty field if needed.
+      return;
+    }
 
-      // Record which row to focus BEFORE the state update resolves
-      // (We use a synchronous write so the next render attaches the ref correctly)
-      setLastFilledId(targetId);
+    // ── New product: fill the first empty row or append a new one ──
+    const emptyIdx = currentProducts.findIndex((p) => !p.name.trim());
+    const isAppend = emptyIdx === -1;
+    const targetId = isAppend
+      ? `new-${Date.now()}-${Math.random()}`
+      : currentProducts[emptyIdx].id;
 
-      return isAppend
+    const newRow: ProductRow = {
+      id: targetId,
+      name: matched.name,
+      quantity: 1,
+      // Use FIFO-weighted price for wholesale (same as dropdown selection path),
+      // retail tab uses retailPrice / sellPrice as usual.
+      unitPrice: activeTab === 'retail'
+        ? (matched.retailPrice ?? matched.sellPrice)
+        : computeFifoInfo(matched, 1).weightedPrice,
+      inventoryId: matched.id,
+      availableStock: matched.stock,
+      unit: matched.unit,
+    };
+
+    setProducts((prev) =>
+      isAppend
         ? [...prev, newRow]
-        : prev.map((p, i) => (i === emptyIdx ? newRow : p));
-    });
+        : prev.map((p, i) => (i === emptyIdx ? newRow : p))
+    );
+    setLastFilledId(targetId);
+    setSkuInput('');
+    // No auto-focus — scanner stays ready immediately for the next scan.
+    // Cashier presses Enter (on dialog background) to focus this row's qty field.
+  }, [inventoryProducts, showError, activeTab]);
 
-    setSkuInput(trimmed);
+  // ── Direct scan: active as long as the invoice dialog is open ────────────
+  // useBarcodeScan ignores keystrokes when an <input> is focused, so typing
+  // in the qty field is safe — the scanner only fires when focus is on the
+  // dialog background. Paused while ScanModal is open to avoid double-handling.
+  useBarcodeScan(open && !scanModalOpen, handleSkuLookup);
 
-    // Focus the quantity field after React has re-rendered with the ref attached
-    setTimeout(() => quantityInputRef.current?.focus(), 50);
-  }, [inventoryProducts, showError]);
+  // ── Enter on dialog background → focus the last scanned item's qty field ──
+  // This lets the cashier optionally adjust qty at maximum speed:
+  // scan → Enter → type qty → Enter (blurs) → scan next.
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleEnterKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter') return;
+      const target = e.target as HTMLElement;
+      // Only fire when focus is NOT on any interactive element
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'BUTTON' ||
+        target.isContentEditable
+      ) return;
+      if (!lastFilledId) return;
+      e.preventDefault();
+      quantityInputRef.current?.focus();
+    };
+    window.addEventListener('keydown', handleEnterKey);
+    return () => window.removeEventListener('keydown', handleEnterKey);
+  }, [open, lastFilledId]);
 
   const handleRemoveProduct = (id: string) => {
     if (products.length <= 1) return;
@@ -362,10 +408,22 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
     }
 
     for (const product of validProducts) {
+      // Check stock for rows linked via dropdown (has inventoryId)
       if (product.inventoryId && product.availableStock !== undefined) {
         if (product.quantity > product.availableStock) {
           stockErrors.push(
             `"${product.name}": Only ${product.availableStock} in stock, requested ${product.quantity}`
+          );
+        }
+      } else if (!product.inventoryId) {
+        // Also check stock for manually-typed names that match an inventory item —
+        // deductStockForInvoice matches by name, so validation must too.
+        const matched = inventoryProducts.find(
+          (ip) => ip.name.toLowerCase() === product.name.trim().toLowerCase()
+        );
+        if (matched && product.quantity > matched.stock) {
+          stockErrors.push(
+            `"${product.name}": Only ${matched.stock} in stock, requested ${product.quantity}`
           );
         }
       }
@@ -736,6 +794,14 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
                   onChange={(e) =>
                     handleProductChange(product.id, 'quantity', Math.max(product.unit === 'pcs' || !product.unit ? 1 : 0.001, Number(e.target.value)))
                   }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      // Blur the qty field so the window regains focus and the
+                      // scanner listener is ready for the next product scan.
+                      (e.target as HTMLInputElement).blur();
+                    }
+                  }}
                   error={
                     product.availableStock !== undefined && product.quantity > product.availableStock
                   }

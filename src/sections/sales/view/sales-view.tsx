@@ -40,7 +40,7 @@ export function SalesView() {
     getSummary,
   } = useInvoices();
   const { updateClientFromInvoice, recordPayment: recordClientPayment, getClientByName, updateClient, addClient } = useClients();
-  const { deductStockForInvoice, restoreStockForInvoice } = useInventory();
+  const { deductStockForInvoice, restoreStockForInvoice, products: inventoryProducts } = useInventory();
   const { businessInfo } = useBusiness();
   const { role } = useSettings();
 
@@ -89,6 +89,19 @@ export function SalesView() {
       data: Omit<Invoice, 'id'>,
       options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery'; isRetail?: boolean; autoPrint?: boolean }
     ) => {
+      // Stamps the buying price snapshot onto each invoice line item.
+      // Priority: FIFO-weighted cost from batch data > current inventory product price > 0.
+      // This snapshot must never change after the invoice is saved.
+      const stampBuyingPrice = (
+        invoiceProducts: typeof data.products,
+        pricedItems?: { name: string; unitPrice: number; total: number; buyingPrice: number }[]
+      ) => invoiceProducts.map((p) => {
+        const fromFifo = pricedItems?.find((pi) => pi.name.toLowerCase() === p.name.toLowerCase());
+        if (fromFifo) return { ...p, buyingPrice: fromFifo.buyingPrice };
+        const fromInventory = inventoryProducts.find((ip) => ip.name.toLowerCase() === p.name.toLowerCase());
+        return { ...p, buyingPrice: fromInventory?.buyingPrice ?? 0 };
+      });
+
       try {
         const productItems = data.products.map((p) => ({ name: p.name, quantity: p.quantity }));
         let savedInvoiceId: string | undefined;
@@ -130,6 +143,9 @@ export function SalesView() {
             const newAmountPaid = data.status === 'paid' ? newTotal : Math.min(data.amountPaid, newTotal); // added: if fully paid keep amountPaid = new total; else cap at new total
             data = { ...data, products: patchedProducts, total: newTotal, tvaAmount: newTvaAmount, subtotal: newSubtotal, amountPaid: newAmountPaid, amountDue: newTotal - newAmountPaid }; // added: replace data with fully patched invoice before saving
           }
+
+          // Stamp buying price snapshot on every line item (for accurate profit history)
+          data = { ...data, products: stampBuyingPrice(data.products, stockResult.pricedItems) };
 
           updateInvoice(editingInvoice.id, data);
           savedInvoiceId = editingInvoice.id;
@@ -186,6 +202,9 @@ export function SalesView() {
             const newAmountPaid = data.status === 'paid' ? newTotal : Math.min(data.amountPaid, newTotal); // added: if fully paid keep amountPaid = new total; else cap at new total
             data = { ...data, products: patchedProducts, total: newTotal, tvaAmount: newTvaAmount, subtotal: newSubtotal, amountPaid: newAmountPaid, amountDue: newTotal - newAmountPaid }; // added: replace data with fully patched invoice before calling addInvoice
           }
+
+          // Stamp buying price snapshot on every line item (for accurate profit history)
+          data = { ...data, products: stampBuyingPrice(data.products, stockResult.pricedItems) };
 
           const newInvoice = addInvoice(data);
           savedInvoiceId = newInvoice.id;

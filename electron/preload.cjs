@@ -118,8 +118,24 @@ contextBridge.exposeInMainWorld('database', {
 
   // ── Disk space ─────────────────────────────────────────────────
   checkDiskSpace: () => ipcRenderer.invoke('check-disk-space'),
-  onDiskWarning:  (cb) => ipcRenderer.on('disk:warning', (_e, data) => cb(data)),
-  offDiskWarning: (cb) => ipcRenderer.removeListener('disk:warning', cb),
+  // Store each wrapper so offDiskWarning can remove the exact function that was registered
+  ...(() => {
+    const diskWrappers = new WeakMap();
+    return {
+      onDiskWarning: (cb) => {
+        const wrapper = (_e, data) => cb(data);
+        diskWrappers.set(cb, wrapper);
+        ipcRenderer.on('disk:warning', wrapper);
+      },
+      offDiskWarning: (cb) => {
+        const wrapper = diskWrappers.get(cb);
+        if (wrapper) {
+          ipcRenderer.removeListener('disk:warning', wrapper);
+          diskWrappers.delete(cb);
+        }
+      },
+    };
+  })(),
 
 });
 
