@@ -111,9 +111,9 @@ function registerAllHandlers(ipcMain, db) {
   // ADD BATCH — Inserts a new stock batch for a product
   ipcMain.handle('db:batches:add', (_event, data) => {
     const stmt = db.prepare(`
-      INSERT INTO stock_batches (id, productId, buyingPrice, sellPrice, quantity, purchaseDate)
+      INSERT OR IGNORE INTO stock_batches (id, productId, buyingPrice, sellPrice, quantity, purchaseDate)
       VALUES (?, ?, ?, ?, ?, ?)
-    `); // Each batch tracks its own price and quantity
+    `); // INSERT OR IGNORE: silently skips if a batch with the same id already exists (e.g. init-batch on re-launch)
     stmt.run(data.id, data.productId, data.buyingPrice, data.sellPrice, data.quantity, data.purchaseDate);
     return data;
   });
@@ -288,8 +288,12 @@ function registerAllHandlers(ipcMain, db) {
   ipcMain.handle('db:purchases:getBySupplierId', (_event, supplierId) => {
     const stmt = db.prepare('SELECT * FROM supplier_purchases WHERE supplierId = ? ORDER BY date DESC');
     const rows = stmt.all(supplierId);
-    // Parse the JSON items column back into an array for each purchase
-    return rows.map(row => ({ ...row, items: JSON.parse(row.items) }));
+    // Parse the JSON items column — guard against corrupt/null rows so one bad record doesn't crash the page
+    return rows.map(row => {
+      let items = [];
+      try { items = JSON.parse(row.items); } catch {}
+      return { ...row, items };
+    });
   });
 
   // ADD — Records a new purchase from a supplier
@@ -378,8 +382,8 @@ function registerAllHandlers(ipcMain, db) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const insertProduct = db.prepare(`
-      INSERT INTO invoice_products (id, invoiceId, name, quantity, unitPrice, total, unit)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO invoice_products (id, invoiceId, name, quantity, unitPrice, total, unit, buyingPrice)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     // Use a transaction to ensure both invoice and products are inserted atomically
@@ -394,9 +398,9 @@ function registerAllHandlers(ipcMain, db) {
         invoiceData.total, invoiceData.amountPaid, invoiceData.amountDue,
         invoiceData.status, invoiceData.createdAt, invoiceData.dueDate
       );
-      // Insert each product line item
+      // Insert each product line item — buyingPrice is a snapshot at time of sale
       invoiceData.products.forEach(p => {
-        insertProduct.run(p.id, invoiceData.id, p.name, p.quantity, p.unitPrice, p.total, p.unit || null);
+        insertProduct.run(p.id, invoiceData.id, p.name, p.quantity, p.unitPrice, p.total, p.unit || null, p.buyingPrice ?? 0);
       });
     });
 
@@ -427,22 +431,32 @@ function registerAllHandlers(ipcMain, db) {
     const fields = Object.keys(flatData);
     if (fields.length === 0 && !updatedProducts) return; // Nothing to do — skip entirely
 
+    // Whitelist of valid invoice columns — guards against unknown fields crashing the UPDATE
+    // (e.g. if caller passes a field that doesn't exist yet on older DB schemas)
+    const ALLOWED_INVOICE_FIELDS = new Set([
+      'invoiceNumber', 'type', 'clientName', 'clientPhone', 'clientAddress',
+      'clientNif', 'clientNis', 'clientRc', 'clientAi',
+      'subtotal', 'tvaRate', 'tvaAmount', 'total',
+      'amountPaid', 'amountDue', 'status', 'createdAt', 'dueDate',
+    ]);
+    const safeFields = fields.filter(f => ALLOWED_INVOICE_FIELDS.has(f));
+
     // Prepare all statements once outside the transaction for efficiency
-    const updateInvoiceStmt = fields.length > 0
-      ? db.prepare(`UPDATE invoices SET ${fields.map(f => `${f} = ?`).join(', ')} WHERE id = ?`)
+    const updateInvoiceStmt = safeFields.length > 0
+      ? db.prepare(`UPDATE invoices SET ${safeFields.map(f => `${f} = ?`).join(', ')} WHERE id = ?`)
       : null;
 
     const deleteProductsStmt = db.prepare('DELETE FROM invoice_products WHERE invoiceId = ?');
     const insertProductStmt  = db.prepare(`
-      INSERT INTO invoice_products (id, invoiceId, name, quantity, unitPrice, total, unit)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO invoice_products (id, invoiceId, name, quantity, unitPrice, total, unit, buyingPrice)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     // Wrap the invoice row update + line-item replacement in a single atomic transaction
     const updateTransaction = db.transaction(() => {
       // 1. Update the scalar invoice fields (amounts, status, client info, etc.)
       if (updateInvoiceStmt) {
-        const values = fields.map(f => flatData[f]);
+        const values = safeFields.map(f => flatData[f]);
         updateInvoiceStmt.run(...values, id);
       }
 
@@ -451,8 +465,8 @@ function registerAllHandlers(ipcMain, db) {
       if (updatedProducts) {
         deleteProductsStmt.run(id);         // Remove all existing line items for this invoice
         updatedProducts.forEach(p => {
-          insertProductStmt.run(            // Re-insert each updated product row
-            p.id, id, p.name, p.quantity, p.unitPrice, p.total, p.unit || null
+          insertProductStmt.run(            // Re-insert each updated product row — buyingPrice snapshot preserved
+            p.id, id, p.name, p.quantity, p.unitPrice, p.total, p.unit || null, p.buyingPrice ?? 0
           );
         });
       }

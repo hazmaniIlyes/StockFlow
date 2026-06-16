@@ -19,6 +19,7 @@ export type InvoiceProduct = {
   unitPrice: number;
   total: number;
   unit?: ProductUnit;
+  buyingPrice?: number; // Snapshot of buying price at time of sale — never changes after saving
 };
 
 export type Invoice = {

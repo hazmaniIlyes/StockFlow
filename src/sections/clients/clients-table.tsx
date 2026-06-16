@@ -92,6 +92,12 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
     setMenuClient(null);
   };
 
+  const handleOpenMenu = (event: React.MouseEvent<HTMLElement>, client: Client) => {
+    event.stopPropagation();
+    setMenuAnchor(event.currentTarget);
+    setMenuClient(client);
+  };
+
   // Per-client nearest unpaid due date derived from invoices
   const clientDueMap = useMemo(() => {
     const map = new Map<string, { date: Date; label: string }>();
@@ -246,7 +252,7 @@ export function ClientsTable({ clients, invoices, onView, onViewInvoices, onReco
                   <TableCell align="center">
                     <IconButton
                       size="small"
-                      onClick={(e) => handleCloseMenu()}
+                      onClick={(e) => handleOpenMenu(e, client)}
                     >
                       <Iconify icon="solar:menu-dots-bold" width={20} />
                     </IconButton>
