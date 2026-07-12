@@ -865,6 +865,7 @@ const translations: Record<Language, Translations> = {
       pageSubtitle: 'Everything you need to know about using this application',
       footerNote: 'All data in this application is stored locally in a SQLite database file on your PC. Nothing is sent to any server. Deleting the database file or uninstalling the app without a backup will permanently erase everything — back up regularly by exporting your reports.',
       supportNote: 'Encountered a bug or unexpected error? Do these 3 steps: (1) Take a photo of the screen showing the error. (2) Go to Settings → Reset tab → click "Open Logs Folder" and send the main.log file. (3) Send a voice message describing what you were doing when it happened. That\'s all we need to look into it.',
+      contactNote: 'Need help or want to reach out? Find us on social media or send us a message:',
       // Chapter labels
       ch_gettingStarted: 'Getting Started',
       ch_inventory: 'Inventory',
@@ -2070,6 +2071,7 @@ const translations: Record<Language, Translations> = {
       pageSubtitle: 'Tout ce que vous devez savoir pour utiliser cette application',
       footerNote: 'Toutes les données de cette application sont stockées localement dans un fichier de base de données SQLite sur votre PC. Rien n\'est envoyé à un serveur. Supprimer ce fichier ou désinstaller l\'application sans sauvegarde effacera tout définitivement — sauvegardez régulièrement en exportant vos rapports.',
       supportNote: 'Vous avez rencontré un bug ou une erreur inattendue ? Faites ces 3 étapes : (1) Prenez une photo de l\'écran où l\'erreur est visible. (2) Allez dans Paramètres → onglet Réinitialisation → cliquez sur « Ouvrir le dossier des journaux » et envoyez le fichier main.log. (3) Envoyez un message vocal décrivant ce que vous faisiez au moment où c\'est arrivé. C\'est tout ce dont nous avons besoin pour investiguer.',
+      contactNote: 'Besoin d\'aide ou envie de nous contacter ? Retrouvez-nous sur les réseaux sociaux ou envoyez-nous un message :',
       ch_gettingStarted: 'Démarrage',
       ch_inventory: 'Inventaire',
       ch_sales: 'Ventes & Facturation',
@@ -3265,6 +3267,7 @@ const translations: Record<Language, Translations> = {
       pageSubtitle: 'كل ما تحتاج معرفته لاستخدام هذا التطبيق',
       footerNote: 'جميع بيانات هذا التطبيق مخزّنة محلياً في قاعدة بيانات SQLite على جهازك. لا يتم إرسال أي شيء إلى خادم. حذف ملف قاعدة البيانات أو إلغاء تثبيت التطبيق دون نسخ احتياطي سيؤدي إلى حذف كل شيء نهائياً — احرص على النسخ الاحتياطي بانتظام عبر تصدير التقارير.',
       supportNote: 'صادفت خطأً أو عطلاً غير متوقع؟ اتبع هذه الخطوات الـ3: (1) التقط صورة للشاشة تظهر فيها الخطأ. (2) اذهب إلى الإعدادات → تبويب إعادة الضبط → انقر على «فتح مجلد السجلات» وأرسل ملف main.log. (3) أرسل رسالة صوتية تصف فيها ما كنت تفعله لحظة حدوث المشكلة. هذا كل ما نحتاجه للتحقيق في الأمر.',
+      contactNote: 'هل تحتاج مساعدة أو تريد التواصل معنا؟ تجدنا على وسائل التواصل الاجتماعي أو أرسل لنا رسالة:',
       ch_gettingStarted: 'البداية',
       ch_inventory: 'المخزون',
       ch_sales: 'المبيعات والفواتير',

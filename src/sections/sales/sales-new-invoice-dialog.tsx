@@ -25,6 +25,8 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
+import { useBarcodeScan } from 'src/hooks/use-barcode-scan';
+
 import { fCurrency } from 'src/utils/format-number';
 
 import { useClients, useSettings, useInventory, useGlobalScan, useTranslation } from 'src/contexts';
@@ -184,7 +186,7 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
         setActiveTab('wholesale');
       }
     }
-  }, [open, editInvoice, clients, inventoryProducts, businessMode]);
+  }, [open, editInvoice, clients, inventoryProducts, businessMode, invoiceSettings.tvaRate]);
 
   const handleClientSelect = (client: Client | null) => {
     setSelectedClient(client);
@@ -289,7 +291,7 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
   };
 
   // ── SKU lookup — shared by manual Enter key and scanner ─────────────
-  const handleSkuLookup = useCallback((rawSku: string) => {
+  const handleSkuLookup = useCallback((rawSku: string, autoScan = false) => {
     const trimmed = rawSku.trim();
     if (!trimmed) return;
 
@@ -303,13 +305,26 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
       return;
     }
 
-    // Find the first empty product row, or capture the index for a new append
-    setProducts((prev) => {
-      const emptyIdx = prev.findIndex((p) => !p.name.trim());
+    // If the product is already in the list, increment its quantity instead of adding a new row
+    // Check for existing product BEFORE entering the updater so we can skip ID generation
+    const alreadyInList = products.some((p) => p.inventoryId === matched.id);
+
+    if (alreadyInList) {
+      setProducts((prev) => {
+        const existingIdx = prev.findIndex((p) => p.inventoryId === matched.id);
+        if (existingIdx === -1) return prev;
+        return prev.map((p, i) =>
+          i === existingIdx ? { ...p, quantity: p.quantity + 1 } : p
+        );
+      });
+    } else {
+      // Generate a stable targetId ONCE, outside the updater, so React StrictMode
+      // double-invocations reuse the exact same ID for both the product row and lastFilledId.
+      const emptyIdx = products.findIndex((p) => !p.name.trim());
       const isAppend = emptyIdx === -1;
       const targetId = isAppend
         ? `new-${Date.now()}-${Math.random()}`
-        : prev[emptyIdx].id;
+        : products[emptyIdx].id;
 
       const newRow: ProductRow = {
         id: targetId,
@@ -323,20 +338,37 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
         unit: matched.unit,
       };
 
-      // Record which row to focus BEFORE the state update resolves
-      // (We use a synchronous write so the next render attaches the ref correctly)
+      // Set focus target BEFORE the state update so the next render attaches the ref correctly
       setLastFilledId(targetId);
 
-      return isAppend
-        ? [...prev, newRow]
-        : prev.map((p, i) => (i === emptyIdx ? newRow : p));
-    });
+      setProducts((prev) => {
+        // Re-derive indices from `prev` (the true latest state) for the array mutation,
+        // but always use the pre-generated `targetId` for the row ID.
+        const emptyIdxInPrev = prev.findIndex((p) => !p.name.trim());
+        const isAppendInPrev = emptyIdxInPrev === -1;
+        return isAppendInPrev
+          ? [...prev, newRow]
+          : prev.map((p, i) => (i === emptyIdxInPrev ? newRow : p));
+      });
+    }
 
+    setTimeout(() => {
+      if (quantityInputRef.current) {
+        quantityInputRef.current.dataset.f2focused = 'false';
+      }
+    }, 0);
     setSkuInput(trimmed);
 
     // Focus the quantity field after React has re-rendered with the ref attached
-    setTimeout(() => quantityInputRef.current?.focus(), 50);
-  }, [inventoryProducts, showError]);
+    // Skip on auto-scan: the scanner fires many times and stealing focus would break typing
+    if (!autoScan) {
+      setTimeout(() => quantityInputRef.current?.focus(), 50);
+    }
+  }, [inventoryProducts, showError, activeTab, products]);
+
+  // Auto-scan: listen for a hardware scanner while the dialog is open.
+  // Gated on !scanModalOpen so the manual ScanModal's own listener doesn't race with this one.
+  useBarcodeScan(open && !scanModalOpen, (sku) => handleSkuLookup(sku, true));
 
   const handleRemoveProduct = (id: string) => {
     if (products.length <= 1) return;
@@ -439,7 +471,31 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
   }, [inventoryProducts, products]);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      onKeyDown={(e) => {
+        if (e.key !== 'F2') return;
+        console.log('F2 pressed');
+        console.log('quantityInputRef.current:', quantityInputRef.current);
+        console.log('lastFilledId:', lastFilledId);
+        console.log('dataset:', quantityInputRef.current?.dataset.f2focused);
+        e.preventDefault();
+        e.stopPropagation();
+        const input = quantityInputRef.current;
+        if (!input) return;
+        // Use a data attribute on the input to track toggle state
+        if (input.dataset.f2focused === 'true') {
+          input.blur();
+          input.dataset.f2focused = 'false';
+        } else {
+          input.focus();
+          input.dataset.f2focused = 'true';
+        }
+      }}
+    >
       <DialogTitle sx={{ pb: isEdit ? 2 : 0 }}>
         {isEdit ? t('common.edit') : t('sales.newInvoice')}
         {!isEdit && businessMode === 'both' && (
@@ -739,11 +795,11 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
                   error={
                     product.availableStock !== undefined && product.quantity > product.availableStock
                   }
+                  inputRef={product.id === lastFilledId ? quantityInputRef : null}
                   slotProps={{
                     htmlInput: {
                       min: product.unit === 'pcs' || !product.unit ? 1 : 0.001,
                       step: product.unit === 'pcs' || !product.unit ? 1 : 0.001,
-                      ...(product.id === lastFilledId ? { ref: quantityInputRef } : {}),
                     },
                   }}
                 />

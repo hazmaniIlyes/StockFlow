@@ -790,6 +790,108 @@ export function InstructionsView() {
           {t('guide.supportNote')}
         </Typography>
       </Box>
+
+      {/* Contact / reach-out note */}
+      <Box
+        sx={{
+          mt: 1.5,
+          p: 2,
+          borderRadius: 2,
+          bgcolor: alpha(theme.palette.success.main, 0.06),
+          border: `1px solid ${alpha(theme.palette.success.main, 0.18)}`,
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 1.5,
+        }}
+      >
+        <Iconify
+          icon="solar:chat-round-bold-duotone"
+          width={20}
+          sx={{ color: theme.palette.success.main, flexShrink: 0, mt: 0.1 }}
+        />
+        <Box>
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.75 }}>
+            {t('guide.contactNote')}
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {/* Facebook */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Iconify icon="simple-icons:facebook" width={13} sx={{ color: '#1877F2', flexShrink: 0 }} />
+              <Typography
+                component="a"
+                href="https://www.facebook.com/profile.php?id=61590128021005"
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="caption"
+                sx={{
+                  color: '#1877F2',
+                  textDecoration: 'none',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
+                StockFlow
+              </Typography>
+            </Box>
+
+            {/* Instagram */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Iconify icon="simple-icons:instagram" width={13} sx={{ color: '#E1306C', flexShrink: 0 }} />
+              <Typography
+                component="a"
+                href="https://www.instagram.com/stockflow27/"
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="caption"
+                sx={{
+                  color: '#E1306C',
+                  textDecoration: 'none',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
+                StockFlow
+              </Typography>
+            </Box>
+
+            {/* WhatsApp – primary */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Iconify icon="simple-icons:whatsapp" width={13} sx={{ color: '#25D366', flexShrink: 0 }} />
+              <Typography
+                component="a"
+                href="https://wa.me/213660313500"
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="caption"
+                sx={{
+                  color: theme.palette.success.main,
+                  textDecoration: 'none',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
+                Contact us on WhatsApp
+              </Typography>
+            </Box>
+
+            {/* WhatsApp – alternative */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Iconify icon="simple-icons:whatsapp" width={13} sx={{ color: '#25D366', flexShrink: 0 }} />
+              <Typography
+                component="a"
+                href="https://wa.me/213552520878"
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="caption"
+                sx={{
+                  color: theme.palette.success.main,
+                  textDecoration: 'none',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
+                Alternative contact on WhatsApp
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
     </Box>
   );
 }
