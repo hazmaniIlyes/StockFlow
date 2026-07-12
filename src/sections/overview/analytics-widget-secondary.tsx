@@ -85,14 +85,14 @@ export function AnalyticsWidgetSecondary({
   return (
     <Card
       sx={[
-        (theme) => ({
+        (th) => ({
           p: 1.5,
           height: '100%',
-          boxShadow: theme.vars.customShadows.z4,
+          boxShadow: th.vars.customShadows.z4,
           position: 'relative',
           color: 'text.secondary',
           backgroundColor: 'background.paper',
-          border: `1px solid ${theme.vars.palette.divider}`,
+          border: `1px solid ${th.vars.palette.divider}`,
         }),
         ...(Array.isArray(sx) ? sx : [sx]),
       ]}

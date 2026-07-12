@@ -36,7 +36,7 @@ export function Logo({
 
   const logoImg = (
     <img
-      src={isSingle ? '/assets/stockflow-icon.PNG' : '/assets/stockflow-logoF.png'}
+      src={isSingle ? './assets/stockflow-icon.PNG' : './assets/stockflow-logoF.png'}
       alt="StockFlow"
       style={{ width: '100%', height: '100%', objectFit: 'contain' }}
     />

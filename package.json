@@ -1,10 +1,10 @@
 {
   "name": "StockFlow",
   "productName": "StockFlow",
-  "author": "minimals.cc",
-  "licence": "MIT",
+  "author": "StockFlow",
+  "license": "MIT",
   "version": "1.0.0",
-  "private": false,
+  "private": true,
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -26,7 +26,8 @@
     "re:build-npm": "npm run clean && npm install && npm run build",
     "tsc:dev": "yarn dev & yarn tsc:watch",
     "tsc:watch": "tsc --noEmit --watch",
-    "tsc:print": "npx tsc --showConfig"
+    "tsc:print": "npx tsc --showConfig",
+    "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
   "engines": {
     "node": ">=20"
@@ -78,7 +79,7 @@
     "@vitejs/plugin-react-swc": "^3.8.1",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
-    "electron": "^41.0.4",
+    "electron": "41.0.4",
     "electron-builder": "^26.8.1",
     "eslint": "^9.23.0",
     "eslint-import-resolver-typescript": "^4.3.1",
@@ -107,6 +108,10 @@
     "directories": {
       "output": "release"
     },
+    "asarUnpack": [
+      "**/*.node",
+      "node_modules/better-sqlite3/**"
+    ],
     "win": {
       "target": [
         {
@@ -116,11 +121,11 @@
           ]
         }
       ],
-      "icon": "public/favicon.ico"
+      "icon": "public/assets/sfapp.png"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "perMachine": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Stockflow"

@@ -84,7 +84,9 @@ export function AnalyticsRecentSales({
                 <TableCell>
                   <Box sx={{ typography: 'subtitle2' }}>{row.orderNumber}</Box>
                 </TableCell>
-                <TableCell>{row.customer}</TableCell>
+                <TableCell>
+                  {['Walk-in Customer', 'Client de passage', 'زبون عابر'].includes(row.customer) ? '—' : row.customer}
+                </TableCell>
                 <TableCell align="right">
                   <Box sx={{ typography: 'subtitle2' }}>{fCurrency(row.amount)}</Box>
                 </TableCell>

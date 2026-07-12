@@ -8,8 +8,9 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 
-import { Iconify } from 'src/components/iconify';
 import { useTranslation } from 'src/contexts';
+
+import { Iconify } from 'src/components/iconify';
 
 // ── Build the receipt HTML ────────────────────────────────────────────
 
@@ -145,7 +146,7 @@ export function SalesReceiptPreviewDialog({ open, onClose, invoice, businessInfo
   const htmlContent = buildReceiptHtml(invoice, businessInfo, language);
 
   const handlePrint = () => {
-    if (receiptPrinter) {
+    if (receiptPrinter && receiptPrinter !== 'none') {
       window.database?.printHtmlSilent(htmlContent, receiptPrinter);
     } else {
       window.database?.printHtml(htmlContent);

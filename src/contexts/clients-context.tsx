@@ -53,7 +53,6 @@ export function ClientsProvider({ children }: ProviderProps) {
     if (isElectron()) {
       // Load all clients from the SQLite database when the context provider mounts
       clientsDB.getAll().then((dbClients) => {
-        console.log('[ClientsContext] Loaded clients from SQLite:', dbClients.length);
         setClients(dbClients); // Populate React state with database data
       }).catch((err) => {
         window.appLog?.error('[ClientsContext] Failed to load clients from SQLite:', err);

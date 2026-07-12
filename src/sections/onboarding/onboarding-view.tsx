@@ -620,7 +620,7 @@ export function OnboardingView({ onComplete }: Props) {
         {/* Logo */}
         <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
           <img
-            src={theme.palette.mode === 'dark' ? '/assets/stockflow-logoF.png' : '/assets/stockflow-dark.png'}
+            src={theme.palette.mode === 'dark' ? './assets/stockflow-logoF.png' : './assets/stockflow-dark.png'}
             alt="Stockflow"
             style={{ height: 56, objectFit: 'contain' }}
           />

@@ -358,6 +358,15 @@ export function OverviewAnalyticsView() {
           return;
         }
 
+        // Stamp buying price snapshot on every line item (for accurate profit history)
+        const stamped = data.products.map((p) => {
+          const fromFifo = stockResult.pricedItems?.find((pi) => pi.name.toLowerCase() === p.name.toLowerCase());
+          if (fromFifo) return { ...p, buyingPrice: fromFifo.buyingPrice };
+          const fromInventory = products.find((ip) => ip.name.toLowerCase() === p.name.toLowerCase());
+          return { ...p, buyingPrice: fromInventory?.buyingPrice ?? 0 };
+        });
+        data = { ...data, products: stamped };
+
         const newInvoice = addInvoice(data);
 
         // Update client record (skip for retail walk-in sales)
@@ -642,19 +651,21 @@ export function OverviewAnalyticsView() {
                 </Grid>
               )}
 
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <AnalyticsWidgetSecondary
-                  title={t('dashboard.lastMonthProfit')}
-                  percent={0}
-                  total={metrics.lastMonthProfit}
-                  color="success"
-                  icon={<Iconify icon="solar:graph-new-up-bold-duotone" width={22} />}
-                  chart={{
-                    categories: [],
-                    series: [],
-                  }}
-                />
-              </Grid>
+              {role !== 'worker' && (
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                  <AnalyticsWidgetSecondary
+                    title={t('dashboard.lastMonthProfit')}
+                    percent={0}
+                    total={metrics.lastMonthProfit}
+                    color="success"
+                    icon={<Iconify icon="solar:graph-new-up-bold-duotone" width={22} />}
+                    chart={{
+                      categories: [],
+                      series: [],
+                    }}
+                  />
+                </Grid>
+              )}
             </Grid>
           </Collapse>
         </Grid>
@@ -664,6 +675,7 @@ export function OverviewAnalyticsView() {
           <AnalyticsCashFlow
             title={t('dashboard.cashFlow')}
             subheader={t('dashboard.lastSixMonths')}
+            hideStats={role === 'worker'}
             chart={{
               categories: cashFlowData.categories,
               moneyIn: cashFlowData.moneyIn,

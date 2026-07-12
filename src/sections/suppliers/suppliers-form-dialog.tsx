@@ -154,7 +154,6 @@ export function SuppliersFormDialog({ open, supplier, onClose, onSubmit }: Props
   const handleSubmit = () => {
     // Filter out empty catalog entries
     const validCatalog = catalog.filter((p) => p.name.trim() !== '' && p.buyingPrice > 0);
-    console.log('Form submitting:', { name, phone, address, email, nif, nis, rc, ai, status, catalog: validCatalog, initialDebt });
     onSubmit({ 
       name, 
       phone, 

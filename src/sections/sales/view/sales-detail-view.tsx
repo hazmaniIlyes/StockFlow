@@ -45,7 +45,7 @@ export function SalesDetailView() {
   const { businessInfo } = useBusiness();
   const { t, language, dir } = useTranslation();
   const { getInvoice, updateInvoice, deleteInvoice, recordPayment, markAsPaid } = useInvoices();
-  const { restoreStockForInvoice, deductStockForInvoice, canDeductAfterRestore } = useInventory();
+  const { restoreStockForInvoice, deductStockForInvoice, canDeductAfterRestore, products: inventoryProducts } = useInventory();
   const { getClientByName, recordPayment: recordClientPayment, updateClient, addClient } = useClients();
 
   const [invoice, setInvoice] = useState<Invoice | undefined>(undefined);
@@ -519,7 +519,17 @@ ${pagesHtml}
       if (options.originalProducts) {
         restoreStockForInvoice(oldItems);
       }
-      deductStockForInvoice(newItems);
+      const stockResult = deductStockForInvoice(newItems);
+
+      // Stamp buying price snapshot on every updated line item (for accurate profit history)
+      const stampedProducts = data.products.map((p) => {
+        const fromFifo = stockResult.pricedItems?.find((pi) => pi.name.toLowerCase() === p.name.toLowerCase());
+        if (fromFifo) return { ...p, buyingPrice: fromFifo.buyingPrice };
+        const fromInventory = inventoryProducts.find((ip) => ip.name.toLowerCase() === p.name.toLowerCase());
+        return { ...p, buyingPrice: fromInventory?.buyingPrice ?? 0 };
+      });
+      data = { ...data, products: stampedProducts };
+
       updateInvoice(invoice.id, data);
       setInvoice({ ...invoice, ...data });
       // Sync client balance when payment amounts changed

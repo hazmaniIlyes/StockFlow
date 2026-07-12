@@ -111,10 +111,31 @@ contextBridge.exposeInMainWorld('database', {
 
   // ── Printing ─────────────────────────────────────────────────────────
 
-  printHtml: (html) => ipcRenderer.invoke('print-html', html), // Print HTML content via a hidden BrowserWindow (Electron-native)
-  getPrinters: () => ipcRenderer.invoke('get-printers'),       // List all installed printers
-  printHtmlSilent: (html, printerName) => ipcRenderer.invoke('print-html-silent', html, printerName), // Print silently to a named printer
-  savePdf: (html, name) => ipcRenderer.invoke('save-pdf', html, name), // Save HTML as PDF via printToPDF with a Save dialog
+  printHtml: (html) => ipcRenderer.invoke('print-html', html),
+  getPrinters: () => ipcRenderer.invoke('get-printers'),
+  printHtmlSilent: (html, printerName) => ipcRenderer.invoke('print-html-silent', html, printerName),
+  savePdf: (html, name) => ipcRenderer.invoke('save-pdf', html, name),
+
+  // ── Disk space ─────────────────────────────────────────────────
+  checkDiskSpace: () => ipcRenderer.invoke('check-disk-space'),
+  // Store each wrapper so offDiskWarning can remove the exact function that was registered
+  ...(() => {
+    const diskWrappers = new WeakMap();
+    return {
+      onDiskWarning: (cb) => {
+        const wrapper = (_e, data) => cb(data);
+        diskWrappers.set(cb, wrapper);
+        ipcRenderer.on('disk:warning', wrapper);
+      },
+      offDiskWarning: (cb) => {
+        const wrapper = diskWrappers.get(cb);
+        if (wrapper) {
+          ipcRenderer.removeListener('disk:warning', wrapper);
+          diskWrappers.delete(cb);
+        }
+      },
+    };
+  })(),
 
 });
 

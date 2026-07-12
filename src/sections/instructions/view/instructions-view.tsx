@@ -347,6 +347,25 @@ export function InstructionsView() {
             t('guide.sales_delN1'),
           ],
         },
+        {
+          id: 'retail-sales',
+          title: t('guide.sales_retailTitle'),
+          icon: 'solar:shop-bold-duotone',
+          color: 'success',
+          description: t('guide.sales_retailDesc'),
+          steps: [
+            { label: t('guide.sales_retail1'), detail: t('guide.sales_retail1d') },
+            { label: t('guide.sales_retail2'), detail: t('guide.sales_retail2d') },
+            { label: t('guide.sales_retail3'), detail: t('guide.sales_retail3d') },
+            { label: t('guide.sales_retail4'), detail: t('guide.sales_retail4d') },
+            { label: t('guide.sales_retail5'), detail: t('guide.sales_retail5d') },
+          ],
+          notes: [
+            t('guide.sales_retailN1'),
+            t('guide.sales_retailN2'),
+            t('guide.sales_retailN3'),
+          ],
+        },
       ],
     },
 

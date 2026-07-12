@@ -8,15 +8,14 @@ import Grid from '@mui/material/Grid';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 
+import { settingsDB } from 'src/services/db';
 import { DashboardContent } from 'src/layouts/dashboard';
-import { useClients, useInventory, useTranslation, useBusiness } from 'src/contexts';
+import { useClients, useInventory, useSettings, useTranslation, useBusiness } from 'src/contexts';
 
 import { Iconify } from 'src/components/iconify';
 import { useSnackbar } from 'src/components/snackbar';
 import { ConfirmDialog } from 'src/components/confirm-dialog';
 import { PrinterPickerDialog } from 'src/components/printer-picker-dialog';
-
-import { settingsDB } from 'src/services/db';
 
 import { useInvoices } from '../context';
 import { SalesInvoiceList } from '../sales-invoice-list';
@@ -41,8 +40,9 @@ export function SalesView() {
     getSummary,
   } = useInvoices();
   const { updateClientFromInvoice, recordPayment: recordClientPayment, getClientByName, updateClient, addClient } = useClients();
-  const { deductStockForInvoice, restoreStockForInvoice } = useInventory();
+  const { deductStockForInvoice, restoreStockForInvoice, products: inventoryProducts } = useInventory();
   const { businessInfo } = useBusiness();
+  const { role } = useSettings();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
@@ -89,6 +89,19 @@ export function SalesView() {
       data: Omit<Invoice, 'id'>,
       options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery'; isRetail?: boolean; autoPrint?: boolean }
     ) => {
+      // Stamps the buying price snapshot onto each invoice line item.
+      // Priority: FIFO-weighted cost from batch data > current inventory product price > 0.
+      // This snapshot must never change after the invoice is saved.
+      const stampBuyingPrice = (
+        invoiceProducts: typeof data.products,
+        pricedItems?: { name: string; unitPrice: number; total: number; buyingPrice: number }[]
+      ) => invoiceProducts.map((p) => {
+        const fromFifo = pricedItems?.find((pi) => pi.name.toLowerCase() === p.name.toLowerCase());
+        if (fromFifo) return { ...p, buyingPrice: fromFifo.buyingPrice };
+        const fromInventory = inventoryProducts.find((ip) => ip.name.toLowerCase() === p.name.toLowerCase());
+        return { ...p, buyingPrice: fromInventory?.buyingPrice ?? 0 };
+      });
+
       try {
         const productItems = data.products.map((p) => ({ name: p.name, quantity: p.quantity }));
         let savedInvoiceId: string | undefined;
@@ -130,6 +143,9 @@ export function SalesView() {
             const newAmountPaid = data.status === 'paid' ? newTotal : Math.min(data.amountPaid, newTotal); // added: if fully paid keep amountPaid = new total; else cap at new total
             data = { ...data, products: patchedProducts, total: newTotal, tvaAmount: newTvaAmount, subtotal: newSubtotal, amountPaid: newAmountPaid, amountDue: newTotal - newAmountPaid }; // added: replace data with fully patched invoice before saving
           }
+
+          // Stamp buying price snapshot on every line item (for accurate profit history)
+          data = { ...data, products: stampBuyingPrice(data.products, stockResult.pricedItems) };
 
           updateInvoice(editingInvoice.id, data);
           savedInvoiceId = editingInvoice.id;
@@ -187,6 +203,9 @@ export function SalesView() {
             data = { ...data, products: patchedProducts, total: newTotal, tvaAmount: newTvaAmount, subtotal: newSubtotal, amountPaid: newAmountPaid, amountDue: newTotal - newAmountPaid }; // added: replace data with fully patched invoice before calling addInvoice
           }
 
+          // Stamp buying price snapshot on every line item (for accurate profit history)
+          data = { ...data, products: stampBuyingPrice(data.products, stockResult.pricedItems) };
+
           const newInvoice = addInvoice(data);
           savedInvoiceId = newInvoice.id;
 
@@ -216,7 +235,9 @@ export function SalesView() {
           const savedInvoice = { ...data, id: savedInvoiceId } as Invoice;
           if (options.autoPrint) {
             // Save & Print path
-            if (receiptPrinter) {
+            if (receiptPrinter === 'none') {
+              // User opted out of printing — just save, no receipt dialog
+            } else if (receiptPrinter) {
               // Printer already saved — print silently
               const html = buildReceiptHtml(savedInvoice, businessInfo, language);
               window.database?.printHtmlSilent(html, receiptPrinter);
@@ -295,9 +316,7 @@ export function SalesView() {
       restoreStockForInvoice(productItems);
 
       // Revert client's totalPurchases and balance
-      console.log('[DEBUG handleDeleteConfirm] invoiceToDelete.client.name:', invoiceToDelete.client.name);
       const client = getClientByName(invoiceToDelete.client.name);
-      console.log('[DEBUG handleDeleteConfirm] found client:', client);
       if (client) {
         const newTotalPurchases = Math.max(0, client.totalPurchases - invoiceToDelete.total);
         const newTotalPaid = Math.max(0, client.totalPaid - invoiceToDelete.amountPaid);
@@ -380,47 +399,49 @@ export function SalesView() {
         </Button>
       </Box>
 
-      {/* Summary Cards - Now Dynamic */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <SalesSummaryCard
-            title={t('dashboard.todaySales')}
-            total={summary.today.totalSales}
-            profit={summary.today.profit}
-            count={summary.today.count}
-            icon="solar:dollar-minimalistic-bold-duotone"
-            color="primary"
-          />
+      {/* Summary Cards — admin only */}
+      {role !== 'worker' && (
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <SalesSummaryCard
+              title={t('dashboard.todaySales')}
+              total={summary.today.totalSales}
+              profit={summary.today.profit}
+              count={summary.today.count}
+              icon="solar:dollar-minimalistic-bold-duotone"
+              color="primary"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <SalesSummaryCard
+              title={t('dashboard.pendingPayments')}
+              total={summary.pending.totalAmount}
+              count={summary.pending.count}
+              icon="solar:clock-circle-bold-duotone"
+              color="warning"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <SalesSummaryCard
+              title={t('dashboard.thisMonth')}
+              total={summary.thisMonth.totalSales}
+              profit={summary.thisMonth.profit}
+              count={summary.thisMonth.count}
+              icon="solar:graph-up-bold-duotone"
+              color="success"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <SalesSummaryCard
+              title={t('sales.overdue')}
+              total={summary.overdue.totalAmount}
+              count={summary.overdue.count}
+              icon="solar:danger-triangle-bold-duotone"
+              color="error"
+            />
+          </Grid>
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <SalesSummaryCard
-            title={t('dashboard.pendingPayments')}
-            total={summary.pending.totalAmount}
-            count={summary.pending.count}
-            icon="solar:clock-circle-bold-duotone"
-            color="warning"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <SalesSummaryCard
-            title={t('dashboard.thisMonth')}
-            total={summary.thisMonth.totalSales}
-            profit={summary.thisMonth.profit}
-            count={summary.thisMonth.count}
-            icon="solar:graph-up-bold-duotone"
-            color="success"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <SalesSummaryCard
-            title={t('sales.overdue')}
-            total={summary.overdue.totalAmount}
-            count={summary.overdue.count}
-            icon="solar:danger-triangle-bold-duotone"
-            color="error"
-          />
-        </Grid>
-      </Grid>
+      )}
 
       {/* Invoice List */}
       <SalesInvoiceList
@@ -484,7 +505,14 @@ export function SalesView() {
         open={printerPickerOpen}
         title={t('sales.chooseReceiptPrinter')}
         subtitle={t('sales.chooseReceiptPrinterSubtitle')}
+        noPrinterLabel={t('sales.noPrinter')}
         onSelect={handlePrinterSelected}
+        onNoPrinter={() => {
+          setReceiptPrinter('none');
+          settingsDB.set('receipt_printer', 'none');
+          setPrinterPickerOpen(false);
+          pendingPrintInvoiceRef.current = null;
+        }}
         onClose={() => {
           setPrinterPickerOpen(false);
           pendingPrintInvoiceRef.current = null;
