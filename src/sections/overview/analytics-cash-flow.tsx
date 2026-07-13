@@ -11,6 +11,7 @@ import { fCurrency } from 'src/utils/format-number';
 
 import { useTranslation } from 'src/contexts';
 
+import { Iconify } from 'src/components/iconify';
 import { Chart, useChart } from 'src/components/chart';
 
 // ======================================================================
@@ -88,15 +89,32 @@ export function AnalyticsCashFlow({ title, subheader, chart, hideStats, sx, ...o
         }
       />
 
-      <Chart
-        type="bar"
-        series={[
-          { name: t('dashboard.moneyIn'), data: chart.moneyIn },
-          { name: t('dashboard.moneyOut'), data: chart.moneyOut },
-        ]}
-        options={chartOptions}
-        sx={{ py: 2.5, px: 1, height: 400 }}
-      />
+      {hideStats ? (
+        <Box
+          sx={{
+            height: 400,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 1.5,
+            color: 'text.disabled',
+          }}
+        >
+          <Iconify icon="solar:lock-bold-duotone" width={48} />
+          <Typography variant="body2">Accès restreint</Typography>
+        </Box>
+      ) : (
+        <Chart
+          type="bar"
+          series={[
+            { name: t('dashboard.moneyIn'), data: chart.moneyIn },
+            { name: t('dashboard.moneyOut'), data: chart.moneyOut },
+          ]}
+          options={chartOptions}
+          sx={{ py: 2.5, px: 1, height: 400 }}
+        />
+      )}
     </Card>
   );
 }

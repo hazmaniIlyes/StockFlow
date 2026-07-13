@@ -9,19 +9,14 @@ import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
 import Switch from '@mui/material/Switch';
 import Divider from '@mui/material/Divider';
 import TextField from '@mui/material/TextField';
 import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
 
+import { settingsDB, isElectron } from 'src/services/db';
 import { useSettings, useTranslation } from 'src/contexts';
-import { tvaDB, clientsDB, settingsDB, isElectron, productsDB, invoicesDB, expensesDB, suppliersDB } from 'src/services/db';
 
 import { Iconify } from 'src/components/iconify';
 import { useSnackbar } from 'src/components/snackbar';
@@ -63,7 +58,7 @@ export function SettingsAccount() {
   const { role, setRole, workerModeEnabled, setWorkerModeEnabled, businessMode, setBusinessMode } = useSettings();
   const isWorker = workerModeEnabled;
 
-  const [resetOnboardingOpen, setResetOnboardingOpen] = useState(false);
+
   const [printerPickerOpen, setPrinterPickerOpen] = useState(false);
   const [savedPrinter, setSavedPrinter] = useState<string | null>(null);
 
@@ -510,91 +505,6 @@ export function SettingsAccount() {
         </Box>
       </Card>
 
-      {/* Reset Onboarding */}
-      <Card
-        sx={{
-          p: 3,
-          boxShadow: theme.vars.customShadows.z8,
-          border: `1px solid ${theme.vars.palette.divider}`,
-          borderRadius: 2,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box
-              sx={{
-                width: 44,
-                height: 44,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 1.5,
-                bgcolor: 'action.selected',
-                color: 'text.secondary',
-                flexShrink: 0,
-              }}
-            >
-              <Iconify icon="solar:restart-bold-duotone" width={24} />
-            </Box>
-            <Box>
-              <Typography variant="subtitle2">{t('settings.resetOnboarding') ?? 'Restart Onboarding'}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                {t('settings.resetOnboardingDesc') ?? 'Go through the initial setup wizard again'}
-              </Typography>
-            </Box>
-          </Box>
-          <Button
-            variant="outlined"
-            color="error"
-            size="small"
-            startIcon={<Iconify icon="solar:restart-bold-duotone" width={16} />}
-            onClick={() => setResetOnboardingOpen(true)}
-          >
-            {t('settings.resetOnboarding') ?? 'Restart'}
-          </Button>
-        </Box>
-      </Card>
-
-      {/* Reset Onboarding Confirm Dialog */}
-      <Dialog open={resetOnboardingOpen} onClose={() => setResetOnboardingOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>{t('settings.resetOnboarding') ?? 'Restart Onboarding'}</DialogTitle>
-        <DialogContent>
-          <DialogContentText sx={{ color: 'error.main', fontWeight: 600, mb: 1 }}>
-            {t('settings.clearAllDataWarning')}
-          </DialogContentText>
-          <DialogContentText>
-            {t('settings.clearAllDataDesc')}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setResetOnboardingOpen(false)}>{t('common.cancel')}</Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={async () => {
-              if (isElectron()) {
-                // Wipe all data directly — awaited so SQLite is clear before reload
-                await Promise.all([
-                  productsDB.clearAll(),
-                  clientsDB.clearAll(),
-                  suppliersDB.clearAll(),
-                  invoicesDB.clearAll(),
-                  expensesDB.clearAll(),
-                  tvaDB.clearAll(),
-                ]);
-                await settingsDB.set('onboarding_complete', 'false');
-                // Delete the activation file so the app returns to activation page
-                await (window as any).appShell?.resetActivation?.();
-              }
-              localStorage.clear();
-              // Full reload — React restarts from scratch, guard redirects to /activation
-              window.location.reload();
-            }}
-          >
-            {t('settings.clearAllData') ?? 'Wipe & Restart'}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

@@ -883,7 +883,7 @@ const translations: Record<Language, Translations> = {
       ch_dashboard: 'Dashboard',
       // Getting Started
       gs_overviewTitle: 'What is this app?',
-      gs_overviewDesc: 'A complete offline business management system for managing sales, inventory, clients, suppliers, and expenses.',
+      gs_overviewDesc: 'A complete offline business management system for managing sales, inventory, clients, suppliers, and expenses..',
       gs_s1: 'Runs entirely offline',
       gs_s1d: 'All data is stored in a local SQLite database on your PC. No internet connection needed.',
       gs_s2: 'Two access levels: Admin and Worker',

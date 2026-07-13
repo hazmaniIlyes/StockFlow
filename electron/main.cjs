@@ -382,6 +382,9 @@ app.whenReady().then(() => {
   // never prevents the app from opening normally.
   if (!isDev) {
     try {
+      // Route all auto-update events through electron-log so they appear in the production log file
+      autoUpdater.logger = log;
+
       // When an update has been fully downloaded, prompt the user in French
       autoUpdater.on('update-downloaded', () => {
         dialog.showMessageBox(mainWindow, {

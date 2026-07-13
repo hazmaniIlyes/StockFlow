@@ -23,6 +23,7 @@ type Props = CardProps & {
   color?: PaletteColorKey;
   icon: React.ReactNode;
   isCurrency?: boolean;
+  hideValue?: boolean;
   chart: {
     series: number[];
     categories: string[];
@@ -39,6 +40,7 @@ export function AnalyticsWidgetSummary({
   percent,
   color = 'primary',
   isCurrency = false,
+  hideValue = false,
   ...other
 }: Props) {
   const theme = useTheme();
@@ -66,24 +68,25 @@ export function AnalyticsWidgetSummary({
     ...chart.options,
   });
 
-  const renderTrending = () => (
-    <Box
-      sx={{
-        top: 16,
-        gap: 0.5,
-        insetInlineEnd: 16,
-        display: 'flex',
-        position: 'absolute',
-        alignItems: 'center',
-      }}
-    >
-      <Iconify width={20} icon={percent < 0 ? 'eva:trending-down-fill' : 'eva:trending-up-fill'} />
-      <Box component="span" sx={{ typography: 'subtitle2' }}>
-        {percent > 0 && '+'}
-        {fPercent(percent)}
+  const renderTrending = () =>
+    hideValue ? null : (
+      <Box
+        sx={{
+          top: 16,
+          gap: 0.5,
+          insetInlineEnd: 16,
+          display: 'flex',
+          position: 'absolute',
+          alignItems: 'center',
+        }}
+      >
+        <Iconify width={20} icon={percent < 0 ? 'eva:trending-down-fill' : 'eva:trending-up-fill'} />
+        <Box component="span" sx={{ typography: 'subtitle2' }}>
+          {percent > 0 && '+'}
+          {fPercent(percent)}
+        </Box>
       </Box>
-    </Box>
-  );
+    );
 
   return (
     <Card
@@ -181,15 +184,19 @@ export function AnalyticsWidgetSummary({
             {title}
           </Box>
 
-          <Box sx={{ typography: 'h4' }}>{isCurrency ? fCurrency(total) : fNumber(total)}</Box>
+          <Box sx={{ typography: 'h4' }}>
+            {hideValue ? '••••••' : isCurrency ? fCurrency(total) : fNumber(total)}
+          </Box>
         </Box>
 
-        <Chart
-          type="line"
-          series={[{ data: chart.series }]}
-          options={chartOptions}
-          sx={{ flexShrink: 0, width: 84, height: 56 }}
-        />
+        {!hideValue && (
+          <Chart
+            type="line"
+            series={[{ data: chart.series }]}
+            options={chartOptions}
+            sx={{ flexShrink: 0, width: 84, height: 56 }}
+          />
+        )}
       </Box>
 
       <SvgColor

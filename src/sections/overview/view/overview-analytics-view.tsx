@@ -526,25 +526,25 @@ export function OverviewAnalyticsView() {
             percent={0}
             total={metrics.todayRevenue}
             isCurrency
+            hideValue={role === 'worker'}
             color="primary"
             icon={<Iconify icon="solar:dollar-minimalistic-bold-duotone" width={40} />}
             chart={kpiChartData.todayRevenue}
           />
         </Grid>
 
-        {role !== 'worker' && (
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <AnalyticsWidgetSummary
               title={t('dashboard.thisMonthRevenue')}
               percent={0}
               total={metrics.thisMonthRevenue}
               isCurrency
+              hideValue={role === 'worker'}
               color="info"
               icon={<Iconify icon="solar:graph-up-bold-duotone" width={40} />}
               chart={kpiChartData.thisMonthRevenue}
             />
           </Grid>
-        )}
 
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <AnalyticsWidgetSummary
@@ -552,56 +552,56 @@ export function OverviewAnalyticsView() {
             percent={0}
             total={metrics.pendingPayments}
             isCurrency
+            hideValue={role === 'worker'}
             color="error"
             icon={<Iconify icon="solar:danger-triangle-bold-duotone" width={40} />}
             chart={kpiChartData.pendingPayments}
           />
         </Grid>
 
-        {role !== 'worker' && (
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <AnalyticsWidgetSummary
               title={t('dashboard.todayProfit')}
               percent={0}
               total={metrics.todayProfit}
               isCurrency
+              hideValue={role === 'worker'}
               color="success"
               icon={<Iconify icon="solar:graph-new-up-bold-duotone" width={40} />}
               chart={kpiChartData.todayProfit}
             />
           </Grid>
-        )}
 
-        {/* ============ COLLAPSIBLE SECONDARY CARDS ============ */}
-        <Grid size={{ xs: 12 }}>
-          <ButtonBase
-            onClick={() => setShowSecondary(!showSecondary)}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-              py: 0.5,
-              px: 1,
-              borderRadius: 1,
-              typography: 'subtitle2',
-              color: 'text.secondary',
-              '&:hover': { color: 'text.primary' },
-            }}
-          >
-            <Iconify
-              icon="solar:alt-arrow-down-bold"
-              width={18}
+        {/* ============ COLLAPSIBLE SECONDARY CARDS — hidden entirely for workers ============ */}
+        {role !== 'worker' && (
+          <Grid size={{ xs: 12 }}>
+            <ButtonBase
+              onClick={() => setShowSecondary(!showSecondary)}
               sx={{
-                transition: 'transform 0.2s',
-                transform: showSecondary ? 'rotate(0deg)' : 'rotate(-90deg)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                py: 0.5,
+                px: 1,
+                borderRadius: 1,
+                typography: 'subtitle2',
+                color: 'text.secondary',
+                '&:hover': { color: 'text.primary' },
               }}
-            />
-            {showSecondary ? t('dashboard.hideDetails') : t('dashboard.showDetails')}
-          </ButtonBase>
+            >
+              <Iconify
+                icon="solar:alt-arrow-down-bold"
+                width={18}
+                sx={{
+                  transition: 'transform 0.2s',
+                  transform: showSecondary ? 'rotate(0deg)' : 'rotate(-90deg)',
+                }}
+              />
+              {showSecondary ? t('dashboard.hideDetails') : t('dashboard.showDetails')}
+            </ButtonBase>
 
-          <Collapse in={showSecondary}>
-            <Grid container spacing={3} sx={{ mt: 0 }}>
-              {role !== 'worker' && (
+            <Collapse in={showSecondary}>
+              <Grid container spacing={3} sx={{ mt: 0 }}>
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <AnalyticsWidgetSecondary
                     title={t('dashboard.suppliersOwed')}
@@ -615,9 +615,7 @@ export function OverviewAnalyticsView() {
                     }}
                   />
                 </Grid>
-              )}
 
-              {role !== 'worker' && (
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <AnalyticsWidgetSecondary
                     title={t('dashboard.tvaCollected')}
@@ -632,9 +630,7 @@ export function OverviewAnalyticsView() {
                     }}
                   />
                 </Grid>
-              )}
 
-              {role !== 'worker' && (
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <AnalyticsWidgetSecondary
                     title={t('dashboard.lastMonthRevenue')}
@@ -649,9 +645,7 @@ export function OverviewAnalyticsView() {
                     }}
                   />
                 </Grid>
-              )}
 
-              {role !== 'worker' && (
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <AnalyticsWidgetSecondary
                     title={t('dashboard.lastMonthProfit')}
@@ -665,10 +659,10 @@ export function OverviewAnalyticsView() {
                     }}
                   />
                 </Grid>
-              )}
-            </Grid>
-          </Collapse>
-        </Grid>
+              </Grid>
+            </Collapse>
+          </Grid>
+        )}
 
         {/* ============ STATS & QUICK ACTIONS ROW ============ */}
         <Grid size={{ xs: 12, md: 8 }}>
