@@ -79,7 +79,7 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
 
   const { clients } = useClients();
   const { products: inventoryProducts } = useInventory();
-  const { getNextInvoiceNumber } = useInvoices();
+  const { getNextInvoiceNumber, getNextTicketNumber } = useInvoices();
   const { invoice: invoiceSettings, businessMode } = useSettings();
   const { showError } = useSnackbar();
   const { setFormOpen } = useGlobalScan();
@@ -435,7 +435,7 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
 
     onSave(
       {
-        invoiceNumber: editInvoice?.invoiceNumber ?? getNextInvoiceNumber(),
+        invoiceNumber: editInvoice?.invoiceNumber ?? (isRetail ? getNextTicketNumber() : getNextInvoiceNumber()),
         type: isRetail ? 'retail' : 'wholesale',
         client: isRetail
           ? { name: t('sales.walkInCustomer'), phone: '', address: '' }

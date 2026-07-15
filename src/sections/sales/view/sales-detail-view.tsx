@@ -1,6 +1,6 @@
 import type { Invoice, InvoiceProduct } from 'src/_mock/_data';
 
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
@@ -31,8 +31,8 @@ import { ConfirmDialog } from 'src/components/confirm-dialog';
 
 import { useInvoices } from '../context';
 import { SalesNewInvoiceDialog } from '../sales-new-invoice-dialog';
-import { SalesPrintPreviewDialog } from '../sales-print-preview-dialog';
 import { buildReceiptHtml } from '../sales-receipt-preview-dialog';
+import { SalesPrintPreviewDialog } from '../sales-print-preview-dialog';
 import { SalesRecordPaymentDialog } from '../sales-record-payment-dialog';
 
 // ======================================================================
@@ -45,7 +45,7 @@ export function SalesDetailView() {
   const { showSuccess, showError } = useSnackbar();
   const { businessInfo } = useBusiness();
   const { t, language, dir } = useTranslation();
-  const { getInvoice, updateInvoice, deleteInvoice, recordPayment, markAsPaid } = useInvoices();
+  const { invoices, getInvoice, updateInvoice, deleteInvoice, recordPayment, markAsPaid } = useInvoices();
   const { restoreStockForInvoice, deductStockForInvoice, canDeductAfterRestore, products: inventoryProducts } = useInventory();
   const { getClientByName, recordPayment: recordClientPayment, updateClient, addClient } = useClients();
 
@@ -56,6 +56,21 @@ export function SalesDetailView() {
   const [viewMode, setViewMode] = useState<'invoice' | 'delivery' | 'receipt'>('invoice');
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewHtml, setPreviewHtml] = useState('');
+
+  // Total outstanding debt for this client across all their invoices
+  const clientTotalDebt = useMemo(() => {
+    if (!invoice?.client?.name) return undefined;
+    const clientName = invoice.client.name;
+    if (
+      clientName === 'Walk-in Customer' ||
+      clientName === 'Client de passage' ||
+      clientName === 'زبون عابر'
+    ) return undefined;
+    const total = invoices
+      .filter((inv) => inv.client?.name === clientName && (inv.amountDue ?? 0) > 0)
+      .reduce((sum, inv) => sum + (inv.amountDue ?? 0), 0);
+    return total > 0 ? total : undefined;
+  }, [invoice, invoices]);
 
   const theme = useTheme();
   const accentColor = theme.palette.primary.main;
@@ -96,7 +111,7 @@ export function SalesDetailView() {
     const isInvoice = viewMode === 'invoice';
 
     if (viewMode === 'receipt') {
-      return buildReceiptHtml(invoice, businessInfo, language, true);
+      return buildReceiptHtml(invoice, businessInfo, language, true, clientTotalDebt);
     }
 
     // ── DELIVERY NOTE HTML ──────────────────────────────────────────────
@@ -757,7 +772,7 @@ ${pagesHtml}
       {viewMode === 'receipt' ? (
         <Box className="print-area" sx={{ display: 'flex', justifyContent: 'center', mb: 5 }}>
           <iframe
-            srcDoc={buildReceiptHtml(invoice, businessInfo, language, true)}
+            srcDoc={buildReceiptHtml(invoice, businessInfo, language, true, clientTotalDebt)}
             style={{
               width: 320,
               minHeight: 500,

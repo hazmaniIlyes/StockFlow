@@ -346,7 +346,7 @@ export function OverviewAnalyticsView() {
   const handleInvoiceSave = useCallback(
     (
       data: Omit<Invoice, 'id'>,
-      options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery'; isRetail?: boolean }
+      options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'receipt' | 'delivery'; isRetail?: boolean; autoPrint?: boolean }
     ) => {
       try {
         const productItems = data.products.map((p) => ({ name: p.name, quantity: p.quantity }));
