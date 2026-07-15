@@ -32,6 +32,7 @@ import { ConfirmDialog } from 'src/components/confirm-dialog';
 import { useInvoices } from '../context';
 import { SalesNewInvoiceDialog } from '../sales-new-invoice-dialog';
 import { SalesPrintPreviewDialog } from '../sales-print-preview-dialog';
+import { buildReceiptHtml } from '../sales-receipt-preview-dialog';
 import { SalesRecordPaymentDialog } from '../sales-record-payment-dialog';
 
 // ======================================================================
@@ -52,7 +53,7 @@ export function SalesDetailView() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'invoice' | 'delivery'>('invoice');
+  const [viewMode, setViewMode] = useState<'invoice' | 'delivery' | 'receipt'>('invoice');
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewHtml, setPreviewHtml] = useState('');
 
@@ -67,7 +68,7 @@ export function SalesDetailView() {
   }, [id, getInvoice]);
 
   const shouldPrint = searchParams.get('print') === 'true';
-  const printMode = searchParams.get('printMode') as 'invoice' | 'delivery' | null;
+  const printMode = searchParams.get('printMode') as 'invoice' | 'delivery' | 'receipt' | null;
   const [pendingPrint, setPendingPrint] = useState(false);
 
   // Handle legacy ?print=true
@@ -93,6 +94,10 @@ export function SalesDetailView() {
     const accent = '#1a1a1a';
     const isRtl = dir === 'rtl';
     const isInvoice = viewMode === 'invoice';
+
+    if (viewMode === 'receipt') {
+      return buildReceiptHtml(invoice, businessInfo, language, true);
+    }
 
     // ── DELIVERY NOTE HTML ──────────────────────────────────────────────
     if (!isInvoice) {
@@ -497,7 +502,7 @@ ${pagesHtml}
 
   const handleEdit = (
     data: Omit<Invoice, 'id'>,
-    options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery'; isRetail?: boolean }
+    options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery' | 'receipt'; isRetail?: boolean }
   ) => {
     const oldInvoice = invoice;
     const oldAmountPaid = invoice.amountPaid;
@@ -729,7 +734,7 @@ ${pagesHtml}
         <ToggleButtonGroup
           value={viewMode}
           exclusive
-          onChange={(_, val) => { if (val) setViewMode(val as 'invoice' | 'delivery'); }}
+          onChange={(_, val) => { if (val) setViewMode(val as 'invoice' | 'delivery' | 'receipt'); }}
           size="small"
           sx={{ bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}
         >
@@ -741,11 +746,38 @@ ${pagesHtml}
             <Iconify icon="solar:box-bold-duotone" width={18} />
             {t('sales.bonDeLivraison')}
           </ToggleButton>
+          <ToggleButton value="receipt" sx={{ px: 3, fontWeight: 700, textTransform: 'none', gap: 1 }}>
+            <Iconify icon="solar:document-text-bold-duotone" width={18} />
+            {t('sales.printReceipt')}
+          </ToggleButton>
         </ToggleButtonGroup>
       </Box>
 
       {/* ─────────────────────────── DOCUMENT CARD ─────────────────────────── */}
-      {viewMode === 'delivery' ? (
+      {viewMode === 'receipt' ? (
+        <Box className="print-area" sx={{ display: 'flex', justifyContent: 'center', mb: 5 }}>
+          <iframe
+            srcDoc={buildReceiptHtml(invoice, businessInfo, language, true)}
+            style={{
+              width: 320,
+              minHeight: 500,
+              border: 'none',
+              display: 'block',
+              background: '#fff',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+              borderRadius: '8px',
+            }}
+            title="Receipt Preview"
+            onLoad={(e) => {
+              const doc = e.currentTarget.contentDocument;
+              if (doc) {
+                const h = doc.documentElement.scrollHeight;
+                if (h > 0) e.currentTarget.style.height = `${h}px`;
+              }
+            }}
+          />
+        </Box>
+      ) : viewMode === 'delivery' ? (
         /* ── DELIVERY NOTE CARD ── */
         (() => {
           const clientRecord = getClientByName(invoice.client.name);

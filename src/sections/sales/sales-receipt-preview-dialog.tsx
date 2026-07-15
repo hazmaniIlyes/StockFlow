@@ -14,7 +14,7 @@ import { Iconify } from 'src/components/iconify';
 
 // ── Build the receipt HTML ────────────────────────────────────────────
 
-export function buildReceiptHtml(invoice: Invoice, business: BusinessInfo, language: string): string {
+export function buildReceiptHtml(invoice: Invoice, business: BusinessInfo, language: string, showPaymentStatus: boolean = false): string {
   const locale = language === 'ar' ? 'ar-DZ' : language === 'fr' ? 'fr-DZ' : 'en';
   const currency = language === 'ar' ? 'دج' : 'DA';
   const now = new Date();
@@ -110,6 +110,21 @@ export function buildReceiptHtml(invoice: Invoice, business: BusinessInfo, langu
   </tr>
 </table>
 
+${showPaymentStatus ? `
+<table>
+  <tr style="font-size: 13px;">
+    <td>${language === 'fr' ? 'Montant payé' : language === 'ar' ? 'المبلغ المدفوع' : 'Amount Paid'}</td>
+    <td style="text-align:right">${invoice.amountPaid.toLocaleString(locale)} ${currency}</td>
+  </tr>
+  ${invoice.amountDue > 0 ? `
+  <tr style="font-size: 13px; font-weight: bold;">
+    <td>${language === 'fr' ? 'Montant dû' : language === 'ar' ? 'المبلغ المستحق' : 'Amount Due'}</td>
+    <td style="text-align:right">${invoice.amountDue.toLocaleString(locale)} ${currency}</td>
+  </tr>
+  ` : ''}
+</table>
+` : ''}
+
 <hr class="divider" />
 
 <div class="center footer">
@@ -128,9 +143,10 @@ type Props = {
   onClose: () => void;
   invoice: Invoice | null;
   businessInfo: BusinessInfo;
+  showPaymentStatus?: boolean;
 };
 
-export function SalesReceiptPreviewDialog({ open, onClose, invoice, businessInfo }: Props) {
+export function SalesReceiptPreviewDialog({ open, onClose, invoice, businessInfo, showPaymentStatus = false }: Props) {
   const { language, t } = useTranslation();
   const [receiptPrinter, setReceiptPrinter] = useState<string | null>(null);
 
@@ -143,7 +159,7 @@ export function SalesReceiptPreviewDialog({ open, onClose, invoice, businessInfo
 
   if (!invoice) return null;
 
-  const htmlContent = buildReceiptHtml(invoice, businessInfo, language);
+  const htmlContent = buildReceiptHtml(invoice, businessInfo, language, showPaymentStatus);
 
   const handlePrint = () => {
     if (receiptPrinter && receiptPrinter !== 'none') {

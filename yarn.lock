@@ -2020,7 +2020,7 @@ electron-winstaller@5.4.0:
   optionalDependencies:
     "@electron/windows-sign" "^1.1.2"
 
-electron@^41.0.4:
+electron@41.0.4:
   version "41.0.4"
   resolved "https://registry.npmjs.org/electron/-/electron-41.0.4.tgz"
   integrity sha512-rO08CxnAsAkKPFj3OZnxFkKrlnpSL3OCOewMDj5kaohVo++7e8hIT5Sl+tNl9WkNKiLvfZSW180ueA9s5zh9dg==

@@ -55,7 +55,7 @@ type Props = {
   onClose: () => void;
   onSave: (
     invoice: Omit<Invoice, 'id'>,
-    options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery'; isRetail?: boolean; autoPrint?: boolean }
+    options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery' | 'receipt'; isRetail?: boolean; autoPrint?: boolean }
   ) => void;
   editInvoice?: Invoice | null;
 };
@@ -1111,7 +1111,7 @@ function PrintDropdownButton({
   onSelect,
   t,
 }: {
-  onSelect: (mode: 'invoice' | 'delivery') => void;
+  onSelect: (mode: 'invoice' | 'delivery' | 'receipt') => void;
   t: (key: string) => string;
 }) {
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
@@ -1137,6 +1137,12 @@ function PrintDropdownButton({
         >
           <Iconify icon="solar:box-bold-duotone" width={18} sx={{ mr: 1.5 }} />
           {t('sales.saveAndPrintDelivery')}
+        </MenuItem>
+        <MenuItem
+          onClick={() => { setAnchor(null); onSelect('receipt'); }}
+        >
+          <Iconify icon="solar:document-text-bold-duotone" width={18} sx={{ mr: 1.5 }} />
+          {t('sales.saveAndPrintReceipt')}
         </MenuItem>
       </Menu>
     </>

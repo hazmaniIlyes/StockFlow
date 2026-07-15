@@ -58,6 +58,7 @@ export function SalesView() {
   // Retail receipt preview
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [receiptInvoice, setReceiptInvoice] = useState<Invoice | null>(null);
+  const [receiptShowPayment, setReceiptShowPayment] = useState(false);
 
   // Printer picker for retail auto-print
   const [printerPickerOpen, setPrinterPickerOpen] = useState(false);
@@ -87,7 +88,7 @@ export function SalesView() {
   const handleSave = useCallback(
     (
       data: Omit<Invoice, 'id'>,
-      options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery'; isRetail?: boolean; autoPrint?: boolean }
+      options: { isEdit: boolean; originalProducts?: InvoiceProduct[]; printMode?: 'invoice' | 'delivery' | 'receipt'; isRetail?: boolean; autoPrint?: boolean }
     ) => {
       // Stamps the buying price snapshot onto each invoice line item.
       // Priority: FIFO-weighted cost from batch data > current inventory product price > 0.
@@ -249,12 +250,21 @@ export function SalesView() {
           } else {
             // Save only: open the preview dialog
             setReceiptInvoice(savedInvoice);
+            setReceiptShowPayment(false);
             setReceiptDialogOpen(true);
           }
         }
 
-        // Navigate to print if requested (wholesale)
-        if (options.printMode && savedInvoiceId) {
+        // Show receipt dialog for wholesale receipt mode (reuses retail receipt flow)
+        if (options.printMode === 'receipt' && savedInvoiceId) {
+          const savedInvoice = { ...data, id: savedInvoiceId } as Invoice;
+          setReceiptInvoice(savedInvoice);
+          setReceiptShowPayment(true);
+          setReceiptDialogOpen(true);
+        }
+
+        // Navigate to print if requested (wholesale invoice / delivery)
+        if ((options.printMode === 'invoice' || options.printMode === 'delivery') && savedInvoiceId) {
           navigate(`/sales/${savedInvoiceId}?printMode=${options.printMode}`);
         }
       } catch (e) {
@@ -364,6 +374,7 @@ export function SalesView() {
   const handleRowClick = (invoice: Invoice) => {
     if (isRetailInvoice(invoice)) {
       setReceiptInvoice(invoice);
+      setReceiptShowPayment(false);
       setReceiptDialogOpen(true);
     } else {
       navigate(`/sales/${invoice.id}`);
@@ -373,6 +384,7 @@ export function SalesView() {
   const handlePrint = (invoice: Invoice) => {
     if (isRetailInvoice(invoice)) {
       setReceiptInvoice(invoice);
+      setReceiptShowPayment(false);
       setReceiptDialogOpen(true);
     } else {
       navigate(`/sales/${invoice.id}?print=true`);
@@ -498,6 +510,7 @@ export function SalesView() {
         }}
         invoice={receiptInvoice}
         businessInfo={businessInfo}
+        showPaymentStatus={receiptShowPayment}
       />
 
       {/* First-time receipt printer picker */}
