@@ -30,8 +30,8 @@ import { useSnackbar } from 'src/components/snackbar';
 import { ConfirmDialog } from 'src/components/confirm-dialog';
 
 import { useInvoices } from '../context';
-import { SalesNewInvoiceDialog } from '../sales-new-invoice-dialog';
 import { buildReceiptHtml } from '../sales-receipt-preview-dialog';
+import { SalesNewInvoiceDialog } from '../sales-new-invoice-dialog';
 import { SalesPrintPreviewDialog } from '../sales-print-preview-dialog';
 import { SalesRecordPaymentDialog } from '../sales-record-payment-dialog';
 

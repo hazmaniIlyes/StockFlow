@@ -411,7 +411,7 @@ export function SalesNewInvoiceDialog({ open, onClose, onSave, editInvoice }: Pr
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = (printMode?: 'invoice' | 'delivery', autoPrint?: boolean) => {
+  const handleSave = (printMode?: 'invoice' | 'receipt' | 'delivery', autoPrint?: boolean) => {
     setTouched(true);
 
     if (!validate()) return;
