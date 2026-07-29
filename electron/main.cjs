@@ -235,12 +235,13 @@ function createWindow() {
   mainWindow.webContents.on('render-process-gone', (_e, details) => log.error('[Window] render-process-gone:', JSON.stringify(details)));
 
   // Show the window maximized once the renderer has finished its first paint
-  // Also apply a zoom factor based on the screen height so all content fits without clipping
   mainWindow.once('ready-to-show', () => {
-    const { height } = screen.getPrimaryDisplay().workAreaSize; // Get usable screen height (excludes taskbar)
-    const zoom = Math.min(1.0, height / 900); // 900px is the design baseline; clamp to 1.0 so we never zoom in
-    mainWindow.webContents.setZoomFactor(zoom);
-    mainWindow.center();  // Ensure window appears on the primary monitor
+    // On macOS, maximize() maps to the native "Zoom" action which does not
+    // guarantee a full work-area fill. Explicitly set bounds first so the
+    // window covers the full work area, then call maximize() so the OS
+    // registers the correct maximized state (green button, isMaximized(), etc.)
+    const { x, y, width, height } = screen.getPrimaryDisplay().workArea;
+    mainWindow.setBounds({ x, y, width, height });
     mainWindow.maximize();
     mainWindow.show();
     mainWindow.focus();   // Bring to front in case another window is on top
