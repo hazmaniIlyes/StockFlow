@@ -27,7 +27,9 @@
     "tsc:dev": "yarn dev & yarn tsc:watch",
     "tsc:watch": "tsc --noEmit --watch",
     "tsc:print": "npx tsc --showConfig",
-    "postinstall": "electron-rebuild -f -w better-sqlite3"
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
+    "electron:start:mac": "electron .",
+    "electron:dev:mac": "concurrently -k \"vite\" \"wait-on http://localhost:3039 && npm run electron:start:mac\""
   },
   "engines": {
     "node": ">=20"
