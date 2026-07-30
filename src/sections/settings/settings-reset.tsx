@@ -24,6 +24,7 @@ import { Iconify } from 'src/components/iconify';
 import { useSnackbar } from 'src/components/snackbar';
 
 import { useInvoices } from 'src/sections/sales/context';
+import { settingsDB, isElectron } from 'src/services/db';
 
 // ======================================================================
 
@@ -47,10 +48,25 @@ export function SettingsReset() {
   const [invoiceResetOpen, setInvoiceResetOpen] = useState(false);
   const [tvaDialogOpen, setTvaDialogOpen] = useState(false);
   const [stockResetOpen, setStockResetOpen] = useState(false);
+  const [onboardingResetOpen, setOnboardingResetOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
 
   const tvaCollected = getTvaCollectedSinceReset();
   const confirmWord = t('settings.confirmWord');
+
+  const handleResetOnboarding = async () => {
+    localStorage.removeItem('activation_complete');
+    localStorage.removeItem('onboarding_complete');
+    if (isElectron()) {
+      await settingsDB.set('onboarding_complete', 'false');
+      if ((window as any).appShell?.resetActivation) {
+        await (window as any).appShell.resetActivation();
+      }
+    }
+    setOnboardingResetOpen(false);
+    showSuccess(t('settings.resetSuccessOnboarding'));
+    window.location.href = '/activation';
+  };
 
   const handleResetInvoiceCounter = () => {
     clearInvoices();
@@ -299,6 +315,44 @@ export function SettingsReset() {
         </Box>
       </Card>
 
+      {/* ── Reset App to Onboarding ── */}
+      <Card sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+          <Box
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: 'primary.lighter',
+              color: 'primary.main',
+              flexShrink: 0,
+            }}
+          >
+            <Iconify icon="solar:user-hand-up-bold-duotone" width={24} />
+          </Box>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="subtitle1" fontWeight="fontWeightSemiBold">
+              {t('settings.resetOnboarding')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              {t('settings.resetOnboardingDesc')}
+            </Typography>
+          </Box>
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<Iconify icon="solar:restart-bold" width={18} />}
+            onClick={() => setOnboardingResetOpen(true)}
+            sx={{ flexShrink: 0 }}
+          >
+            {t('settings.resetOnboarding')}
+          </Button>
+        </Box>
+      </Card>
+
       {/* ── Danger Zone — Clear All Data ── */}
       <Card
         sx={{
@@ -390,6 +444,20 @@ export function SettingsReset() {
         <DialogActions>
           <Button onClick={() => setStockResetOpen(false)}>{t('common.cancel')}</Button>
           <Button variant="contained" color="error" onClick={handleResetStock}>
+            {t('common.confirm')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Onboarding Reset Confirm Dialog ── */}
+      <Dialog open={onboardingResetOpen} onClose={() => setOnboardingResetOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t('settings.resetOnboarding')}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{t('settings.resetOnboardingConfirm')}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOnboardingResetOpen(false)}>{t('common.cancel')}</Button>
+          <Button variant="contained" color="primary" onClick={handleResetOnboarding}>
             {t('common.confirm')}
           </Button>
         </DialogActions>
