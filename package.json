@@ -14,6 +14,7 @@
     "electron:dev": "concurrently -k \"vite\" \"wait-on http://localhost:3039 && npm run electron:start\"",
     "build:web": "vite build",
     "build": "vite build && electron-builder --win --x64",
+    "build:mac": "vite build && electron-builder --mac --arm64",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "lint:fix": "eslint --fix \"src/**/*.{js,jsx,ts,tsx}\"",
     "lint:print": "npx eslint --print-config eslint.config.mjs > eslint-show-config.json",
@@ -124,6 +125,16 @@
         }
       ],
       "icon": "public/assets/sfapp.png"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64"]
+        }
+      ],
+      "icon": "public/assets/sfapp.png",
+      "category": "public.app-category.business"
     },
     "nsis": {
       "oneClick": true,
